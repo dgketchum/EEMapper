@@ -257,7 +257,7 @@ class PointsRunspec(object):
             years = len(v)
             for shp, yr in v:
                 self.year = yr
-                required_points = int(ceil(n / years * len(UNCULTIVATED.keys())))
+                required_points = int(ceil(n / (years * len(UNCULTIVATED.keys()))))
                 shp_path = os.path.join(irr_path, k, shp)
                 self.create_sample_points(required_points, shp_path, code=2)
 

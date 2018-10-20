@@ -71,7 +71,6 @@ def request_band_extract(file_prefix):
         start_millisec = (d - epoch).total_seconds() * 1000
 
         filtered = plots.filter(ee.Filter.eq('YEAR', ee.Number(start_millisec)))
-        print(filtered.limit(1).getInfo())
 
         plot_sample_regions = input_bands.sampleRegions(
             collection=filtered,
