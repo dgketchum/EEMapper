@@ -15,7 +15,7 @@
 # ===============================================================================
 
 import ee
-
+from datetime import datetime
 from map.distribute_points import get_years
 
 YEARS = get_years()
@@ -27,6 +27,7 @@ def request_band_extract(file_prefix):
     roi = ee.FeatureCollection(ROI)
     plots = ee.FeatureCollection(PLOTS)
     for yr in YEARS:
+        start_m = ee.Date('{}-01-01'.format(yr))
         start = '{}-01-01'.format(yr)
         end_date = '{}-01-01'.format(yr + 1)
         spring_s = '{}-03-01'.format(yr)
@@ -66,20 +67,27 @@ def request_band_extract(file_prefix):
         static_input_bands = static_input_bands.addBands(coords)
         input_bands = input_bands.addBands(static_input_bands)
 
-        plot_sample_regions = input_bands.sampleRegions(
-            collection=plots,  # plots.filter(ee.Filter.eq('YEAR', yr)),
-            properties=['POINT_TYPE', 'YEAR'],
-            scale=30,
-            tileScale=16)
+        d = datetime.strptime(start, '%Y-%m-%d')
+        epoch = datetime.utcfromtimestamp(0)
+        start_millisec = (d - epoch).total_seconds() * 1000
 
-        task = ee.batch.Export.table.toCloudStorage(
-            plot_sample_regions,
-            description='{}_{}'.format(file_prefix, yr),
-            bucket='wudr',
-            fileNamePrefix='{}_{}'.format(file_prefix, yr),
-            fileFormat='CSV')
+        filtered = plots.filter(ee.Filter.eq('YEAR', ee.Number(start_millisec)))
+        print(filtered.limit(100).getInfo())
 
-        task.start()
+        # plot_sample_regions = input_bands.sampleRegions(
+        #     collection=filtered,
+        #     properties=['POINT_TYPE', 'YEAR'],
+        #     scale=30,
+        #     tileScale=16)
+        #
+        # task = ee.batch.Export.table.toCloudStorage(
+        #     plot_sample_regions,
+        #     description='{}_{}'.format(file_prefix, yr),
+        #     bucket='wudr',
+        #     fileNamePrefix='{}_{}'.format(file_prefix, yr),
+        #     fileFormat='CSV')
+        #
+        # task.start()
         break
 
 
@@ -141,6 +149,6 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    prefix = '4c_45k'
+    prefix = 'a_'
     request_band_extract(prefix)
 # ========================= EOF ====================================================================
