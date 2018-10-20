@@ -62,7 +62,18 @@ IRR = {
            ('WA_Irr_WGS84_2014.shp', 2014),
            ('WA_Irr_WGS84_2015.shp', 2015),
            ('WA_Irr_WGS84_2016.shp', 2016),
-           ('WA_Irr_WGS84_2017.shp', 2017)]
+           ('WA_Irr_WGS84_2017.shp', 2017)],
+    'UCRB': [('UCRB_Irr_WGS84_1988.shp', 1988),
+             ('UCRB_Irr_WGS84_2000.shp', 2000),
+             ('UCRB_Irr_WGS84_2005.shp', 2005),
+             ('UCRB_Irr_WGS84_2006.shp', 2006),
+             ('UCRB_Irr_WGS84_2009.shp', 2009)]
+    'UT': [('UT_Irr_WGS84_2015.shp', 2015),
+           ('UT_Irr_WGS84_2014.shp', 2014),
+           ('UT_Irr_WGS84_2011.shp', 2011),
+           ('UT_Irr_WGS84_2013.shp', 2013),
+           ('UT_Irr_WGS84_2016.shp', 2016),
+           ('UT_Irr_WGS84_2012.shp', 2012)]
 }
 
 UNCULTIVATED = {
@@ -92,9 +103,11 @@ UNCULTIVATED = {
            ('WA_Forest_WGS84.shp', 2011)]
 }
 
-IRR_RELATIVE_AREA = {'ID': 0.33,
-                     'MT': 0.33,
-                     'WA': 0.33}
+IRR_RELATIVE_AREA = {'ID': 0.2,
+                     'MT': 0.2,
+                     'WA': 0.2,
+                     'UCRB': 0.2,
+                     'UT': 0.2}
 
 YEARS = [
     1986,
