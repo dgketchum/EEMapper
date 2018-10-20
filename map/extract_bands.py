@@ -27,7 +27,6 @@ def request_band_extract(file_prefix):
     roi = ee.FeatureCollection(ROI)
     plots = ee.FeatureCollection(PLOTS)
     for yr in YEARS:
-        start_m = ee.Date('{}-01-01'.format(yr))
         start = '{}-01-01'.format(yr)
         end_date = '{}-01-01'.format(yr + 1)
         spring_s = '{}-03-01'.format(yr)
@@ -72,23 +71,22 @@ def request_band_extract(file_prefix):
         start_millisec = (d - epoch).total_seconds() * 1000
 
         filtered = plots.filter(ee.Filter.eq('YEAR', ee.Number(start_millisec)))
-        print(filtered.limit(100).getInfo())
+        print(filtered.limit(1).getInfo())
 
-        # plot_sample_regions = input_bands.sampleRegions(
-        #     collection=filtered,
-        #     properties=['POINT_TYPE', 'YEAR'],
-        #     scale=30,
-        #     tileScale=16)
-        #
-        # task = ee.batch.Export.table.toCloudStorage(
-        #     plot_sample_regions,
-        #     description='{}_{}'.format(file_prefix, yr),
-        #     bucket='wudr',
-        #     fileNamePrefix='{}_{}'.format(file_prefix, yr),
-        #     fileFormat='CSV')
-        #
-        # task.start()
-        break
+        plot_sample_regions = input_bands.sampleRegions(
+            collection=filtered,
+            properties=['POINT_TYPE', 'YEAR'],
+            scale=30,
+            tileScale=16)
+
+        task = ee.batch.Export.table.toCloudStorage(
+            plot_sample_regions,
+            description='{}_{}'.format(file_prefix, yr),
+            bucket='wudr',
+            fileNamePrefix='{}_{}'.format(file_prefix, yr),
+            fileFormat='CSV')
+
+        task.start()
 
 
 def get_qa_bits(image, start, end, qa_mask):
@@ -149,6 +147,6 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    prefix = 'a_'
+    prefix = 'filt'
     request_band_extract(prefix)
 # ========================= EOF ====================================================================

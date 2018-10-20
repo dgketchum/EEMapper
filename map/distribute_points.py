@@ -28,6 +28,10 @@ OPEN_WATER = 'surface_water_sample_wgs84.shp'
 WETLAND = 'wetlands_sample_wgs84.shp'
 
 IRR = {
+    'CA': [('CA_cv_prob_Irr_1998.shp', 1998),
+           ('CA_cv_prob_Irr_2015.shp', 2015),
+           ('CA_cv_prob_Irr_2014.shp', 2014),
+           ('CA_cv_prob_Irr_2005.shp', 2005)],
     'ID': [('ID_1986_ESPA_WGS84_irr.shp', 1986),
            ('ID_1996_ESPA_WGS84_irr.shp', 1996),
            ('ID_2006_ESPA_WGS84_irr.shp', 2006),
@@ -77,6 +81,10 @@ IRR = {
 }
 
 UNCULTIVATED = {
+    'CA': [('CA_cv_prob_Irr_1998.shp', 1998),
+           ('CA_cv_prob_Irr_2015.shp', 2015),
+           ('CA_cv_prob_Irr_2014.shp', 2014),
+           ('CA_cv_prob_Irr_2005.shp', 2005)],
     'ID': [('ID_1986_ESPA_WGS84_non-irrigated.shp', 1986),
            ('ID_1996_ESPA_WGS84_non-irrigated.shp', 1996),
            ('ID_2002_ESPA_WGS84_non-irrigated.shp', 2002),
@@ -92,7 +100,15 @@ UNCULTIVATED = {
            ('FLU_2017_Forrest.shp', 2008),
            ('FLU_2017_Forrest.shp', 2009),
            ('FLU_2017_Forrest.shp', 2010),
-           ('FLU_2017_Forrest.shp', 2011)],
+           ('FLU_2017_Forrest.shp', 2011),
+           ('FLU_2017_Fallow.shp', 1986),
+           ('FLU_2017_Fallow.shp', 1996),
+           ('FLU_2017_Fallow.shp', 2002),
+           ('FLU_2017_Fallow.shp', 2006),
+           ('FLU_2017_Fallow.shp', 2008),
+           ('FLU_2017_Fallow.shp', 2009),
+           ('FLU_2017_Fallow.shp', 2010),
+           ('FLU_2017_Fallow.shp', 2011)],
     'WA': [('WA_Forest_WGS84.shp', 1986),
            ('WA_Forest_WGS84.shp', 1996),
            ('WA_Forest_WGS84.shp', 2002),
@@ -100,7 +116,30 @@ UNCULTIVATED = {
            ('WA_Forest_WGS84.shp', 2008),
            ('WA_Forest_WGS84.shp', 2009),
            ('WA_Forest_WGS84.shp', 2010),
-           ('WA_Forest_WGS84.shp', 2011)],
+           ('WA_Forest_WGS84.shp', 2011),
+
+           ('WA_Irr_WGS84_1996.shp', 1996),
+           ('WA_Irr_WGS84_1998.shp', 1998),
+           ('WA_Irr_WGS84_1999.shp', 1999),
+           ('WA_Irr_WGS84_2000.shp', 2000),
+           ('WA_Irr_WGS84_2001.shp', 2001),
+           ('WA_Irr_WGS84_2002.shp', 2002),
+           ('WA_Irr_WGS84_2003.shp', 2003),
+           ('WA_Irr_WGS84_2004.shp', 2004),
+           ('WA_Irr_WGS84_2005.shp', 2005),
+           ('WA_Irr_WGS84_2006.shp', 2006),
+           ('WA_Irr_WGS84_2007.shp', 2007),
+           ('WA_Irr_WGS84_2008.shp', 2008),
+           ('WA_Irr_WGS84_2009.shp', 2009),
+           ('WA_Irr_WGS84_2010.shp', 2010),
+           ('WA_Irr_WGS84_2011.shp', 2011),
+           ('WA_Irr_WGS84_2012.shp', 2012),
+           ('WA_Irr_WGS84_2013.shp', 2013),
+           ('WA_Irr_WGS84_2014.shp', 2014),
+           ('WA_Irr_WGS84_2015.shp', 2015),
+           ('WA_Irr_WGS84_2016.shp', 2016),
+           ('WA_Irr_WGS84_2017.shp', 2017)],
+
     'UCRB': [('UCRB_UnIrrigated_WGS84.shp', 1986),
              ('UCRB_UnIrrigated_WGS84.shp', 1996),
              ('UCRB_UnIrrigated_WGS84.shp', 2002),
@@ -108,14 +147,21 @@ UNCULTIVATED = {
              ('UCRB_UnIrrigated_WGS84.shp', 2008),
              ('UCRB_UnIrrigated_WGS84.shp', 2009),
              ('UCRB_UnIrrigated_WGS84.shp', 2010),
-             ('UCRB_UnIrrigated_WGS84.shp', 2011)]
+             ('UCRB_UnIrrigated_WGS84.shp', 2011)],
+    'UT': [('UT_UnIrr_WGS84_2015.shp', 2015),
+           ('UT_UnIrr_WGS84_2014.shp', 2014),
+           ('UT_UnIrr_WGS84_2011.shp', 2011),
+           ('UT_UnIrr_WGS84_2013.shp', 2013),
+           ('UT_UnIrr_WGS84_2016.shp', 2016),
+           ('UT_UnIrr_WGS84_2012.shp', 2012)]
 }
 
-IRR_RELATIVE_AREA = {'ID': 0.2,
-                     'MT': 0.2,
-                     'WA': 0.2,
-                     'UCRB': 0.2,
-                     'UT': 0.2}
+IRR_RELATIVE_AREA = {'CA': 1.67,
+                     'ID': 1.67,
+                     'MT': 1.67,
+                     'WA': 1.67,
+                     'UCRB': 1.67,
+                     'UT': 1.67}
 
 YEARS = [
     1986,
@@ -319,12 +365,12 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     gis = os.path.join(home, 'IrrigationGIS', 'EE_sample')
     extract = os.path.join(home, 'IrrigationGIS', 'EE_extracts')
-    kwargs = {'irrigated': 20000,
-              'surface_water': 5000,
-              'wetlands': 10000,
-              'uncultivated': 10000,
+    kwargs = {'irrigated': 300000,
+              'surface_water': 10000,
+              'wetlands': 100000,
+              'uncultivated': 200000,
               }
     prs = PointsRunspec(gis, **kwargs)
-    prs.save_sample_points(os.path.join(extract, 'sample_4c_45k.shp'))
+    prs.save_sample_points(os.path.join(extract, 'sample_4c_300k.shp'))
 
 # ========================= EOF ====================================================================
