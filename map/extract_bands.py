@@ -20,7 +20,7 @@ from map.distribute_points import get_years
 
 YEARS = get_years()
 ROI = 'users/dgketchum/boundaries/western_states_polygon'
-PLOTS = 'ft:1zzupnYQCNoxnOpVcvjEDCVEpdajslg4xz33KDm3U'
+PLOTS = 'ft:16GE8ltH8obD9lJu6ScJQ02csAzZY27zstaKHgKVD'
 
 
 def request_band_extract(file_prefix):

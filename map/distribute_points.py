@@ -130,6 +130,14 @@ UNIRRIGATED = {
 }
 
 UNCULTIVATED = {
+    'CA': [('CA_Rangeland.shp', 1986),
+           ('CA_Rangeland.shp', 1996),
+           ('CA_Rangeland.shp', 2002),
+           ('CA_Rangeland.shp', 2006),
+           ('CA_Rangeland.shp', 2008),
+           ('CA_Rangeland.shp', 2009),
+           ('CA_Rangeland.shp', 2010),
+           ('CA_Rangeland.shp', 2011)],
     'ID': [('ID_1986_ESPA_WGS84_non-irrigated.shp', 1986),
            ('ID_1996_ESPA_WGS84_non-irrigated.shp', 1996),
            ('ID_2002_ESPA_WGS84_non-irrigated.shp', 2002),
@@ -217,7 +225,8 @@ class PointsRunspec(object):
         self.object_id = 0
         self.year = None
         self.aea = Proj(
-            '+proj=aea +lat_1=20 +lat_2=60 +lat_0=40 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs')
+            '+proj=aea +lat_1=20 +lat_2=60 +lat_0=40 +lon_0=-96'
+            ' +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs')
         self.meta = None
         self.extracted_points = DataFrame(columns=['FID', 'X', 'Y', 'POINT_TYPE', 'YEAR'])
 
@@ -225,21 +234,10 @@ class PointsRunspec(object):
             self.unirrigated(kwargs['unirrigated'])
         if 'irrigated' in kwargs.keys():
             self.irrigated(kwargs['irrigated'])
-        if 'surface_water' in kwargs.keys():
-            self.surface_water(kwargs['surface_water'])
         if 'wetlands' in kwargs.keys():
             self.wetlands(kwargs['wetlands'])
         if 'uncultivated' in kwargs.keys():
             self.uncultivated(kwargs['uncultivated'])
-
-    def surface_water(self, n):
-        print('surface water: {}'.format(n))
-        n /= len(YEARS)
-        n = int(n)
-        for yr in YEARS:
-            self.year = yr
-            shp_file = os.path.join(self.root, 'open_water', OPEN_WATER)
-            self.create_sample_points(n, shp_file, code=4)
 
     def wetlands(self, n):
         print('wetlands: {}'.format(n))
@@ -390,17 +388,16 @@ class PointsRunspec(object):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     gis = os.path.join(home, 'IrrigationGIS', 'EE_sample')
-    extract = os.path.join(home, 'IrrigationGIS', 'EE_extracts')
+    extract = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'point_shp')
 
     kwargs = {
         'irrigated': 20000,
-        'surface_water': 1000,
         'wetlands': 10000,
         'uncultivated': 15000,
         'unirrigated': 15000,
     }
 
     prs = PointsRunspec(gis, **kwargs)
-    prs.save_sample_points(os.path.join(extract, 'sample_5c_70k.shp'))
+    prs.save_sample_points(os.path.join(extract, 'sample_5c_60k.shp'))
 
 # ========================= EOF ====================================================================
