@@ -15,20 +15,24 @@
 # ===============================================================================
 
 import os
+
 from pandas import read_csv, concat
 
-def concatenate(root, out_dir, glob='None')
+
+def concatenate(root, out_dir, glob='None'):
     l = [os.path.join(root, x) for x in os.listdir(root) if glob in x]
+    l.sort()
     first = True
     for csv in l:
         if first:
             df = read_csv(csv)
-            pass
+            first = False
         else:
             concat([df, read_csv(csv)])
-            pass
+    df.drop(columns=['system:index', '.geo'], inplace=True)
     out_file = os.path.join(out_dir, '{}.csv'.format(glob))
     df.to_csv(out_file)
+
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
