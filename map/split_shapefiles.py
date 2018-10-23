@@ -16,7 +16,7 @@
 import os
 from datetime import datetime
 from subprocess import check_call
-
+from collections import OrderedDict
 import fiona
 from numpy import arange
 from numpy.random import shuffle
@@ -130,6 +130,31 @@ def split_washington_irrigated(master):
                 dst.write(feat)
 
 
+def split_wrri_lulc(in_dir, out_dir):
+    l = [os.path.join(in_dir, x) for x in os.listdir(in_dir) if
+         x.startswith(('Alcalde', 'El_Rito', 'Hondo')) and x.endswith('.shp')]
+    years = {}
+    for shp in l:
+        y = shp.replace('.shp', '')[-4:]
+        with fiona.open(shp, 'r') as src:
+            meta = src.meta
+            for feat in src:
+                if feat['properties']['LC_L1'] == 'Irrigated Agriculture':
+                    feat = {'type': 'Feature', 'properties': {'OBJECTID': feat['properties']['OBJECTID']},
+                            'geometry': feat['geometry']}
+                    if y not in years.keys():
+                        years[y] = [feat]
+                    else:
+                        years[y].append(feat)
+    meta['schema'] = {'type': 'Feature', 'properties': OrderedDict(
+        [('OBJECTID', 'float:20')]), 'geometry': 'Polygon'}
+    for k, v in years.items():
+        shp = os.path.join(out_dir, 'NM_WRRI_Irr_WGS84_{}.shp'.format(k))
+        with fiona.open(shp, 'w', **meta) as dst:
+            for feat in v:
+                dst.write(feat)
+
+
 def reduce_shapefiles(root, outdir, n, shapefiles):
     for s in shapefiles:
         shp = os.path.join(root, s)
@@ -169,8 +194,7 @@ def batch_reproject_vector(ogr_path, in_dir, out_dir, name_append, t_srs, s_srs)
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    irr = os.path.join(home, 'IrrigationGIS', 'training_raw', 'UCRB')
-    out = os.path.join(home, 'IrrigationGIS', 'EE_sample', 'unirrigated_ag', 'UCRB')
-    shp = os.path.join(irr, 'UCRB_UnIrrigated_WGS84.shp')
-    split_ucrb(shp, out)
+    irr = os.path.join(home, 'IrrigationGIS', 'training_raw', 'NM', 'WRRI_LULC')
+    out = os.path.join(home, 'IrrigationGIS', 'training_raw', 'NM')
+    split_wrri_lulc(irr, out)
 # ========================= EOF ====================================================================

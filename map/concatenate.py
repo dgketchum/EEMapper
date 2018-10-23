@@ -28,10 +28,10 @@ def concatenate(root, out_dir, glob='None'):
             df = read_csv(csv)
             first = False
         else:
-            concat([df, read_csv(csv)])
+            df = concat([df, read_csv(csv)])
     df.drop(columns=['system:index', '.geo'], inplace=True)
-    out_file = os.path.join(out_dir, '{}.csv'.format(glob))
-    df.to_csv(out_file)
+    out_file = os.path.join(out_dir, '{}_a.csv'.format(glob))
+    df.to_csv(out_file, index=False)
 
 
 if __name__ == '__main__':
