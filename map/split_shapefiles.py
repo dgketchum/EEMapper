@@ -88,6 +88,22 @@ def split_utah(in_shp, out_dir):
                 dst.write(feat)
 
 
+def split_nevada(in_dir, out_dir):
+    l = [os.path.join(in_dir, x) for x in os.listdir(in_dir) if x.endswith('agpoly.shp')]
+    for shp in l:
+        f = []
+        yr = os.path.basename(shp)[:4]
+        out_name = os.path.join(out_dir, 'NV_{}_WGS84.shp'.format(yr))
+        with fiona.open(shp, 'r') as src:
+            meta = src.meta
+            for feat in src:
+                if feat['properties']['NDVI_MEAN'] > 0.7:
+                    f.append(feat)
+        with fiona.open(out_name, 'w', **meta) as dst:
+            for feat in f:
+                dst.write(feat)
+
+
 def split_ucrb(in_shp, out_dir):
     years = {}
     with fiona.open(in_shp, 'r') as src:
@@ -194,7 +210,7 @@ def batch_reproject_vector(ogr_path, in_dir, out_dir, name_append, t_srs, s_srs)
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    irr = os.path.join(home, 'IrrigationGIS', 'training_raw', 'NM', 'WRRI_LULC')
-    out = os.path.join(home, 'IrrigationGIS', 'training_raw', 'NM')
-    split_wrri_lulc(irr, out)
+    irr = os.path.join(home, 'IrrigationGIS', 'training_raw', 'NV', 'DRI')
+    out = os.path.join(home, 'IrrigationGIS', 'training_raw', 'NV')
+    split_nevada(irr, out)
 # ========================= EOF ====================================================================
