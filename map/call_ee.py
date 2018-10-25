@@ -14,13 +14,47 @@
 # limitations under the License.
 # ===============================================================================
 
-import ee
 from datetime import datetime
+
+import ee
+
 from map.distribute_points import get_years
 
 YEARS = get_years()
 ROI = 'users/dgketchum/boundaries/western_states_polygon'
 PLOTS = 'ft:16GE8ltH8obD9lJu6ScJQ02csAzZY27zstaKHgKVD'
+
+IRR = {'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2001, 2011)])}
+
+
+def filter_irrigated():
+    for k, v in IRR.items():
+        plots = ee.FeatureCollection(v[0])
+        for year in v[1]:
+            start = '{}-01-01'.format(year)
+
+            late_summer_s = ee.Date(start).advance(7, 'month')
+            late_summer_e = ee.Date(start).advance(10, 'month')
+            if year < 2013:
+                collection = ndvi5()
+            else:
+                collection = ndvi8()
+
+            late_collection = period_stat(collection, late_summer_s, late_summer_e)
+            _buffer = lambda x: x.buffer(-10)
+            buffered_fc = plots.map(_buffer)
+            ndvi_attr = late_collection.select('nd_max').reduceRegions(buffered_fc,
+                                                                    ee.Reducer.intervalMean(0, 25), 30.0)
+            filt_fc = ndvi_attr.filter(ee.Filter.gt('mean', 0.5))
+            print(year, filt_fc.first().getInfo())
+            task = ee.batch.Export.table.toCloudStorage(filt_fc,
+                                                        folder='Irrigation',
+                                                        description='{}_{}'.format(k, year),
+                                                        bucket='wudr',
+                                                        fileNamePrefix='{}_{}'.format(k, year),
+                                                        fileFormat='KML')
+
+            task.start()
 
 
 def request_band_extract(file_prefix):
@@ -52,7 +86,7 @@ def request_band_extract(file_prefix):
 
         temp_reducer = ee.Reducer.percentile([10, 50, 90])
         t_names = ['tmmn_p10_cy', 'tmmn_p50_cy', 'tmmn_p90_cy', 'tmmx_p10_cy', 'tmmx_p50_cy', 'tmmx_p90_cy']
-        temp_perc = gridmet.select('tmmn', 'tmmx').reduce(temp_reducer).rename(t_names);
+        temp_perc = gridmet.select('tmmn', 'tmmx').reduce(temp_reducer).rename(t_names)
         precip_reducer = ee.Reducer.sum()
         precip_sum = gridmet.select('pr', 'eto').reduce(precip_reducer).rename('precip_total_cy', 'pet_total_cy')
         wd_estimate = precip_sum.select('precip_total_cy').subtract(precip_sum.select('pet_total_cy')).rename(
@@ -128,10 +162,35 @@ def ls8mask(img):
     return mask_mult
 
 
+def ndvi5():
+    l = ee.ImageCollection('LANDSAT/LT05/C01/T1_SR').map(lambda x: x.select().addBands(
+        x.normalizedDifference(['B4', 'B3'])))
+    return l
+
+
+def ndvi7():
+    l = ee.ImageCollection('LANDSAT/LE07/C01/T1_SR').map(lambda x: x.select().addBands(
+        x.normalizedDifference(['B4', 'B3'])))
+    return l
+
+
+def ndvi8():
+    l = ee.ImageCollection('LANDSAT/LC08/C01/T1_SR').map(lambda x: x.select().addBands(
+        x.normalizedDifference(['B5', 'B4'])))
+    return l
+
+
 def ls5_edge_removal(lsImage):
     inner_buffer = lsImage.geometry().buffer(-3000)
     buffer = lsImage.clip(inner_buffer)
     return buffer
+
+
+def period_stat(collection, start, end):
+    c = collection.filterDate(start, end)
+    return c.reduce(
+        ee.Reducer.mean().combine(reducer2=ee.Reducer.minMax(),
+                                  sharedInputs=True))
 
 
 def is_authorized():
@@ -147,5 +206,5 @@ def is_authorized():
 if __name__ == '__main__':
     is_authorized()
     prefix = 'filt'
-    request_band_extract(prefix)
+    filter_irrigated()
 # ========================= EOF ====================================================================

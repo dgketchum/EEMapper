@@ -21,7 +21,7 @@ from numpy import linspace, max, ceil
 from numpy.random import shuffle
 from pandas import DataFrame
 from pyproj import Proj
-from shapely.geometry import shape, Point, mapping
+from shapely.geometry import shape, Point, mapping, Polygon
 
 OPEN_WATER = 'surface_water_sample_wgs84.shp'
 
@@ -228,13 +228,15 @@ class PointsRunspec(object):
         self.aea = Proj(
             '+proj=aea +lat_1=20 +lat_2=60 +lat_0=40 +lon_0=-96'
             ' +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs')
+        self.wgs = Proj('+init=EPSG:4326')
         self.meta = None
         self.extracted_points = DataFrame(columns=['FID', 'X', 'Y', 'POINT_TYPE', 'YEAR'])
 
-        if 'unirrigated' in kwargs.keys():
-            self.unirrigated(kwargs['unirrigated'])
         if 'irrigated' in kwargs.keys():
             self.irrigated(kwargs['irrigated'])
+        if 'unirrigated' in kwargs.keys():
+            self.unirrigated(kwargs['unirrigated'])
+
         if 'wetlands' in kwargs.keys():
             self.wetlands(kwargs['wetlands'])
         if 'uncultivated' in kwargs.keys():
@@ -399,6 +401,6 @@ if __name__ == '__main__':
     }
 
     prs = PointsRunspec(gis, **kwargs)
-    prs.save_sample_points(os.path.join(extract, 'sample_5c_60k.shp'))
+    prs.save_sample_points(os.path.join(extract, 'sample_test_25OCT2018.shp'))
 
 # ========================= EOF ====================================================================
