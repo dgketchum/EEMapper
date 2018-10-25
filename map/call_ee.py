@@ -24,13 +24,24 @@ YEARS = get_years()
 ROI = 'users/dgketchum/boundaries/western_states_polygon'
 PLOTS = 'ft:16GE8ltH8obD9lJu6ScJQ02csAzZY27zstaKHgKVD'
 
-IRR = {'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2001, 2011)])}
+IRR = {
+    'CO_DIV1': ('ft:1U1yFC2vhtWXX80Gz76mp5kwfHZFE3uaVLZL_OrI2', [1998, 2003, 2006, 2013, 2016]),
+    'CO_SanLuis': ('ft:1U1yFC2vhtWXX80Gz76mp5kwfHZFE3uaVLZL_OrI2', [1998, 2003, 2006, 2013, 2016]),
+    'CA': ('ft:1U1yFC2vhtWXX80Gz76mp5kwfHZFE3uaVLZL_OrI2', [1991, 1997, 2005, 2008, 2014]),
+    'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2001, 2011)]),
+    'UCRB_WY': ('ft:1M0GDErc0dgoYajU_HStZBkp-hBL4kUiZufFdtWHG', [1989, 1996, 2010, 2013, 2016]),  # a.k.a. 2000
+    'UCRB_UT_CO': ('ft:1Av2WlcPRBd7JZqYOU73VCLOJ-b5q6H5u6Bboebdv', [1998, 2003, 2006, 2013, 2016]),  # a.k.a. 2005
+    'UCRB_UT': ('ft:144ymxhlcv8lj1u_BYQFEC1ITmiISW52q5JvxSVyk', [1998, 2003, 2006, 2013, 2016]),  # a.k.a. 2006
+    'UCRB_NM': ('ft:1pBSJDPdFDHARbdc5vpT5FzRek-3KXLKjNBeVyGdR', [1987, 2001, 2004, 2007, 2016]),  # a.k.a. 2009
+    'Acequias': ('ft:1emF9Imjj8GPxpRmPU2Oze2hPeojPS4O6udIQNTgX', [1987, 2001, 2004, 2007, 2016]),
+}
 
 
 def filter_irrigated():
     for k, v in IRR.items():
         plots = ee.FeatureCollection(v[0])
         for year in v[1]:
+            print(k, year)
             start = '{}-01-01'.format(year)
 
             late_summer_s = ee.Date(start).advance(7, 'month')
@@ -43,10 +54,14 @@ def filter_irrigated():
             late_collection = period_stat(collection, late_summer_s, late_summer_e)
             _buffer = lambda x: x.buffer(-10)
             buffered_fc = plots.map(_buffer)
-            ndvi_attr = late_collection.select('nd_max').reduceRegions(buffered_fc,
-                                                                    ee.Reducer.intervalMean(0, 25), 30.0)
+
+            int_mean = late_collection.select('nd_mean').reduce(ee.Reducer.intervalMean(0.0, 15.0))
+
+            ndvi_attr = int_mean.reduceRegions(collection=buffered_fc,
+                                               reducer=ee.Reducer.mean(),
+                                               scale=30.0)
+
             filt_fc = ndvi_attr.filter(ee.Filter.gt('mean', 0.5))
-            print(year, filt_fc.first().getInfo())
             task = ee.batch.Export.table.toCloudStorage(filt_fc,
                                                         folder='Irrigation',
                                                         description='{}_{}'.format(k, year),
@@ -55,6 +70,8 @@ def filter_irrigated():
                                                         fileFormat='KML')
 
             task.start()
+            break
+        break
 
 
 def request_band_extract(file_prefix):
