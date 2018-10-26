@@ -25,17 +25,20 @@ ROI = 'users/dgketchum/boundaries/western_states_polygon'
 PLOTS = 'ft:16GE8ltH8obD9lJu6ScJQ02csAzZY27zstaKHgKVD'
 
 IRR = {
-    'UT': ('ft:1oA0v3UUBQj3qn9sa_pDJ8bwsAphfRZUlwwPWpFrT', [1998, 2003, 2006, 2013, 2016]),
-    'CO_DIV1': ('ft:1wRNUsKChMUb9rUWDbxOeGeTaNWNZUA0YHXSLXPv2', [1998, 2003, 2006, 2013, 2016]),
-    'CO_SanLuis': ('ft:1mcBXyFw1PoVOoAGibDpZjCgb001jA_Mj_hyd-h92', [1998, 2003, 2006, 2013, 2016]),
-    'CA': ('ft:1U1yFC2vhtWXX80Gz76mp5kwfHZFE3uaVLZL_OrI2', [1997, 2005, 2008, 2014]),
-    'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2001, 2011)]),
-    'UCRB_WY': ('ft:1M0GDErc0dgoYajU_HStZBkp-hBL4kUiZufFdtWHG', [1989, 1996, 2010, 2013, 2016]),  # a.k.a. 2000
-    'UCRB_UT_CO': ('ft:1Av2WlcPRBd7JZqYOU73VCLOJ-b5q6H5u6Bboebdv', [1998, 2003, 2006, 2013, 2016]),  # a.k.a. 2005
-    'UCRB_UT': ('ft:144ymxhlcv8lj1u_BYQFEC1ITmiISW52q5JvxSVyk', [1998, 2003, 2006, 2013, 2016]),  # a.k.a. 2006
-    'UCRB_NM': ('ft:1pBSJDPdFDHARbdc5vpT5FzRek-3KXLKjNBeVyGdR', [1987, 2001, 2004, 2007, 2016]),  # a.k.a. 2009
-    'Acequias': ('ft:1emF9Imjj8GPxpRmPU2Oze2hPeojPS4O6udIQNTgX', [1987, 2001, 2004, 2007, 2016]),
-
+    # 'Acequias': ('ft:1emF9Imjj8GPxpRmPU2Oze2hPeojPS4O6udIQNTgX', [1987, 2001, 2004, 2007, 2016], 0.5),
+    # 'CO_DIV1': ('ft:1wRNUsKChMUb9rUWDbxOeGeTaNWNZUA0YHXSLXPv2', [1998, 2003, 2006, 2013, 2016], 0.5),
+    # 'CO_SanLuis': ('ft:1mcBXyFw1PoVOoAGibDpZjCgb001jA_Mj_hyd-h92', [1998, 2003, 2006, 2013, 2016], 0.5),
+    # 'CA': ('ft:1U1yFC2vhtWXX80Gz76mp5kwfHZFE3uaVLZL_OrI2', [1997, 2005, 2008, 2014], 0.5),
+    # 'EastStates': ('ft:1AZUak3iuAtah1SHpkLfw0IRk_U5ei23VsPzBWxpD', [1987, 2001, 2004, 2007, 2016], 0.5),
+    # 'ID': ('ft:1jDB3C181w1PGVamr64-ewpJVDQkzJc4Bvd1IPAFg', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
+    # 'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2001, 2011)], 0.5),
+    'OR': ('ft:1FJMi4VXUe4BrhU6u0OF2l0uFU_rGUe3rFrSSSBVD', [1996, 2001, 2006, 2013, 2014], 0.5),
+    # 'UCRB_WY': ('ft:1M0GDErc0dgoYajU_HStZBkp-hBL4kUiZufFdtWHG', [1989, 1996, 2010, 2013, 2016], 0.5),  # a.k.a. 2000
+    # 'UCRB_UT_CO': ('ft:1Av2WlcPRBd7JZqYOU73VCLOJ-b5q6H5u6Bboebdv', [1998, 2003, 2006, 2013, 2016], 0.5),  # a.k.a. 2005
+    # 'UCRB_UT': ('ft:144ymxhlcv8lj1u_BYQFEC1ITmiISW52q5JvxSVyk', [1998, 2003, 2006, 2013, 2016], 0.5),  # a.k.a. 2006
+    # 'UCRB_NM': ('ft:1pBSJDPdFDHARbdc5vpT5FzRek-3KXLKjNBeVyGdR', [1987, 2001, 2004, 2007, 2016], 0.4),  # a.k.a. 2009
+    # 'UT': ('ft:1oA0v3UUBQj3qn9sa_pDJ8bwsAphfRZUlwwPWpFrT', [1998, 2003, 2006, 2013, 2016], 0.5),
+    # 'WA': ('ft:1tGN7UdKijI7gZgna19wJ-cKMumSKRwsfEQQZNQjl', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
 }
 
 
@@ -70,7 +73,7 @@ def filter_irrigated():
                                                 reducer=ee.Reducer.mean(),
                                                 scale=30.0)
 
-            filt_fc = combo_mean.filter(ee.Filter.Or(ee.Filter.gt('mean', 0.6), ee.Filter.gt('mean', 0.6)))
+            filt_fc = combo_mean.filter(ee.Filter.Or(ee.Filter.gt('mean', v[2]), ee.Filter.gt('mean', v[2])))
 
             task = ee.batch.Export.table.toCloudStorage(filt_fc,
                                                         folder='Irrigation',

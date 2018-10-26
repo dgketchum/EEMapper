@@ -24,8 +24,7 @@ from numpy.random import shuffle
 
 
 def split_wetlands(in_shp, out):
-    surface = []
-    surface_parameters = ['Riverine', 'Lake', 'Freshwater Pond']
+
     wetland = []
     wetland_parameters = ['Freshwater Emergent Wetland', 'Freshwater Forested/Shrub Wetland']
 
@@ -34,10 +33,8 @@ def split_wetlands(in_shp, out):
         for feat in src:
             if feat['properties']['WETLAND_TY'] in wetland_parameters:
                 wetland.append(feat)
-            if feat['properties']['WETLAND_TY'] in surface_parameters:
-                surface.append(feat)
 
-    for _type in [('open_water', surface), ('wetlands', wetland)]:
+    for _type in [('wetlands', wetland)]:
         s = os.path.basename(in_shp)
         name = s.replace('.shp', '{}.shp'.format(_type[0]))
         out_file = os.path.join(out, name)

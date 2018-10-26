@@ -38,7 +38,7 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     irr = os.path.join(home, 'IrrigationGIS', 'training_raw')
     _in = os.path.join(irr, 'ee_export')
-    out = os.path.join(irr, 'filtered_shapefiles')
+    out = os.path.join(irr, 'irrigated', 'filtered_shapefiles')
     ogr = os.path.join(home, 'miniconda2', 'envs', 'irri', 'bin', 'ogr2ogr')
 
     convert_kml_to_shp(ogr, _in, out, '4326', '4326')

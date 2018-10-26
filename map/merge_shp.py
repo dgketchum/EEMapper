@@ -67,8 +67,8 @@ def fiona_merge_attribute(out_shp, file_list):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    s_dir = os.path.join(home, 'IrrigationGIS', 'Montana', 'OE_Shapefiles_WGS')
-    _dir = [os.path.join(s_dir, x) for x in os.listdir(s_dir) if x.endswith('.shp')]
-    o_dir = os.path.join(home, 'IrrigationGIS', 'Montana')
-    fiona_merge(os.path.join(o_dir, 'MT_WUDR_Merged.shp'), _dir)
+    s_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated', 'filtered_shapefiles')
+    _dir = [os.path.join(s_dir, x) for x in os.listdir(s_dir)if x.endswith('.shp')]
+    o_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'merged_attributed')
+    fiona_merge_attribute(os.path.join(o_dir, 'irr_merge.shp'), _dir)
 # ========================= EOF ====================================================================
