@@ -25,9 +25,9 @@ ROI = 'users/dgketchum/boundaries/western_states_polygon'
 PLOTS = 'ft:16GE8ltH8obD9lJu6ScJQ02csAzZY27zstaKHgKVD'
 
 IRR = {
-    'CO_DIV1': ('ft:1U1yFC2vhtWXX80Gz76mp5kwfHZFE3uaVLZL_OrI2', [1998, 2003, 2006, 2013, 2016]),
-    'CO_SanLuis': ('ft:1U1yFC2vhtWXX80Gz76mp5kwfHZFE3uaVLZL_OrI2', [1998, 2003, 2006, 2013, 2016]),
-    'CA': ('ft:1U1yFC2vhtWXX80Gz76mp5kwfHZFE3uaVLZL_OrI2', [1991, 1997, 2005, 2008, 2014]),
+    'CO_DIV1': ('ft:1wRNUsKChMUb9rUWDbxOeGeTaNWNZUA0YHXSLXPv2', [1998, 2003, 2006, 2013, 2016]),
+    'CO_SanLuis': ('ft:1mcBXyFw1PoVOoAGibDpZjCgb001jA_Mj_hyd-h92', [1998, 2003, 2006, 2013, 2016]),
+    'CA': ('ft:1U1yFC2vhtWXX80Gz76mp5kwfHZFE3uaVLZL_OrI2', [1997, 2005, 2008, 2014]),
     'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2001, 2011)]),
     'UCRB_WY': ('ft:1M0GDErc0dgoYajU_HStZBkp-hBL4kUiZufFdtWHG', [1989, 1996, 2010, 2013, 2016]),  # a.k.a. 2000
     'UCRB_UT_CO': ('ft:1Av2WlcPRBd7JZqYOU73VCLOJ-b5q6H5u6Bboebdv', [1998, 2003, 2006, 2013, 2016]),  # a.k.a. 2005
@@ -40,8 +40,9 @@ IRR = {
 def filter_irrigated():
     for k, v in IRR.items():
         plots = ee.FeatureCollection(v[0])
+
         for year in v[1]:
-            print(k, year)
+            print(k, year, plots.first().getInfo())
             start = '{}-01-01'.format(year)
 
             late_summer_s = ee.Date(start).advance(7, 'month')
@@ -70,8 +71,6 @@ def filter_irrigated():
                                                         fileFormat='KML')
 
             task.start()
-            break
-        break
 
 
 def request_band_extract(file_prefix):
