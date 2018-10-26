@@ -14,9 +14,10 @@
 # limitations under the License.
 # ===============================================================================
 import os
+from collections import OrderedDict
 from datetime import datetime
 from subprocess import check_call
-from collections import OrderedDict
+
 import fiona
 from numpy import arange
 from numpy.random import shuffle
@@ -212,5 +213,5 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     irr = os.path.join(home, 'IrrigationGIS', 'training_raw', 'NV', 'DRI')
     out = os.path.join(home, 'IrrigationGIS', 'training_raw', 'NV')
-    split_nevada(irr, out)
+
 # ========================= EOF ====================================================================

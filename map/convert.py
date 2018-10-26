@@ -33,6 +33,7 @@ def convert_kml_to_shp(ogr_path, in_dir, out_dir, t_srs, s_srs):
         except:
             pass
 
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     irr = os.path.join(home, 'IrrigationGIS', 'training_raw')

@@ -14,13 +14,32 @@
 # limitations under the License.
 # ===============================================================================
 import os
+from collections import OrderedDict
+
 import fiona
 
-OBJECT_MAP = {'MTH': 'Montana',
-              'NV': 'Nevada',
-              'OR': 'Oregon',
-              'UT': 'Utah',
-              'WA': 'Washington'}
+
+def fiona_merge_MT(out_shp, file_list):
+    meta = fiona.open(file_list[0]).meta
+    meta['schema'] = {'properties': OrderedDict(
+        [('Irr_2009', 'int:5'), ('Irr_2010', 'int:5'), ('Irr_2011', 'int:5'),
+         ('Irr_2012', 'int:5'), ('Irr_2013', 'int:5')]),
+        'geometry': 'Polygon'}
+    with fiona.open(out_shp, 'w', **meta) as output:
+        for s in file_list:
+            for features in fiona.open(s):
+                try:
+                    feat = {'properties': OrderedDict([('Irr_2009', int(features['properties']['Irr_2009'])),
+                                                       ('Irr_2010', int(features['properties']['Irr_2010'])),
+                                                       ('Irr_2011', int(features['properties']['Irr_2011'])),
+                                                       ('Irr_2012', int(features['properties']['Irr_2012'])),
+                                                       ('Irr_2013', int(features['properties']['Irr_2013']))]),
+                            'geometry': features['geometry']}
+                    output.write(feat)
+                except Exception as e:
+                    pass
+
+    return None
 
 
 def fiona_merge(out_shp, file_list):
@@ -33,13 +52,23 @@ def fiona_merge(out_shp, file_list):
     return None
 
 
+def fiona_merge_attribute(out_shp, file_list):
+    meta = fiona.open(file_list[0]).meta
+    meta['schema'] = {'type': 'Feature', 'properties': OrderedDict(
+        [('YEAR', 'int:9'), ('SOURCE', 'str:80')]), 'geometry': 'Polygon'}
+    with fiona.open(out_shp, 'w', **meta) as output:
+        for s in file_list:
+            year, source = int(s.split('.')[0][-4:]), os.path.basename(s.split('.')[0][:-5])
+            for feat in fiona.open(s):
+                feat = {'type': 'Feature', 'properties': {'SOURCE': source, 'YEAR': year},
+                        'geometry': feat['geometry']}
+                output.write(feat)
+
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    samples = 'sample_points.shp'
-    s_dir = os.path.join(home, 'PycharmProjects', 'IrrMapper', 'model_data', 'allstates_3')
-    l = []
-    for k in OBJECT_MAP.keys():
-        d = os.path.join(s_dir, k, samples)
-        l.append(d)
-    fiona_merge(os.path.join(s_dir, 'merge_5.shp'), l)
+    s_dir = os.path.join(home, 'IrrigationGIS', 'Montana', 'OE_Shapefiles_WGS')
+    _dir = [os.path.join(s_dir, x) for x in os.listdir(s_dir) if x.endswith('.shp')]
+    o_dir = os.path.join(home, 'IrrigationGIS', 'Montana')
+    fiona_merge(os.path.join(o_dir, 'MT_WUDR_Merged.shp'), _dir)
 # ========================= EOF ====================================================================
