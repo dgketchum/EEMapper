@@ -25,6 +25,7 @@ ROI = 'users/dgketchum/boundaries/western_states_polygon'
 PLOTS = 'ft:16GE8ltH8obD9lJu6ScJQ02csAzZY27zstaKHgKVD'
 
 IRR = {
+    'UT': ('ft:1oA0v3UUBQj3qn9sa_pDJ8bwsAphfRZUlwwPWpFrT', [1998, 2003, 2006, 2013, 2016]),
     'CO_DIV1': ('ft:1wRNUsKChMUb9rUWDbxOeGeTaNWNZUA0YHXSLXPv2', [1998, 2003, 2006, 2013, 2016]),
     'CO_SanLuis': ('ft:1mcBXyFw1PoVOoAGibDpZjCgb001jA_Mj_hyd-h92', [1998, 2003, 2006, 2013, 2016]),
     'CA': ('ft:1U1yFC2vhtWXX80Gz76mp5kwfHZFE3uaVLZL_OrI2', [1997, 2005, 2008, 2014]),
@@ -34,6 +35,7 @@ IRR = {
     'UCRB_UT': ('ft:144ymxhlcv8lj1u_BYQFEC1ITmiISW52q5JvxSVyk', [1998, 2003, 2006, 2013, 2016]),  # a.k.a. 2006
     'UCRB_NM': ('ft:1pBSJDPdFDHARbdc5vpT5FzRek-3KXLKjNBeVyGdR', [1987, 2001, 2004, 2007, 2016]),  # a.k.a. 2009
     'Acequias': ('ft:1emF9Imjj8GPxpRmPU2Oze2hPeojPS4O6udIQNTgX', [1987, 2001, 2004, 2007, 2016]),
+
 }
 
 
@@ -45,24 +47,31 @@ def filter_irrigated():
             print(k, year, plots.first().getInfo())
             start = '{}-01-01'.format(year)
 
+            early_summer_s = ee.Date(start).advance(5, 'month')
+            early_summer_e = ee.Date(start).advance(7, 'month')
             late_summer_s = ee.Date(start).advance(7, 'month')
             late_summer_e = ee.Date(start).advance(10, 'month')
+
             if year < 2013:
                 collection = ndvi5()
             else:
                 collection = ndvi8()
 
+            early_collection = period_stat(collection, early_summer_s, early_summer_e)
             late_collection = period_stat(collection, late_summer_s, late_summer_e)
-            _buffer = lambda x: x.buffer(-10)
-            buffered_fc = plots.map(_buffer)
 
-            int_mean = late_collection.select('nd_mean').reduce(ee.Reducer.intervalMean(0.0, 15.0))
+            early_nd_max = early_collection.select('nd_mean').reduce(ee.Reducer.intervalMean(0.0, 15.0))
+            early_int_mean = early_nd_max.reduceRegions(collection=plots,
+                                                        reducer=ee.Reducer.mean(),
+                                                        scale=30.0)
 
-            ndvi_attr = int_mean.reduceRegions(collection=buffered_fc,
-                                               reducer=ee.Reducer.mean(),
-                                               scale=30.0)
+            s_nd_max = late_collection.select('nd_mean').reduce(ee.Reducer.intervalMean(0.0, 15.0))
+            combo_mean = s_nd_max.reduceRegions(collection=early_int_mean,
+                                                reducer=ee.Reducer.mean(),
+                                                scale=30.0)
 
-            filt_fc = ndvi_attr.filter(ee.Filter.gt('mean', 0.5))
+            filt_fc = combo_mean.filter(ee.Filter.Or(ee.Filter.gt('mean', 0.6), ee.Filter.gt('mean', 0.6)))
+
             task = ee.batch.Export.table.toCloudStorage(filt_fc,
                                                         folder='Irrigation',
                                                         description='{}_{}'.format(k, year),
@@ -223,4 +232,5 @@ if __name__ == '__main__':
     is_authorized()
     prefix = 'filt'
     filter_irrigated()
+
 # ========================= EOF ====================================================================
