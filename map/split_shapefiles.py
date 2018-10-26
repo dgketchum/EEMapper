@@ -24,7 +24,6 @@ from numpy.random import shuffle
 
 
 def split_wetlands(in_shp, out):
-
     wetland = []
     wetland_parameters = ['Freshwater Emergent Wetland', 'Freshwater Forested/Shrub Wetland']
 
@@ -208,7 +207,18 @@ def batch_reproject_vector(ogr_path, in_dir, out_dir, name_append, t_srs, s_srs)
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    irr = os.path.join(home, 'IrrigationGIS', 'training_raw', 'NV', 'DRI')
-    out = os.path.join(home, 'IrrigationGIS', 'training_raw', 'NV')
+    shp = [os.path.join(home, 'IrrigationGIS', 'wetlands', 'NE_Wetlands.shp'),
+           os.path.join(home, 'IrrigationGIS', 'wetlands', 'ND_Wetlands.shp'),
+           os.path.join(home, 'IrrigationGIS', 'wetlands', 'SD_Wetlands_West.shp'),
+           os.path.join(home, 'IrrigationGIS', 'wetlands', 'SD_Wetlands_East.shp'),
+           os.path.join(home, 'IrrigationGIS', 'wetlands', 'TX_Wetlands_West.shp'),
+           os.path.join(home, 'IrrigationGIS', 'wetlands', 'TX_Wetlands_East.shp'),
+           os.path.join(home, 'IrrigationGIS', 'wetlands', 'TX_Wetlands_Central.shp'),
+           os.path.join(home, 'IrrigationGIS', 'wetlands', 'OK_Wetlands_East.shp'),
+           os.path.join(home, 'IrrigationGIS', 'wetlands', 'OK_Wetlands_West.shp'),
+           os.path.join(home, 'IrrigationGIS', 'wetlands', 'KS_Wetlands_East.shp'),
+           os.path.join(home, 'IrrigationGIS', 'wetlands', 'KS_Wetlands_West.shp')]
+
+    out = os.path.join(home, 'IrrigationGIS', 'wetlands', 'wetlands')
 
 # ========================= EOF ====================================================================
