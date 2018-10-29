@@ -171,8 +171,8 @@ def split_wrri_lulc(in_dir, out_dir):
 def reduce_shapefiles(root, outdir, n, shapefiles):
     for s in shapefiles:
         shp = os.path.join(root, s)
-        dst_file = os.path.join(outdir, s.replace('Forest_Practices_Applications',
-                                                  'WA_Forest_WGS84'.format(n)))
+        dst_file = os.path.join(outdir, s.replace('.shp',
+                                                  '_wl_{}.shp'.format(n)))
         if os.path.isfile(dst_file):
             print(dst_file, 'exists')
         else:
@@ -207,18 +207,20 @@ def batch_reproject_vector(ogr_path, in_dir, out_dir, name_append, t_srs, s_srs)
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    shp = [os.path.join(home, 'IrrigationGIS', 'wetlands', 'NE_Wetlands.shp'),
-           os.path.join(home, 'IrrigationGIS', 'wetlands', 'ND_Wetlands.shp'),
-           os.path.join(home, 'IrrigationGIS', 'wetlands', 'SD_Wetlands_West.shp'),
-           os.path.join(home, 'IrrigationGIS', 'wetlands', 'SD_Wetlands_East.shp'),
-           os.path.join(home, 'IrrigationGIS', 'wetlands', 'TX_Wetlands_West.shp'),
-           os.path.join(home, 'IrrigationGIS', 'wetlands', 'TX_Wetlands_East.shp'),
-           os.path.join(home, 'IrrigationGIS', 'wetlands', 'TX_Wetlands_Central.shp'),
-           os.path.join(home, 'IrrigationGIS', 'wetlands', 'OK_Wetlands_East.shp'),
-           os.path.join(home, 'IrrigationGIS', 'wetlands', 'OK_Wetlands_West.shp'),
-           os.path.join(home, 'IrrigationGIS', 'wetlands', 'KS_Wetlands_East.shp'),
-           os.path.join(home, 'IrrigationGIS', 'wetlands', 'KS_Wetlands_West.shp')]
-
-    out = os.path.join(home, 'IrrigationGIS', 'wetlands', 'wetlands')
+    shp = ['NE_Wetlands.shp',
+           'ND_Wetlands.shp',
+           'SD_Wetlands_West.shp',
+           'SD_Wetlands_East.shp',
+           'TX_Wetlands_West.shp',
+           'TX_Wetlands_East.shp',
+           'TX_Wetlands_Central.shp',
+           'OK_Wetlands_East.shp',
+           'OK_Wetlands_West.shp',
+           'KS_Wetlands_East.shp',
+           'KS_Wetlands_West.shp']
+    rt = os.path.join(home, 'data_mt', 'IrrigationGIS', 'wetlands', 'wetlands')
+    out = os.path.join(home, 'data_mt', 'IrrigationGIS', 'wetlands', 'wetlands')
+    _n = 5000
+    reduce_shapefiles(rt, out, _n, shp)
 
 # ========================= EOF ====================================================================
