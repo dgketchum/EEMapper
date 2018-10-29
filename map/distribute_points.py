@@ -156,8 +156,6 @@ class PointsRunspec(object):
             if instance_ct > n:
                 break
 
-        print(self.extracted_points.shape, shp)
-
     def _random_points(self, coords, n):
         min_x, max_x = coords[0], coords[2]
         min_y, max_y = coords[1], coords[3]
@@ -219,12 +217,12 @@ if __name__ == '__main__':
     extract = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'point_shp')
 
     kwargs = {
-        'irrigated': 50000,
-        'wetlands': 15000,
-        'uncultivated': 15000,
-        'unirrigated': 20000,
+        'irrigated': 4000,
+        'wetlands': 1000,
+        'uncultivated': 1000,
+        'unirrigated': 1000,
     }
     prs = PointsRunspec(gis, **kwargs)
-    prs.save_sample_points(os.path.join(extract, 'sample_100k.shp'.format()))
+    prs.save_sample_points(os.path.join(extract, 'sample_7k.shp'.format()))
 
 # ========================= EOF ====================================================================

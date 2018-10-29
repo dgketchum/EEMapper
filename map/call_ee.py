@@ -15,11 +15,10 @@
 # ===============================================================================
 
 from datetime import datetime
-
 import ee
 
 ROI = 'users/dgketchum/boundaries/western_states_polygon'
-PLOTS = 'ft:1sBdr6e4CTHsxnue34N92YaC4zoDlasNil66DMr49'
+PLOTS = 'ft:1nNO0AfiHcZk5a_aPSr2Oo2gHqu7tvEcYn-w0RgvL'
 YEARS = [1986, 1987, 1991, 1996, 1997, 1998, 1999] + list(range(2000, 2018))
 
 IRR = {
