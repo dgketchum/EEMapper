@@ -19,7 +19,7 @@ from datetime import datetime
 import ee
 
 ROI = 'users/dgketchum/boundaries/western_states_polygon'
-PLOTS = 'ft:1X4XQDNBFPEPxK1u8C4IW2qiULMPeGbj1pwQ9G0oA'
+PLOTS = 'ft:1sBdr6e4CTHsxnue34N92YaC4zoDlasNil66DMr49'
 YEARS = [1986, 1987, 1991, 1996, 1997, 1998, 1999] + list(range(2000, 2018))
 
 IRR = {
@@ -232,6 +232,6 @@ def is_authorized():
 if __name__ == '__main__':
     is_authorized()
     prefix = 'filt'
-    request_band_extract('sample')
+    request_band_extract('sample_100k')
 
 # ========================= EOF ====================================================================

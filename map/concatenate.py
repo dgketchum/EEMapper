@@ -18,6 +18,7 @@ import os
 
 from pandas import read_csv, concat
 
+INT_COLS = ['POINT_TYPE', 'YEAR']
 
 def concatenate(root, out_dir, glob='None'):
     l = [os.path.join(root, x) for x in os.listdir(root) if glob in x]
@@ -31,6 +32,11 @@ def concatenate(root, out_dir, glob='None'):
             df = concat([df, read_csv(csv)])
     df.drop(columns=['system:index', '.geo'], inplace=True)
     out_file = os.path.join(out_dir, '{}_b.csv'.format(glob))
+    for c in df.columns:
+        if c in INT_COLS:
+            df[c] = df[c].astype(int, copy=True)
+        else:
+            df[c] = df[c].astype(float, copy=True)
     df.to_csv(out_file, index=False)
 
 

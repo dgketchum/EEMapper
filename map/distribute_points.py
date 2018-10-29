@@ -219,12 +219,12 @@ if __name__ == '__main__':
     extract = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'point_shp')
 
     kwargs = {
-        'irrigated': 150000,
-        'wetlands': 50000,
-        'uncultivated': 50000,
-        'unirrigated': 50000,
+        'irrigated': 50000,
+        'wetlands': 15000,
+        'uncultivated': 15000,
+        'unirrigated': 20000,
     }
     prs = PointsRunspec(gis, **kwargs)
-    prs.save_sample_points(os.path.join(extract, 'sample_400k.shp'.format()))
+    prs.save_sample_points(os.path.join(extract, 'sample_100k.shp'.format()))
 
 # ========================= EOF ====================================================================
