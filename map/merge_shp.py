@@ -65,10 +65,36 @@ def fiona_merge_attribute(out_shp, file_list):
                 output.write(feat)
 
 
+def fiona_merge_no_attribute(out_shp, file_list):
+    meta = fiona.open(file_list[0]).meta
+    meta['schema'] = {'type': 'Feature', 'properties': OrderedDict(
+        []), 'geometry': 'Polygon'}
+    with fiona.open(out_shp, 'w', **meta) as output:
+        for s in file_list:
+            for feat in fiona.open(s):
+                feat = {'type': 'Feature', 'properties': {},
+                        'geometry': feat['geometry']}
+                output.write(feat)
+
+
+def get_list(_dir):
+    l = []
+    for path, subdirs, files in os.walk(_dir):
+        for name in files:
+            p = os.path.join(path, name)
+            if p not in l and p.endswith('.shp'):
+                l.append(p)
+    return l
+
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    s_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated', 'filtered_shapefiles')
-    _dir = [os.path.join(s_dir, x) for x in os.listdir(s_dir)if x.endswith('.shp')]
-    o_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'merged_attributed')
-    fiona_merge_attribute(os.path.join(o_dir, 'irr_merge.shp'), _dir)
+    s_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'unirrigated')
+    l = get_list(s_dir)
+    fiona_merge_no_attribute(os.path.join(s_dir, 'unirrigated.shp'), l)
+    # s_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated', 'filtered_shapefiles')
+    # _dir = [os.path.join(s_dir, x) for x in os.listdir(s_dir)if x.endswith('.shp')]
+    # o_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'merged_attributed')
+    # fiona_merge_attribute(os.path.join(o_dir, 'irr_merge.shp'), _dir)
+
 # ========================= EOF ====================================================================

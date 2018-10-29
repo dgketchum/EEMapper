@@ -18,11 +18,9 @@ from datetime import datetime
 
 import ee
 
-from map.distribute_points import get_years
-
-YEARS = get_years()
 ROI = 'users/dgketchum/boundaries/western_states_polygon'
-PLOTS = 'ft:16GE8ltH8obD9lJu6ScJQ02csAzZY27zstaKHgKVD'
+PLOTS = 'ft:1X4XQDNBFPEPxK1u8C4IW2qiULMPeGbj1pwQ9G0oA'
+YEARS = [1986, 1987, 1991, 1996, 1997, 1998, 1999] + list(range(2000, 2018))
 
 IRR = {
     # 'Acequias': ('ft:1emF9Imjj8GPxpRmPU2Oze2hPeojPS4O6udIQNTgX', [1987, 2001, 2004, 2007, 2016], 0.5),
@@ -234,6 +232,6 @@ def is_authorized():
 if __name__ == '__main__':
     is_authorized()
     prefix = 'filt'
-    filter_irrigated()
+    request_band_extract('sample')
 
 # ========================= EOF ====================================================================

@@ -21,171 +21,13 @@ from numpy import linspace, max, ceil
 from numpy.random import shuffle
 from pandas import DataFrame
 from pyproj import Proj
-from shapely.geometry import shape, Point, mapping, Polygon
+from shapely.geometry import shape, Point, mapping
 
-OPEN_WATER = 'surface_water_sample_wgs84.shp'
-
-WETLAND = 'wetlands_sample_wgs84.shp'
-
-IRR = {
-    'CA': [('CA_cv_prob_Irr_1998.shp', 1998),
-           ('CA_cv_prob_Irr_2015.shp', 2015),
-           ('CA_cv_prob_Irr_2014.shp', 2014),
-           ('CA_cv_prob_Irr_2005.shp', 2005)],
-    'ID': [('ID_1986_ESPA_WGS84_irr.shp', 1986),
-           ('ID_1996_ESPA_WGS84_irr.shp', 1996),
-           ('ID_2006_ESPA_WGS84_irr.shp', 2006),
-           ('ID_2002_ESPA_WGS84_irr.shp', 2002),
-           ('ID_2008_ESPA_WGS84_irr.shp', 2008),
-           ('ID_2009_ESPA_WGS84_irr.shp', 2009),
-           ('ID_2010_ESPA_WGS84_irr.shp', 2010),
-           ('ID_2011_ESPA_WGS84_irr.shp', 2011)],
-    'MT': [('MT_Irr_2018-2013_WGS84.shp', 2008),
-           ('MT_Irr_2018-2013_WGS84.shp', 2009),
-           ('MT_Irr_2018-2013_WGS84.shp', 2010),
-           ('MT_Irr_2018-2013_WGS84.shp', 2011),
-           ('MT_Irr_2018-2013_WGS84.shp', 2012),
-           ('MT_Irr_2018-2013_WGS84.shp', 2013)],
-    'WA': [('WA_Irr_WGS84_1996.shp', 1996),
-           ('WA_Irr_WGS84_1998.shp', 1998),
-           ('WA_Irr_WGS84_1999.shp', 1999),
-           ('WA_Irr_WGS84_2000.shp', 2000),
-           ('WA_Irr_WGS84_2001.shp', 2001),
-           ('WA_Irr_WGS84_2002.shp', 2002),
-           ('WA_Irr_WGS84_2003.shp', 2003),
-           ('WA_Irr_WGS84_2004.shp', 2004),
-           ('WA_Irr_WGS84_2005.shp', 2005),
-           ('WA_Irr_WGS84_2006.shp', 2006),
-           ('WA_Irr_WGS84_2007.shp', 2007),
-           ('WA_Irr_WGS84_2008.shp', 2008),
-           ('WA_Irr_WGS84_2009.shp', 2009),
-           ('WA_Irr_WGS84_2010.shp', 2010),
-           ('WA_Irr_WGS84_2011.shp', 2011),
-           ('WA_Irr_WGS84_2012.shp', 2012),
-           ('WA_Irr_WGS84_2013.shp', 2013),
-           ('WA_Irr_WGS84_2014.shp', 2014),
-           ('WA_Irr_WGS84_2015.shp', 2015),
-           ('WA_Irr_WGS84_2016.shp', 2016),
-           ('WA_Irr_WGS84_2017.shp', 2017)],
-    'UCRB': [('UCRB_Irr_WGS84_1988.shp', 1988),
-             ('UCRB_Irr_WGS84_2000.shp', 2000),
-             ('UCRB_Irr_WGS84_2005.shp', 2005),
-             ('UCRB_Irr_WGS84_2006.shp', 2006),
-             ('UCRB_Irr_WGS84_2009.shp', 2009)],
-    'UT': [('UT_Irr_WGS84_2015.shp', 2015),
-           ('UT_Irr_WGS84_2014.shp', 2014),
-           ('UT_Irr_WGS84_2011.shp', 2011),
-           ('UT_Irr_WGS84_2013.shp', 2013),
-           ('UT_Irr_WGS84_2016.shp', 2016),
-           ('UT_Irr_WGS84_2012.shp', 2012)]
-}
-
-UNIRRIGATED = {
-    'CA': [('CA_cv_prob_UnIrr_1998.shp', 1998),
-           ('CA_cv_prob_UnIrr_2015.shp', 2015),
-           ('CA_cv_prob_UnIrr_2014.shp', 2014),
-           ('CA_cv_prob_UnIrr_2005.shp', 2005)],
-    'MT': [('FLU_2017_Fallow.shp', 1986),
-           ('FLU_2017_Fallow.shp', 1996),
-           ('FLU_2017_Fallow.shp', 2002),
-           ('FLU_2017_Fallow.shp', 2006),
-           ('FLU_2017_Fallow.shp', 2008),
-           ('FLU_2017_Fallow.shp', 2009),
-           ('FLU_2017_Fallow.shp', 2010),
-           ('FLU_2017_Fallow.shp', 2011)],
-    'WA': [('WA_NonIrr_WGS84_1996.shp', 1996),
-           ('WA_NonIrr_WGS84_1998.shp', 1998),
-           ('WA_NonIrr_WGS84_1999.shp', 1999),
-           ('WA_NonIrr_WGS84_2000.shp', 2000),
-           ('WA_NonIrr_WGS84_2002.shp', 2002),
-           ('WA_NonIrr_WGS84_2003.shp', 2003),
-           ('WA_NonIrr_WGS84_2004.shp', 2004),
-           ('WA_NonIrr_WGS84_2005.shp', 2005),
-           ('WA_NonIrr_WGS84_2006.shp', 2006),
-           ('WA_NonIrr_WGS84_2007.shp', 2007),
-           ('WA_NonIrr_WGS84_2008.shp', 2008),
-           ('WA_NonIrr_WGS84_2009.shp', 2009),
-           ('WA_NonIrr_WGS84_2010.shp', 2010),
-           ('WA_NonIrr_WGS84_2011.shp', 2011),
-           ('WA_NonIrr_WGS84_2012.shp', 2012),
-           ('WA_NonIrr_WGS84_2013.shp', 2013),
-           ('WA_NonIrr_WGS84_2014.shp', 2014),
-           ('WA_NonIrr_WGS84_2015.shp', 2015),
-           ('WA_NonIrr_WGS84_2016.shp', 2016),
-           ('WA_NonIrr_WGS84_2017.shp', 2017)],
-    'UCRB': [('UCRB_UnIrrigated_WGS84.shp', 1986),
-             ('UCRB_UnIrrigated_WGS84.shp', 1996),
-             ('UCRB_UnIrrigated_WGS84.shp', 2002),
-             ('UCRB_UnIrrigated_WGS84.shp', 2006),
-             ('UCRB_UnIrrigated_WGS84.shp', 2008),
-             ('UCRB_UnIrrigated_WGS84.shp', 2009),
-             ('UCRB_UnIrrigated_WGS84.shp', 2010),
-             ('UCRB_UnIrrigated_WGS84.shp', 2011)],
-    'UT': [('UT_UnIrr_WGS84_2015.shp', 2015),
-           ('UT_UnIrr_WGS84_2014.shp', 2014),
-           ('UT_UnIrr_WGS84_2011.shp', 2011),
-           ('UT_UnIrr_WGS84_2013.shp', 2013),
-           ('UT_UnIrr_WGS84_2016.shp', 2016),
-           ('UT_UnIrr_WGS84_2012.shp', 2012)]
-}
-
-UNCULTIVATED = {
-    'CA': [('CA_Rangeland.shp', 1986),
-           ('CA_Rangeland.shp', 1996),
-           ('CA_Rangeland.shp', 2002),
-           ('CA_Rangeland.shp', 2006),
-           ('CA_Rangeland.shp', 2008),
-           ('CA_Rangeland.shp', 2009),
-           ('CA_Rangeland.shp', 2010),
-           ('CA_Rangeland.shp', 2011)],
-    'ID': [('ID_1986_ESPA_WGS84_non-irrigated.shp', 1986),
-           ('ID_1996_ESPA_WGS84_non-irrigated.shp', 1996),
-           ('ID_2002_ESPA_WGS84_non-irrigated.shp', 2002),
-           ('ID_2006_ESPA_WGS84_non-irrigated.shp', 2006),
-           ('ID_2008_ESPA_WGS84_non-irrigated.shp', 2008),
-           ('ID_2009_ESPA_WGS84_non-irrigated.shp', 2009),
-           ('ID_2010_ESPA_WGS84_non-irrigated.shp', 2010),
-           ('ID_2011_ESPA_WGS84_non-irrigated.shp', 2011)],
-    'MT': [('FLU_2017_Forrest.shp', 1986),
-           ('FLU_2017_Forrest.shp', 1996),
-           ('FLU_2017_Forrest.shp', 2002),
-           ('FLU_2017_Forrest.shp', 2006),
-           ('FLU_2017_Forrest.shp', 2008),
-           ('FLU_2017_Forrest.shp', 2009),
-           ('FLU_2017_Forrest.shp', 2010),
-           ('FLU_2017_Forrest.shp', 2011),
-           ('MT_Range.shp', 1986),
-           ('MT_Range.shp', 1996),
-           ('MT_Range.shp', 2002),
-           ('MT_Range.shp', 2006),
-           ('MT_Range.shp', 2008),
-           ('MT_Range.shp', 2009),
-           ('MT_Range.shp', 2010),
-           ('MT_Range.shp', 2011)],
-    'WA': [('WA_Forest_WGS84.shp', 1986),
-           ('WA_Forest_WGS84.shp', 1996),
-           ('WA_Forest_WGS84.shp', 2002),
-           ('WA_Forest_WGS84.shp', 2006),
-           ('WA_Forest_WGS84.shp', 2008),
-           ('WA_Forest_WGS84.shp', 2009),
-           ('WA_Forest_WGS84.shp', 2010),
-           ('WA_Forest_WGS84.shp', 2011),
-           ('WA_Range_WGS84.shp', 1986),
-           ('WA_Range_WGS84.shp', 1996),
-           ('WA_Range_WGS84.shp', 2002),
-           ('WA_Range_WGS84.shp', 2006),
-           ('WA_Range_WGS84.shp', 2008),
-           ('WA_Range_WGS84.shp', 2009),
-           ('WA_Range_WGS84.shp', 2010),
-           ('WA_Range_WGS84.shp', 2011)],
-}
-
-IRR_RELATIVE_AREA = {'CA': 0.167,
-                     'ID': 0.167,
-                     'MT': 0.167,
-                     'WA': 0.167,
-                     'UCRB': 0.167,
-                     'UT': 0.167}
+training = os.path.join(os.path.expanduser('~'), 'IrrigationGIS', 'training_raw')
+WETLAND = os.path.join(training, 'wetlands', 'wetlands_sample_wgs84.shp')
+UNCULTIVATED = os.path.join(training, 'uncultivated', 'uncultivated.shp')
+IRRIGATED = os.path.join(training, 'irrigated', 'merged_attributed', 'irr_merge.shp')
+UNIRRIGATED = os.path.join(training, 'unirrigated', 'unirrigated.shp')
 
 YEARS = [
     1986,
@@ -214,10 +56,6 @@ YEARS = [
 ]
 
 
-def get_years():
-    return YEARS
-
-
 class PointsRunspec(object):
 
     def __init__(self, root, **kwargs):
@@ -232,11 +70,15 @@ class PointsRunspec(object):
         self.meta = None
         self.extracted_points = DataFrame(columns=['FID', 'X', 'Y', 'POINT_TYPE', 'YEAR'])
 
+        self.irr_path = IRRIGATED
+        self.unirr_path = UNIRRIGATED
+        self.uncult_path = UNCULTIVATED
+        self.wetland_path = WETLAND
+
         if 'irrigated' in kwargs.keys():
             self.irrigated(kwargs['irrigated'])
         if 'unirrigated' in kwargs.keys():
             self.unirrigated(kwargs['unirrigated'])
-
         if 'wetlands' in kwargs.keys():
             self.wetlands(kwargs['wetlands'])
         if 'uncultivated' in kwargs.keys():
@@ -248,49 +90,25 @@ class PointsRunspec(object):
         n = int(n)
         for yr in YEARS:
             self.year = yr
-            shp_file = os.path.join(self.root, 'wetlands', WETLAND)
-            self.create_sample_points(n, shp_file, code=3)
+            self.create_sample_points(n, self.wetland_path, code=3)
 
     def uncultivated(self, n):
         print('uncultivated: {}'.format(n))
-        irr_path = os.path.join(self.root, 'uncultivated')
-        for k, v in UNCULTIVATED.items():
-            years = len(v)
-            for shp, yr in v:
-                self.year = yr
-                required_points = int(ceil(n / (years * len(UNCULTIVATED.keys()))))
-                shp_path = os.path.join(irr_path, k, shp)
-                self.create_sample_points(required_points, shp_path, code=2)
+        n /= len(YEARS)
+        for yr in YEARS:
+            self.year = yr
+            self.create_sample_points(n, self.uncult_path, code=2)
 
     def unirrigated(self, n):
         print('unirrigated: {}'.format(n))
-        irr_path = os.path.join(self.root, 'unirrigated')
-        for k, v in UNIRRIGATED.items():
-            years = len(v)
-            for shp, yr in v:
-                self.year = yr
-                required_points = int(ceil(n / (years * len(UNIRRIGATED.keys()))))
-                shp_path = os.path.join(irr_path, k, shp)
-                self.create_sample_points(required_points, shp_path, code=1)
+        n /= len(YEARS)
+        for yr in YEARS:
+            self.year = yr
+            self.create_sample_points(n, self.unirr_path, code=1)
 
     def irrigated(self, n):
         print('irrigated: {}'.format(n))
-        irr_path = os.path.join(self.root, 'irrigated')
-        for k, v in IRR.items():
-            years = len(v)
-            for shp, yr in v:
-                self.year = yr
-                required_points = int(ceil(n * IRR_RELATIVE_AREA[k] / years))
-                shp_path = os.path.join(irr_path, k, shp)
-                self.create_sample_points(required_points, shp_path, code=0)
-
-    def relative_irrigated_area(self):
-        irr_path = os.path.join(self.root, 'irrigated')
-        for k, v in IRR.items():
-            shapes = [os.path.join(irr_path, k, x[0]) for x in v]
-            areas = self.shapefile_area_count(shapes)
-            total = sum([x[1] for x in areas])
-            print('{} is {}'.format(k, total / 1e6))
+        self.create_sample_points(n, self.irr_path, code=0, attribute='YEAR')
 
     def shapefile_area_count(self, shapes):
         a = 0
@@ -313,13 +131,17 @@ class PointsRunspec(object):
 
         return totals
 
-    def create_sample_points(self, n, shp, code):
+    def create_sample_points(self, n, shp, code, attribute=None):
 
         instance_ct = 0
-        polygons = self._get_polygons(shp)
+        polygons = self._get_polygons(shp, attr=attribute)
         shuffle(polygons)
+        if attribute:
+            years, polygons = [x[1] for x in polygons], [x[0] for x in polygons]
         positive_area = sum([x.area for x in polygons])
         for i, poly in enumerate(polygons):
+            if attribute:
+                self.year = years[i]
             fractional_area = poly.area / positive_area
             required_points = max([1, fractional_area * n])
             x_range, y_range = self._random_points(poly.bounds, n)
@@ -329,12 +151,11 @@ class PointsRunspec(object):
                     self._add_entry(coord, val=code)
                     poly_pt_ct += 1
                     instance_ct += 1
-
                 if poly_pt_ct >= required_points:
                     break
-
             if instance_ct > n:
                 break
+
         print(self.extracted_points.shape, shp)
 
     def _random_points(self, coords, n):
@@ -374,14 +195,18 @@ class PointsRunspec(object):
                               'geometry': mapping(pt)})
         return None
 
-    def _get_polygons(self, vector):
+    def _get_polygons(self, vector, attr=None):
         with fiona.open(vector, 'r') as src:
             polys = []
             bad_geo_count = 0
             for feat in src:
                 try:
                     geo = shape(feat['geometry'])
-                    polys.append(geo)
+                    if attr:
+                        attribute = feat['properties'][attr]
+                        polys.append((geo, attribute))
+                    else:
+                        polys.append(geo)
                 except AttributeError:
                     bad_geo_count += 1
 
@@ -394,13 +219,12 @@ if __name__ == '__main__':
     extract = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'point_shp')
 
     kwargs = {
-        'irrigated': 20000,
-        'wetlands': 10000,
-        'uncultivated': 15000,
-        'unirrigated': 15000,
+        'irrigated': 150000,
+        'wetlands': 50000,
+        'uncultivated': 50000,
+        'unirrigated': 50000,
     }
-
     prs = PointsRunspec(gis, **kwargs)
-    prs.save_sample_points(os.path.join(extract, 'sample_test_25OCT2018.shp'))
+    prs.save_sample_points(os.path.join(extract, 'sample_400k.shp'.format()))
 
 # ========================= EOF ====================================================================
