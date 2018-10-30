@@ -20,6 +20,7 @@ from pandas import read_csv, concat
 
 INT_COLS = ['POINT_TYPE', 'YEAR']
 
+
 def concatenate(root, out_dir, glob='None'):
     l = [os.path.join(root, x) for x in os.listdir(root) if glob in x]
     l.sort()
@@ -31,7 +32,7 @@ def concatenate(root, out_dir, glob='None'):
         else:
             df = concat([df, read_csv(csv)])
     df.drop(columns=['system:index', '.geo'], inplace=True)
-    out_file = os.path.join(out_dir, '{}_b.csv'.format(glob))
+    out_file = os.path.join(out_dir, '{}.csv'.format(glob))
     for c in df.columns:
         if c in INT_COLS:
             df[c] = df[c].astype(int, copy=True)
@@ -45,5 +46,5 @@ if __name__ == '__main__':
     extracts = os.path.join(home, 'IrrigationGIS', 'EE_extracts')
     rt = os.path.join(extracts, 'to_concatenate')
     out = os.path.join(extracts, 'concatenated')
-    concatenate(rt, out, glob='sample_')
+    concatenate(rt, out, glob='sample_100k')
 # ========================= EOF ====================================================================
