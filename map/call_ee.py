@@ -15,6 +15,8 @@
 # ===============================================================================
 
 from datetime import datetime
+from pprint import pprint
+
 import ee
 
 ROI = 'users/dgketchum/boundaries/western_states_polygon'
@@ -94,36 +96,43 @@ def request_band_extract(file_prefix):
 
         l5_coll = ee.ImageCollection('LANDSAT/LT05/C01/T1_SR').filterBounds(
             roi).filterDate(start, end_date).map(ls5_edge_removal).map(ls57mask)
-
         l7_coll = ee.ImageCollection('LANDSAT/LE07/C01/T1_SR').filterBounds(
             roi).filterDate(start, end_date).map(ls57mask)
-
         l8_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_SR').filterBounds(
             roi).filterDate(start, end_date).map(ls8mask)
-
         lsSR_masked = ee.ImageCollection(l7_coll.merge(l8_coll).merge(l5_coll))
         lsSR_spr_mn = ee.Image(lsSR_masked.filterDate(spring_s, summer_s).mean())
         lsSR_sum_mn = ee.Image(lsSR_masked.filterDate(summer_s, fall_s).mean())
         lsSR_fal_mn = ee.Image(lsSR_masked.filterDate(fall_s, end_date).mean())
 
+        # GRIDMET data ######################################
         gridmet = ee.ImageCollection("IDAHO_EPSCOR/GRIDMET").filterBounds(
-            roi).filterDate(start, end_date).select('pr', 'eto', 'tmmn', 'tmmx').map(lambda x: x)
-
+            roi).filterDate(start, end_date).select('pr', 'eto', 'tmmn', 'tmmx')
         temp_reducer = ee.Reducer.percentile([10, 50, 90])
         t_names = ['tmmn_p10_cy', 'tmmn_p50_cy', 'tmmn_p90_cy', 'tmmx_p10_cy', 'tmmx_p50_cy', 'tmmx_p90_cy']
         temp_perc = gridmet.select('tmmn', 'tmmx').reduce(temp_reducer).rename(t_names)
         precip_reducer = ee.Reducer.sum()
         precip_sum = gridmet.select('pr', 'eto').reduce(precip_reducer).rename('precip_total_cy', 'pet_total_cy')
-        wd_estimate = precip_sum.select('precip_total_cy').subtract(precip_sum.select('pet_total_cy')).rename(
-            'wd_est_cy')
+        wd_estimate = precip_sum.select('precip_total_cy').subtract(precip_sum.select(
+            'pet_total_cy')).rename('wd_est_cy')
         input_bands = lsSR_spr_mn.addBands([lsSR_sum_mn, lsSR_fal_mn, temp_perc, precip_sum, wd_estimate])
+        #####################################################
 
-        dem1 = ee.Image('USGS/NED')
-        dem2 = ee.Terrain.products(dem1).select('elevation', 'slope', 'aspect')
-        static_input_bands = dem2
+        # STATIC DATA ########################################
         coords = ee.Image.pixelLonLat().rename(['Lon_GCS', 'LAT_GCS'])
-        static_input_bands = static_input_bands.addBands(coords)
+        static_input_bands = coords
+        # WorldClim Data
+        world_climate = get_world_climate()
+        # Terrain Data
+        ned = ee.Image('USGS/NED')
+        terrain = ee.Terrain.products(ned).select('elevation', 'slope', 'aspect')
+        elev = terrain.select('elevation')
+        tpi_1250 = elev.subtract(elev.focal_mean(1250, 'circle', 'meters')).add(0.5).rename('tpi_1250')
+        tpi_250 = elev.subtract(elev.focal_mean(250, 'circle', 'meters')).add(0.5).rename('tpi_250')
+        tpi_150 = elev.subtract(elev.focal_mean(150, 'circle', 'meters')).add(0.5).rename('tpi_150')
+        static_input_bands = static_input_bands.addBands([terrain, tpi_1250, tpi_250, tpi_150, world_climate])
         input_bands = input_bands.addBands(static_input_bands)
+        ######################################################
 
         d = datetime.strptime(start, '%Y-%m-%d')
         epoch = datetime.utcfromtimestamp(0)
@@ -145,6 +154,17 @@ def request_band_extract(file_prefix):
             fileFormat='CSV')
 
         task.start()
+
+
+def get_world_climate():
+    n = list(range(1, 13))
+    months = [str(x).zfill(2) for x in n]
+    parameters = ['tavg', 'tmin', 'tmax', 'prec']
+    combinations = [(m, p) for m in months for p in parameters]
+    l = [ee.Image('WORLDCLIM/V1/MONTHLY/{}'.format(m)).select(p) for m, p in combinations]
+    i = ee.Image(l[0])
+    i = i.addBands(l)
+    return i
 
 
 def get_qa_bits(image, start, end, qa_mask):
@@ -230,7 +250,6 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    prefix = 'filt'
-    request_band_extract('sample_100k')
+    request_band_extract('eF_sample_100k')
 
 # ========================= EOF ====================================================================
