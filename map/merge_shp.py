@@ -89,9 +89,9 @@ def get_list(_dir):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    s_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'unirrigated')
+    s_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'uncultivated')
     l = get_list(s_dir)
-    fiona_merge_no_attribute(os.path.join(s_dir, 'unirrigated.shp'), l)
+    fiona_merge_no_attribute(os.path.join(s_dir, 'uncultivated.shp'), l)
     # s_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated', 'filtered_shapefiles')
     # _dir = [os.path.join(s_dir, x) for x in os.listdir(s_dir)if x.endswith('.shp')]
     # o_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'merged_attributed')

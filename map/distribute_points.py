@@ -23,37 +23,14 @@ from pandas import DataFrame
 from pyproj import Proj
 from shapely.geometry import shape, Point, mapping
 
-training = os.path.join(os.path.expanduser('~'), 'IrrigationGIS', 'training_raw')
-WETLAND = os.path.join(training, 'wetlands', 'wetlands_sample_wgs84.shp')
-UNCULTIVATED = os.path.join(training, 'uncultivated', 'uncultivated.shp')
-IRRIGATED = os.path.join(training, 'irrigated', 'merged_attributed', 'irr_merge.shp')
-UNIRRIGATED = os.path.join(training, 'unirrigated', 'unirrigated.shp')
+training = os.path.join(os.path.expanduser('~'), 'data_mt', 'IrrigationGIS', 'EE_sample')
 
-YEARS = [
-    1986,
-    1988,
-    1996,
-    1998,
-    1999,
-    2000,
-    2001,
-    2002,
-    2003,
-    2004,
-    2005,
-    2006,
-    2007,
-    2008,
-    2009,
-    2010,
-    2011,
-    2012,
-    2013,
-    2014,
-    2015,
-    2016,
-    2017,
-]
+WETLAND = os.path.join(training, 'wetlands.shp')
+UNCULTIVATED = os.path.join(training, 'uncultivated.shp')
+IRRIGATED = os.path.join(training, 'irrigated.shp')
+UNIRRIGATED = os.path.join(training, 'unirrigated.shp')
+
+YEARS = list(range(1984, 2018))
 
 
 class PointsRunspec(object):
@@ -86,50 +63,19 @@ class PointsRunspec(object):
 
     def wetlands(self, n):
         print('wetlands: {}'.format(n))
-        n /= len(YEARS)
-        n = int(n)
-        for yr in YEARS:
-            self.year = yr
-            self.create_sample_points(n, self.wetland_path, code=3)
+        self.create_sample_points(n, self.wetland_path, code=3)
 
     def uncultivated(self, n):
         print('uncultivated: {}'.format(n))
-        n /= len(YEARS)
-        for yr in YEARS:
-            self.year = yr
-            self.create_sample_points(n, self.uncult_path, code=2)
+        self.create_sample_points(n, self.uncult_path, code=2)
 
     def unirrigated(self, n):
         print('unirrigated: {}'.format(n))
-        n /= len(YEARS)
-        for yr in YEARS:
-            self.year = yr
-            self.create_sample_points(n, self.unirr_path, code=1)
+        self.create_sample_points(n, self.unirr_path, code=1)
 
     def irrigated(self, n):
         print('irrigated: {}'.format(n))
         self.create_sample_points(n, self.irr_path, code=0, attribute='YEAR')
-
-    def shapefile_area_count(self, shapes):
-        a = 0
-        totals = []
-        for shp in shapes:
-            ct = 0
-            with fiona.open(shp, 'r') as src:
-                if not self.meta:
-                    self.meta = src.meta
-                for feat in src:
-                    l = feat['geometry']['coordinates'][0]
-                    if any(isinstance(i, list) for i in l):
-                        l = l[0]
-                    lon, lat = zip(*l)
-                    x, y = self.aea(lon, lat)
-                    cop = {"type": "Polygon", "coordinates": [zip(x, y)]}
-                    a += shape(cop).area
-                    ct += 1
-            totals.append((shp, a, ct))
-
-        return totals
 
     def create_sample_points(self, n, shp, code, attribute=None):
 
@@ -139,6 +85,7 @@ class PointsRunspec(object):
         if attribute:
             years, polygons = [x[1] for x in polygons], [x[0] for x in polygons]
         positive_area = sum([x.area for x in polygons])
+        print('area: {} in {} features'.format(positive_area / 1e6, len(polygons)))
         for i, poly in enumerate(polygons):
             if attribute:
                 self.year = years[i]
@@ -217,12 +164,13 @@ if __name__ == '__main__':
     extract = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'point_shp')
 
     kwargs = {
-        'irrigated': 4000,
-        'wetlands': 1000,
-        'uncultivated': 1000,
-        'unirrigated': 1000,
+        'irrigated': 100,
+        'wetlands': 100,
+        'uncultivated': 100,
+        'unirrigated': 100,
     }
+
     prs = PointsRunspec(gis, **kwargs)
-    prs.save_sample_points(os.path.join(extract, 'sample_7k.shp'.format()))
+    prs.save_sample_points(os.path.join(extract, 'sample_test_yrsPSF.shp'.format()))
 
 # ========================= EOF ====================================================================
