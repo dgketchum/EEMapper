@@ -21,17 +21,18 @@ import ee
 
 ROI = 'users/dgketchum/boundaries/western_states_polygon'
 PLOTS = 'ft:1nNO0AfiHcZk5a_aPSr2Oo2gHqu7tvEcYn-w0RgvL'
+TABLE = 'ft:1nNO0AfiHcZk5a_aPSr2Oo2gHqu7tvEcYn-w0RgvL'
 YEARS = [1986, 1987, 1991, 1996, 1997, 1998, 1999] + list(range(2000, 2018))
 
 IRR = {
     # 'Acequias': ('ft:1emF9Imjj8GPxpRmPU2Oze2hPeojPS4O6udIQNTgX', [1987, 2001, 2004, 2007, 2016], 0.5),
     # 'CO_DIV1': ('ft:1wRNUsKChMUb9rUWDbxOeGeTaNWNZUA0YHXSLXPv2', [1998, 2003, 2006, 2013, 2016], 0.5),
     # 'CO_SanLuis': ('ft:1mcBXyFw1PoVOoAGibDpZjCgb001jA_Mj_hyd-h92', [1998, 2003, 2006, 2013, 2016], 0.5),
-    # 'CA': ('ft:1U1yFC2vhtWXX80Gz76mp5kwfHZFE3uaVLZL_OrI2', [1997, 2005, 2008, 2014], 0.5),
+    'CA': ('ft:1oadWhheDKaonOPhIJ9lJVCwnOt5g0G644p3FC9oy', [1988, 1997, 1991, 2002, 2008, 2014, 2017], 0.5),
     # 'EastStates': ('ft:1AZUak3iuAtah1SHpkLfw0IRk_U5ei23VsPzBWxpD', [1987, 2001, 2004, 2007, 2016], 0.5),
     # 'ID': ('ft:1jDB3C181w1PGVamr64-ewpJVDQkzJc4Bvd1IPAFg', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
     # 'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2001, 2011)], 0.5),
-    'OR': ('ft:1FJMi4VXUe4BrhU6u0OF2l0uFU_rGUe3rFrSSSBVD', [1996, 2001, 2006, 2013, 2014], 0.5),
+    # 'OR': ('ft:1FJMi4VXUe4BrhU6u0OF2l0uFU_rGUe3rFrSSSBVD', [1996, 2001, 2006, 2013, 2014], 0.5),
     # 'UCRB_WY': ('ft:1M0GDErc0dgoYajU_HStZBkp-hBL4kUiZufFdtWHG', [1989, 1996, 2010, 2013, 2016], 0.5),  # a.k.a. 2000
     # 'UCRB_UT_CO': ('ft:1Av2WlcPRBd7JZqYOU73VCLOJ-b5q6H5u6Bboebdv', [1998, 2003, 2006, 2013, 2016], 0.5),  # a.k.a. 2005
     # 'UCRB_UT': ('ft:144ymxhlcv8lj1u_BYQFEC1ITmiISW52q5JvxSVyk', [1998, 2003, 2006, 2013, 2016], 0.5),  # a.k.a. 2006
@@ -40,6 +41,9 @@ IRR = {
     # 'WA': ('ft:1tGN7UdKijI7gZgna19wJ-cKMumSKRwsfEQQZNQjl', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
 }
 
+
+def export_classification(years):
+    pass
 
 def filter_irrigated():
     for k, v in IRR.items():
@@ -105,7 +109,7 @@ def request_band_extract(file_prefix):
         lsSR_sum_mn = ee.Image(lsSR_masked.filterDate(summer_s, fall_s).mean())
         lsSR_fal_mn = ee.Image(lsSR_masked.filterDate(fall_s, end_date).mean())
 
-        # GRIDMET data ######################################
+        # GRIDMET DATA ######################################
         gridmet = ee.ImageCollection("IDAHO_EPSCOR/GRIDMET").filterBounds(
             roi).filterDate(start, end_date).select('pr', 'eto', 'tmmn', 'tmmx')
         temp_reducer = ee.Reducer.percentile([10, 50, 90])
@@ -250,6 +254,6 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    request_band_extract('eF_sample_100k')
+    filter_irrigated()
 
 # ========================= EOF ====================================================================
