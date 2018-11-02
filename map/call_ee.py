@@ -20,8 +20,9 @@ from pprint import pprint
 import ee
 
 ROI = 'users/dgketchum/boundaries/western_states_polygon'
+ROI_MT = 'users/dgketchum/boundaries/MT_3927'
 PLOTS = 'ft:1nNO0AfiHcZk5a_aPSr2Oo2gHqu7tvEcYn-w0RgvL'
-TABLE = 'ft:1nNO0AfiHcZk5a_aPSr2Oo2gHqu7tvEcYn-w0RgvL'
+TABLE = 'ft:1AEkGeGUjaVoE4ct-zR30o7BtujvdLjIGanRAhuO7'
 YEARS = [1986, 1987, 1991, 1996, 1997, 1998, 1999] + list(range(2000, 2018))
 
 IRR = {
@@ -42,8 +43,46 @@ IRR = {
 }
 
 
-def export_classification(years):
-    pass
+def export_classification(file_prefix):
+
+    table = ee.FeatureCollection(TABLE)
+    roi = ee.FeatureCollection(ROI_MT)
+
+    classifier = ee.Classifier.randomForest(
+        numberOfTrees=50,
+        variablesPerSplit=0,
+        minLeafPopulation=1,
+        bagFraction=0.5,
+        outOfBagMode=False,
+        seed=0).setOutputMode('CLASSIFICATION')
+
+    bands = table.first().propertyNames().remove('YEAR').remove('POINT_TYPE') # .remove('system:index')
+    trained_model = classifier.train(table, 'POINT_TYPE', bands)
+    confusion = trained_model.confusionMatrix()
+
+    for yr in YEARS:
+
+        input_bands = stack_bands(yr, roi)
+        annual_stack = input_bands.select(input_bands)
+        classified_img = annual_stack.classify(trained_model)
+
+        pprint(confusion.consumersAccuracy().getInfo())
+        pprint(confusion.kappa().getInfo())
+        pprint(confusion.producersAccuracy().getInfo())
+        pprint(confusion.getInfo())
+
+        task = ee.batch.Export.table.toCloudStorage(
+            image=classified_img,
+            region=roi,
+            description='{}_{}'.format(file_prefix, yr),
+            bucket='wudr',
+            scale=120,
+            fileNamePrefix='{}_{}'.format(file_prefix, yr),
+            fileFormat='GeoTIFF', **{'cloudOptimized': True})
+
+        task.start()
+        break
+
 
 def filter_irrigated():
     for k, v in IRR.items():
@@ -91,53 +130,10 @@ def filter_irrigated():
 def request_band_extract(file_prefix):
     roi = ee.FeatureCollection(ROI)
     plots = ee.FeatureCollection(PLOTS)
+
     for yr in YEARS:
+        input_bands = stack_bands(yr, roi)
         start = '{}-01-01'.format(yr)
-        end_date = '{}-01-01'.format(yr + 1)
-        spring_s = '{}-03-01'.format(yr)
-        summer_s = '{}-06-01'.format(yr)
-        fall_s = '{}-09-01'.format(yr)
-
-        l5_coll = ee.ImageCollection('LANDSAT/LT05/C01/T1_SR').filterBounds(
-            roi).filterDate(start, end_date).map(ls5_edge_removal).map(ls57mask)
-        l7_coll = ee.ImageCollection('LANDSAT/LE07/C01/T1_SR').filterBounds(
-            roi).filterDate(start, end_date).map(ls57mask)
-        l8_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_SR').filterBounds(
-            roi).filterDate(start, end_date).map(ls8mask)
-        lsSR_masked = ee.ImageCollection(l7_coll.merge(l8_coll).merge(l5_coll))
-        lsSR_spr_mn = ee.Image(lsSR_masked.filterDate(spring_s, summer_s).mean())
-        lsSR_sum_mn = ee.Image(lsSR_masked.filterDate(summer_s, fall_s).mean())
-        lsSR_fal_mn = ee.Image(lsSR_masked.filterDate(fall_s, end_date).mean())
-
-        # GRIDMET DATA ######################################
-        gridmet = ee.ImageCollection("IDAHO_EPSCOR/GRIDMET").filterBounds(
-            roi).filterDate(start, end_date).select('pr', 'eto', 'tmmn', 'tmmx')
-        temp_reducer = ee.Reducer.percentile([10, 50, 90])
-        t_names = ['tmmn_p10_cy', 'tmmn_p50_cy', 'tmmn_p90_cy', 'tmmx_p10_cy', 'tmmx_p50_cy', 'tmmx_p90_cy']
-        temp_perc = gridmet.select('tmmn', 'tmmx').reduce(temp_reducer).rename(t_names)
-        precip_reducer = ee.Reducer.sum()
-        precip_sum = gridmet.select('pr', 'eto').reduce(precip_reducer).rename('precip_total_cy', 'pet_total_cy')
-        wd_estimate = precip_sum.select('precip_total_cy').subtract(precip_sum.select(
-            'pet_total_cy')).rename('wd_est_cy')
-        input_bands = lsSR_spr_mn.addBands([lsSR_sum_mn, lsSR_fal_mn, temp_perc, precip_sum, wd_estimate])
-        #####################################################
-
-        # STATIC DATA ########################################
-        coords = ee.Image.pixelLonLat().rename(['Lon_GCS', 'LAT_GCS'])
-        static_input_bands = coords
-        # WorldClim Data
-        world_climate = get_world_climate()
-        # Terrain Data
-        ned = ee.Image('USGS/NED')
-        terrain = ee.Terrain.products(ned).select('elevation', 'slope', 'aspect')
-        elev = terrain.select('elevation')
-        tpi_1250 = elev.subtract(elev.focal_mean(1250, 'circle', 'meters')).add(0.5).rename('tpi_1250')
-        tpi_250 = elev.subtract(elev.focal_mean(250, 'circle', 'meters')).add(0.5).rename('tpi_250')
-        tpi_150 = elev.subtract(elev.focal_mean(150, 'circle', 'meters')).add(0.5).rename('tpi_150')
-        static_input_bands = static_input_bands.addBands([terrain, tpi_1250, tpi_250, tpi_150, world_climate])
-        input_bands = input_bands.addBands(static_input_bands)
-        ######################################################
-
         d = datetime.strptime(start, '%Y-%m-%d')
         epoch = datetime.utcfromtimestamp(0)
         start_millisec = (d - epoch).total_seconds() * 1000
@@ -158,6 +154,49 @@ def request_band_extract(file_prefix):
             fileFormat='CSV')
 
         task.start()
+
+
+def stack_bands(yr, roi):
+    start = '{}-01-01'.format(yr)
+    end_date = '{}-01-01'.format(yr + 1)
+    spring_s = '{}-03-01'.format(yr)
+    summer_s = '{}-06-01'.format(yr)
+    fall_s = '{}-09-01'.format(yr)
+
+    l5_coll = ee.ImageCollection('LANDSAT/LT05/C01/T1_SR').filterBounds(
+        roi).filterDate(start, end_date).map(ls5_edge_removal).map(ls57mask)
+    l7_coll = ee.ImageCollection('LANDSAT/LE07/C01/T1_SR').filterBounds(
+        roi).filterDate(start, end_date).map(ls57mask)
+    l8_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_SR').filterBounds(
+        roi).filterDate(start, end_date).map(ls8mask)
+    lsSR_masked = ee.ImageCollection(l7_coll.merge(l8_coll).merge(l5_coll))
+    lsSR_spr_mn = ee.Image(lsSR_masked.filterDate(spring_s, summer_s).mean())
+    lsSR_sum_mn = ee.Image(lsSR_masked.filterDate(summer_s, fall_s).mean())
+    lsSR_fal_mn = ee.Image(lsSR_masked.filterDate(fall_s, end_date).mean())
+
+    gridmet = ee.ImageCollection("IDAHO_EPSCOR/GRIDMET").filterBounds(
+        roi).filterDate(start, end_date).select('pr', 'eto', 'tmmn', 'tmmx')
+    temp_reducer = ee.Reducer.percentile([10, 50, 90])
+    t_names = ['tmmn_p10_cy', 'tmmn_p50_cy', 'tmmn_p90_cy', 'tmmx_p10_cy', 'tmmx_p50_cy', 'tmmx_p90_cy']
+    temp_perc = gridmet.select('tmmn', 'tmmx').reduce(temp_reducer).rename(t_names)
+    precip_reducer = ee.Reducer.sum()
+    precip_sum = gridmet.select('pr', 'eto').reduce(precip_reducer).rename('precip_total_cy', 'pet_total_cy')
+    wd_estimate = precip_sum.select('precip_total_cy').subtract(precip_sum.select(
+        'pet_total_cy')).rename('wd_est_cy')
+    input_bands = lsSR_spr_mn.addBands([lsSR_sum_mn, lsSR_fal_mn, temp_perc, precip_sum, wd_estimate])
+
+    coords = ee.Image.pixelLonLat().rename(['Lon_GCS', 'LAT_GCS'])
+    static_input_bands = coords
+    world_climate = get_world_climate()
+    ned = ee.Image('USGS/NED')
+    terrain = ee.Terrain.products(ned).select('elevation', 'slope', 'aspect')
+    elev = terrain.select('elevation')
+    tpi_1250 = elev.subtract(elev.focal_mean(1250, 'circle', 'meters')).add(0.5).rename('tpi_1250')
+    tpi_250 = elev.subtract(elev.focal_mean(250, 'circle', 'meters')).add(0.5).rename('tpi_250')
+    tpi_150 = elev.subtract(elev.focal_mean(150, 'circle', 'meters')).add(0.5).rename('tpi_150')
+    static_input_bands = static_input_bands.addBands([terrain, tpi_1250, tpi_250, tpi_150, world_climate])
+    input_bands = input_bands.addBands(static_input_bands)
+    return input_bands
 
 
 def get_world_climate():
@@ -254,6 +293,5 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    filter_irrigated()
-
+    export_classification('classified_test_MT')
 # ========================= EOF ====================================================================
