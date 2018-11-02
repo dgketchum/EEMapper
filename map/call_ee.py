@@ -20,7 +20,7 @@ from pprint import pprint
 import ee
 
 ROI = 'users/dgketchum/boundaries/western_states_polygon'
-ROI_MT = 'users/dgketchum/boundaries/MT_3927'
+ROI_MT = 'users/dgketchum/boundaries/MT'
 PLOTS = 'ft:1nNO0AfiHcZk5a_aPSr2Oo2gHqu7tvEcYn-w0RgvL'
 TABLE = 'ft:1AEkGeGUjaVoE4ct-zR30o7BtujvdLjIGanRAhuO7'
 YEARS = [1986, 1987, 1991, 1996, 1997, 1998, 1999] + list(range(2000, 2018))
@@ -56,29 +56,29 @@ def export_classification(file_prefix):
         outOfBagMode=False,
         seed=0).setOutputMode('CLASSIFICATION')
 
-    bands = table.first().propertyNames().remove('YEAR').remove('POINT_TYPE') # .remove('system:index')
+    bands = table.first().propertyNames().remove('YEAR').remove('POINT_TYPE').remove('system:index')
     trained_model = classifier.train(table, 'POINT_TYPE', bands)
     confusion = trained_model.confusionMatrix()
+    pprint(confusion.consumersAccuracy().getInfo())
+    pprint(confusion.kappa().getInfo())
+    pprint(confusion.producersAccuracy().getInfo())
+    pprint(confusion.getInfo())
+
 
     for yr in YEARS:
-
         input_bands = stack_bands(yr, roi)
-        annual_stack = input_bands.select(input_bands)
+        annual_stack = input_bands.select(bands)
         classified_img = annual_stack.classify(trained_model)
 
-        pprint(confusion.consumersAccuracy().getInfo())
-        pprint(confusion.kappa().getInfo())
-        pprint(confusion.producersAccuracy().getInfo())
-        pprint(confusion.getInfo())
-
-        task = ee.batch.Export.table.toCloudStorage(
+        task = ee.batch.Export.image.toCloudStorage(
             image=classified_img,
-            region=roi,
             description='{}_{}'.format(file_prefix, yr),
             bucket='wudr',
-            scale=120,
             fileNamePrefix='{}_{}'.format(file_prefix, yr),
-            fileFormat='GeoTIFF', **{'cloudOptimized': True})
+            region=roi,
+            scale=1000,
+            fileFormat='GeoTIFF',)
+            # formatOptions={'cloudOptimized': True})
 
         task.start()
         break
