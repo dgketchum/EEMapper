@@ -89,12 +89,12 @@ def get_list(_dir):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    s_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'uncultivated')
-    l = get_list(s_dir)
-    fiona_merge_no_attribute(os.path.join(s_dir, 'uncultivated.shp'), l)
-    # s_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated', 'filtered_shapefiles')
-    # _dir = [os.path.join(s_dir, x) for x in os.listdir(s_dir)if x.endswith('.shp')]
-    # o_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'merged_attributed')
-    # fiona_merge_attribute(os.path.join(o_dir, 'irr_merge.shp'), _dir)
+    # s_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'uncultivated')
+    # l = get_list(s_dir)
+    # fiona_merge_no_attribute(os.path.join(s_dir, 'uncultivated.shp'), l)
+    s_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated', 'filtered_shapefiles')
+    _dir = [os.path.join(s_dir, x) for x in os.listdir(s_dir)if x.endswith('.shp')]
+    o_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated', 'merged_attributed')
+    fiona_merge_attribute(os.path.join(o_dir, 'irr_merge_NOV2.shp'), _dir)
 
 # ========================= EOF ====================================================================
