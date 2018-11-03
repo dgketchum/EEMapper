@@ -16,7 +16,7 @@
 
 import os
 
-from pandas import read_csv, concat
+from pandas import read_csv, concat, errors
 
 INT_COLS = ['POINT_TYPE', 'YEAR']
 
@@ -26,11 +26,17 @@ def concatenate(root, out_dir, glob='None'):
     l.sort()
     first = True
     for csv in l:
-        if first:
-            df = read_csv(csv)
-            first = False
-        else:
-            df = concat([df, read_csv(csv)])
+        try:
+            if first:
+                df = read_csv(csv)
+                first = False
+            else:
+                df = concat([df, read_csv(csv)])
+
+        except errors.EmptyDataError:
+            print('{} is empty'.format(csv))
+            pass
+
     df.drop(columns=['system:index', '.geo'], inplace=True)
     out_file = os.path.join(out_dir, '{}.csv'.format(glob))
     for c in df.columns:
@@ -46,5 +52,5 @@ if __name__ == '__main__':
     extracts = os.path.join(home, 'IrrigationGIS', 'EE_extracts')
     rt = os.path.join(extracts, 'to_concatenate')
     out = os.path.join(extracts, 'concatenated')
-    concatenate(rt, out, glob='eF_')
+    concatenate(rt, out, glob='eF_2k_MT')
 # ========================= EOF ====================================================================

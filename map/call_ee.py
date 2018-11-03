@@ -19,11 +19,17 @@ from pprint import pprint
 
 import ee
 
-ROI = 'users/dgketchum/boundaries/western_states_polygon'
+ROI = 'users/dgketchum/boundaries/western_states_expanded_union'
 ROI_MT = 'users/dgketchum/boundaries/MT'
-PLOTS = 'ft:1nNO0AfiHcZk5a_aPSr2Oo2gHqu7tvEcYn-w0RgvL'
-TABLE = 'ft:1AEkGeGUjaVoE4ct-zR30o7BtujvdLjIGanRAhuO7'
-YEARS = [1986, 1987, 1991, 1996, 1997, 1998, 1999] + list(range(2000, 2018))
+
+PLOTS = 'ft:1nNO0AfiHcZk5a_aPSr2Oo2gHqu7tvEcYn-w0RgvL'  # 100k
+# PLOTS = 'ft:1oSEFGaE6wc08c_xMunUxfTqLpwR-cCL8vopDtqLi'  # 2k
+
+TABLE = 'ft:1AEkGeGUjaVoE4ct-zR30o7BtujvdLjIGanRAhuO7'  # 100k extract eF
+# TABLE = 'ft:1AEkGeGUjaVoE4ct-zR30o7BtujvdLjIGanRAhuO7'  # 2k extract eF
+
+# YEARS = [1986, 1987, 1991, 1996, 1997, 1998, 1999] + list(range(2000, 2018))
+YEARS = list(range(2008, 2014))
 
 IRR = {
     # 'Acequias': ('ft:1emF9Imjj8GPxpRmPU2Oze2hPeojPS4O6udIQNTgX', [1987, 2001, 2004, 2007, 2016], 0.5),
@@ -45,7 +51,8 @@ IRR = {
 
 def export_classification(file_prefix):
 
-    table = ee.FeatureCollection(TABLE)
+    fc = ee.FeatureCollection(TABLE)
+
     roi = ee.FeatureCollection(ROI_MT)
 
     classifier = ee.Classifier.randomForest(
@@ -56,32 +63,28 @@ def export_classification(file_prefix):
         outOfBagMode=False,
         seed=0).setOutputMode('CLASSIFICATION')
 
-    bands = table.first().propertyNames().remove('YEAR').remove('POINT_TYPE').remove('system:index')
-    trained_model = classifier.train(table, 'POINT_TYPE', bands)
-    confusion = trained_model.confusionMatrix()
-    pprint(confusion.consumersAccuracy().getInfo())
-    pprint(confusion.kappa().getInfo())
-    pprint(confusion.producersAccuracy().getInfo())
-    pprint(confusion.getInfo())
-
+    input_props = fc.first().propertyNames().remove('YEAR').remove('POINT_TYPE').remove('system:index')
+    trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
+    # confusion = trained_model.confusionMatrix()
+    # pprint(confusion.consumersAccuracy().getInfo())
+    # pprint(confusion.kappa().getInfo())
+    # pprint(confusion.producersAccuracy().getInfo())
+    # pprint(confusion.getInfo())
 
     for yr in YEARS:
         input_bands = stack_bands(yr, roi)
-        annual_stack = input_bands.select(bands)
+        annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.classify(trained_model)
 
-        task = ee.batch.Export.image.toCloudStorage(
+        task = ee.batch.Export.image.toAsset(
             image=classified_img,
             description='{}_{}'.format(file_prefix, yr),
-            bucket='wudr',
-            fileNamePrefix='{}_{}'.format(file_prefix, yr),
-            region=roi,
-            scale=1000,
-            fileFormat='GeoTIFF',)
-            # formatOptions={'cloudOptimized': True})
+            assetId='users/dgketchum/classy/{}_{}'.format(file_prefix, yr),
+            scale=30,
+            maxPixels=1e9)
 
         task.start()
-        break
+        print(yr)
 
 
 def filter_irrigated():
@@ -154,6 +157,7 @@ def request_band_extract(file_prefix):
             fileFormat='CSV')
 
         task.start()
+        print(yr)
 
 
 def stack_bands(yr, roi):
@@ -187,15 +191,19 @@ def stack_bands(yr, roi):
 
     coords = ee.Image.pixelLonLat().rename(['Lon_GCS', 'LAT_GCS'])
     static_input_bands = coords
-    world_climate = get_world_climate()
     ned = ee.Image('USGS/NED')
     terrain = ee.Terrain.products(ned).select('elevation', 'slope', 'aspect')
+    static_input_bands = static_input_bands.addBands(terrain)
+
+    # Extended Fetures/ eF
+    world_climate = get_world_climate()
     elev = terrain.select('elevation')
     tpi_1250 = elev.subtract(elev.focal_mean(1250, 'circle', 'meters')).add(0.5).rename('tpi_1250')
     tpi_250 = elev.subtract(elev.focal_mean(250, 'circle', 'meters')).add(0.5).rename('tpi_250')
     tpi_150 = elev.subtract(elev.focal_mean(150, 'circle', 'meters')).add(0.5).rename('tpi_150')
-    static_input_bands = static_input_bands.addBands([terrain, tpi_1250, tpi_250, tpi_150, world_climate])
-    input_bands = input_bands.addBands(static_input_bands)
+    static_input_bands = static_input_bands.addBands([tpi_1250, tpi_250, tpi_150, world_climate])
+
+    input_bands = input_bands.addBands(static_input_bands).clip(roi)
     return input_bands
 
 
@@ -293,5 +301,6 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
+    # request_band_extract('eF_2k_MT')
     export_classification('classified_test_MT')
 # ========================= EOF ====================================================================
