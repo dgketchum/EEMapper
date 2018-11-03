@@ -34,12 +34,21 @@ def convert_kml_to_shp(ogr_path, in_dir, out_dir, t_srs, s_srs):
             pass
 
 
+def rename(_dir, glob, find, replace):
+    l = [os.path.join(_dir, x) for x in os.listdir(_dir) if glob in x]
+    for _file in l:
+        # print(_file, _file.replace(find, replace))
+        os.rename(_file, _file.replace(find, replace))
+
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    irr = os.path.join(home, 'IrrigationGIS', 'training_raw')
-    _in = os.path.join(irr, 'filtered_kml')
-    out = os.path.join(irr, 'filtered_shp')
-    ogr = os.path.join(home, 'miniconda2', 'envs', 'irri', 'bin', 'ogr2ogr')
+    irr = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated')
+    # _in = os.path.join(irr, 'filtered_kml')
+    # out = os.path.join(irr, 'filtered_shapefiles')
+    # ogr = os.path.join(home, 'miniconda2', 'envs', 'irri', 'bin', 'ogr2ogr')
 
-    convert_kml_to_shp(ogr, _in, out, '4326', '4326')
+    rename(os.path.join(irr, 'NM'), 'Farmington', '_WGS84', '')
+
+    # convert_kml_to_shp(ogr, _in, out, '4326', '4326')
 # ========================= EOF ====================================================================
