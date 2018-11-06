@@ -17,7 +17,6 @@
 import os
 import csv
 from subprocess import Popen, PIPE, check_call
-from pprint import pprint
 
 
 def delete_assets(ee_path, loc):
@@ -35,7 +34,7 @@ def delete_assets(ee_path, loc):
         command = 'rm'
         cmd = ['{}'.format(ee_path), '{}'.format(command), '{}'.format(r['name'])]
         check_call(cmd)
-743522532732
+
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
