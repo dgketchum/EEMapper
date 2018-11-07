@@ -12,6 +12,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+## UCRB is going with the pure state input data for now.
+# 'UCRB_WY': ('ft:1M0GDErc0dgoYajU_HStZBkp-hBL4kUiZufFdtWHG', [1989, 1996, 2010, 2013, 2016], 0.5),  # a.k.a. 2000
+# 'UCRB_UT_CO': ('ft:1Av2WlcPRBd7JZqYOU73VCLOJ-b5q6H5u6Bboebdv', [1998, 2003, 2006, 2013, 2016], 0.5),  # a.k.a. 2005
+# 'UCRB_UT': ('ft:144ymxhlcv8lj1u_BYQFEC1ITmiISW52q5JvxSVyk', [1998, 2003, 2006, 2013, 2016], 0.5),  # a.k.a. 2006
+# 'UCRB_NM': ('ft:1pBSJDPdFDHARbdc5vpT5FzRek-3KXLKjNBeVyGdR', [1987, 2001, 2004, 2007, 2016], 0.4),  # a.k.a. 2009
 # ===============================================================================
 
 from datetime import datetime
@@ -35,17 +41,25 @@ IRR = {
     # 'Acequias': ('ft:1emF9Imjj8GPxpRmPU2Oze2hPeojPS4O6udIQNTgX', [1987, 2001, 2004, 2007, 2016], 0.5),
     # 'CO_DIV1': ('ft:1wRNUsKChMUb9rUWDbxOeGeTaNWNZUA0YHXSLXPv2', [1998, 2003, 2006, 2013, 2016], 0.5),
     # 'CO_SanLuis': ('ft:1mcBXyFw1PoVOoAGibDpZjCgb001jA_Mj_hyd-h92', [1998, 2003, 2006, 2013, 2016], 0.5),
-    'CA': ('ft:1oadWhheDKaonOPhIJ9lJVCwnOt5g0G644p3FC9oy', [2014], 0.5),
+    # 'CA': ('ft:1oadWhheDKaonOPhIJ9lJVCwnOt5g0G644p3FC9oy', [2014], 0.5),
     # 'EastStates': ('ft:1AZUak3iuAtah1SHpkLfw0IRk_U5ei23VsPzBWxpD', [1987, 2001, 2004, 2007, 2016], 0.5),
     # 'ID': ('ft:1jDB3C181w1PGVamr64-ewpJVDQkzJc4Bvd1IPAFg', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
     # 'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2001, 2011)], 0.5),
     # 'OR': ('ft:1FJMi4VXUe4BrhU6u0OF2l0uFU_rGUe3rFrSSSBVD', [1994, 1997, 2011], 0.5),
-    # 'UCRB_WY': ('ft:1M0GDErc0dgoYajU_HStZBkp-hBL4kUiZufFdtWHG', [1989, 1996, 2010, 2013, 2016], 0.5),  # a.k.a. 2000
-    # 'UCRB_UT_CO': ('ft:1Av2WlcPRBd7JZqYOU73VCLOJ-b5q6H5u6Bboebdv', [1998, 2003, 2006, 2013, 2016], 0.5),  # a.k.a. 2005
-    # 'UCRB_UT': ('ft:144ymxhlcv8lj1u_BYQFEC1ITmiISW52q5JvxSVyk', [1998, 2003, 2006, 2013, 2016], 0.5),  # a.k.a. 2006
-    # 'UCRB_NM': ('ft:1pBSJDPdFDHARbdc5vpT5FzRek-3KXLKjNBeVyGdR', [1987, 2001, 2004, 2007, 2016], 0.4),  # a.k.a. 2009
     # 'UT': ('ft:1oA0v3UUBQj3qn9sa_pDJ8bwsAphfRZUlwwPWpFrT', [1998, 2003, 2006, 2013, 2016], 0.5),
     # 'WA': ('ft:1tGN7UdKijI7gZgna19wJ-cKMumSKRwsfEQQZNQjl', [1997, 1996], 0.5),
+}
+
+ID = {
+
+    'ID_1986': ('ft:1rAO90xDcSyR1GTKjAN4Z12vf2mVy8iKRr7vorhLr', [1986], 0.5),
+    'ID_1996': ('ft:1Injcz-Q3HgQ_gip9ZEMqUAmihqbjTOEYHThuoGmL', [1996], 0.5),
+    'ID_2002': ('ft:14pePO5Wr7Hcbz_VHuUYd_f5ReblXtvUFS3BrCpI2', [2002], 0.5),
+    'ID_2006': ('ft:1NM9NsQJfdNAEwmZXyo5o78ha4PhgsErWzfttfZM1', [2006], 0.5),
+    'ID_2008': ('ft:1VK5sWEgD35fz4pNNbg9sy6nlBD_lIl_t-ELyWbC9', [2008], 0.5),
+    'ID_2009': ('ft:1RtW_lu3hFcpzZ_UUT_xPUsHarAZoenV4AibeFeBz', [2009], 0.5),
+    'ID_2010': ('ft:1BSxEsy_oDUnWsWsQYJFRPaEvKsF-H_bDNE_gpBS7', [2010], 0.5),
+    'ID_2011': ('ft:1NxN6aOViiJBklaUEEeGJJo6Kpy-QB10f_yGWOUyC', [2011], 0.5),
 }
 
 
@@ -83,7 +97,7 @@ def export_classification(file_prefix):
 
 
 def filter_irrigated():
-    for k, v in IRR.items():
+    for k, v in ID.items():
         plots = ee.FeatureCollection(v[0])
 
         for year in v[1]:
