@@ -26,7 +26,7 @@ from pprint import pprint
 import ee
 
 ROI = 'users/dgketchum/boundaries/western_states_expanded_union'
-ROI_MT = 'users/dgketchum/boundaries/MT'
+ROI_MT = 'users/dgketchum/boundaries/MT_3927'
 
 PLOTS = 'ft:1nNO0AfiHcZk5a_aPSr2Oo2gHqu7tvEcYn-w0RgvL'  # 100k
 # PLOTS = 'ft:1oSEFGaE6wc08c_xMunUxfTqLpwR-cCL8vopDtqLi'  # 2k
@@ -34,23 +34,20 @@ PLOTS = 'ft:1nNO0AfiHcZk5a_aPSr2Oo2gHqu7tvEcYn-w0RgvL'  # 100k
 TABLE = 'ft:1AEkGeGUjaVoE4ct-zR30o7BtujvdLjIGanRAhuO7'  # 100k extract eF
 # TABLE = 'ft:1AEkGeGUjaVoE4ct-zR30o7BtujvdLjIGanRAhuO7'  # 2k extract eF
 
-# YEARS = [1986, 1987, 1991, 1996, 1997, 1998, 1999] + list(range(2000, 2018))
-YEARS = list(range(2008, 2014))
+# IRR = {
+#     'Acequias': ('ft:1emF9Imjj8GPxpRmPU2Oze2hPeojPS4O6udIQNTgX', [1987, 2001, 2004, 2007, 2016], 0.5),
+#     'CO_DIV1': ('ft:1wRNUsKChMUb9rUWDbxOeGeTaNWNZUA0YHXSLXPv2', [1998, 2003, 2006, 2013, 2016], 0.5),
+#     'CO_SanLuis': ('ft:1mcBXyFw1PoVOoAGibDpZjCgb001jA_Mj_hyd-h92', [1998, 2003, 2006, 2013, 2016], 0.5),
+#     'CA': ('ft:1oadWhheDKaonOPhIJ9lJVCwnOt5g0G644p3FC9oy', [2014], 0.5),
+#     'EastStates': ('ft:1AZUak3iuAtah1SHpkLfw0IRk_U5ei23VsPzBWxpD', [1987, 2001, 2004, 2007, 2016], 0.5),
+#     'ID': ('ft:1jDB3C181w1PGVamr64-ewpJVDQkzJc4Bvd1IPAFg', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
+#     'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2001, 2011)], 0.5),
+#     'OR': ('ft:1FJMi4VXUe4BrhU6u0OF2l0uFU_rGUe3rFrSSSBVD', [1994, 1997, 2011], 0.5),
+#     'UT': ('ft:1oA0v3UUBQj3qn9sa_pDJ8bwsAphfRZUlwwPWpFrT', [1998, 2003, 2006, 2013, 2016], 0.5),
+#     'WA': ('ft:1tGN7UdKijI7gZgna19wJ-cKMumSKRwsfEQQZNQjl', [1997, 1996], 0.5),
+# }
 
-IRR = {
-    # 'Acequias': ('ft:1emF9Imjj8GPxpRmPU2Oze2hPeojPS4O6udIQNTgX', [1987, 2001, 2004, 2007, 2016], 0.5),
-    # 'CO_DIV1': ('ft:1wRNUsKChMUb9rUWDbxOeGeTaNWNZUA0YHXSLXPv2', [1998, 2003, 2006, 2013, 2016], 0.5),
-    # 'CO_SanLuis': ('ft:1mcBXyFw1PoVOoAGibDpZjCgb001jA_Mj_hyd-h92', [1998, 2003, 2006, 2013, 2016], 0.5),
-    # 'CA': ('ft:1oadWhheDKaonOPhIJ9lJVCwnOt5g0G644p3FC9oy', [2014], 0.5),
-    # 'EastStates': ('ft:1AZUak3iuAtah1SHpkLfw0IRk_U5ei23VsPzBWxpD', [1987, 2001, 2004, 2007, 2016], 0.5),
-    # 'ID': ('ft:1jDB3C181w1PGVamr64-ewpJVDQkzJc4Bvd1IPAFg', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
-    # 'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2001, 2011)], 0.5),
-    # 'OR': ('ft:1FJMi4VXUe4BrhU6u0OF2l0uFU_rGUe3rFrSSSBVD', [1994, 1997, 2011], 0.5),
-    # 'UT': ('ft:1oA0v3UUBQj3qn9sa_pDJ8bwsAphfRZUlwwPWpFrT', [1998, 2003, 2006, 2013, 2016], 0.5),
-    # 'WA': ('ft:1tGN7UdKijI7gZgna19wJ-cKMumSKRwsfEQQZNQjl', [1997, 1996], 0.5),
-}
-
-ID = {
+ID_IRR = {
 
     'ID_1986': ('ft:1rAO90xDcSyR1GTKjAN4Z12vf2mVy8iKRr7vorhLr', [1986], 0.5),
     'ID_1996': ('ft:1Injcz-Q3HgQ_gip9ZEMqUAmihqbjTOEYHThuoGmL', [1996], 0.5),
@@ -63,9 +60,12 @@ ID = {
 }
 
 
+YEARS = [1986, 1996, 2002, 2006, 2008, 2009, 2010, 2011, 1987, 2001, 2004,
+         2007, 2016, 1998, 2003, 2013, 2014, 1988, 2017, 2005, 1994, 1997]
+
+
 def export_classification(file_prefix):
     fc = ee.FeatureCollection(TABLE)
-
     roi = ee.FeatureCollection(ROI_MT)
 
     classifier = ee.Classifier.randomForest(
@@ -84,10 +84,11 @@ def export_classification(file_prefix):
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.classify(trained_model)
 
-        task = ee.batch.Export.image.toAsset(
+        task = ee.batch.Export.image.toCloudStorage(
             image=classified_img,
             description='{}_{}'.format(file_prefix, yr),
-            assetId='users/dgketchum/classy/{}_{}'.format(file_prefix, yr),
+            bucket='wudr',
+            fileNamePrefix='{}_{}'.format(yr, file_prefix),
             scale=30,
             maxPixels=1e12)
 
@@ -97,7 +98,7 @@ def export_classification(file_prefix):
 
 
 def filter_irrigated():
-    for k, v in ID.items():
+    for k, v in ID_IRR.items():
         plots = ee.FeatureCollection(v[0])
 
         for year in v[1]:
@@ -311,5 +312,6 @@ def is_authorized():
 if __name__ == '__main__':
     is_authorized()
     # request_band_extract('eF_2k_MT')
-    filter_irrigated()
+    # filter_irrigated()
+    # export_classification('MT_3927_7NOV')
 # ========================= EOF ====================================================================

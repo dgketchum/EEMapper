@@ -94,13 +94,13 @@ def mlp(csv):
                 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
                 print('Test accuracy: {}, loss {}'.format(accuracy.eval({X: x_test, Y: y_test}), loss))
 
-    print((datetime.now() - start).seconds)
+    print('training time: {} seconds'.format(datetime.now() - start).seconds)
     return None
 
 
 def random_forest(csv):
     os.environ["CUDA_VISIBLE_DEVICES"] = ""
-
+    start = datetime.now()
     df = read_csv(csv, engine='python')
     labels = df['POINT_TYPE'].values
     df.drop(columns=['YEAR', 'POINT_TYPE'], inplace=True)
@@ -120,12 +120,13 @@ def random_forest(csv):
     max_nodes = 1000
 
     X = tf.placeholder(tf.float32, shape=[None, num_features])
-    Y = tf.placeholder(tf.int32, shape=[None])
+    Y = tf.placeholder(tf.int32, shape=[None, num_classes])
 
     hparams = tensor_forest.ForestHParams(num_classes=num_classes,
                                           num_features=num_features,
                                           num_trees=num_trees,
-                                          max_nodes=max_nodes).fill()
+                                          max_nodes=max_nodes,
+                                          regression=False).fill()
 
     forest_graph = tensor_forest.RandomForestGraphs(hparams)
     train_op = forest_graph.training_graph(X, Y)
@@ -145,13 +146,17 @@ def random_forest(csv):
         offset = randint(0, y.shape[0] - batch_size - 1)
         batch_data = x[offset:(offset + batch_size), :]
         batch_labels = y[offset:(offset + batch_size), :]
-        _, l = sess.run([train_op, loss_op], feed_dict={X: batch_data, Y: batch_labels})
+        feed_dict = {X: batch_data, Y: batch_labels}
 
-        if i % 50 == 0 or i == 1:
-            acc = sess.run(accuracy_op, feed_dict={X: batch_data, Y: batch_labels})
-            print('Step %i, Loss: %f, Acc: %f' % (i, l, acc))
+        _, l = sess.run([train_op, loss_op], feed_dict=feed_dict)
+
+        if i % 100 == 0:
+            correct_prediction = tf.equal(tf.argmax(pred, 1), tf.argmax(Y, 1))
+            accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+            print('Test accuracy: {}, loss {}'.format(accuracy.eval({X: x_test, Y: y_test}), loss))
 
     print("Test Accuracy:", sess.run(accuracy_op, feed_dict={X: x_test, Y: y_test}))
+    print('training time: {} seconds'.format(datetime.now() - start).seconds)
 
 
 def multilayer_perceptron(x, weights, biases):
