@@ -20,32 +20,27 @@ import fiona
 from numpy import linspace, max, ceil
 from numpy.random import shuffle
 from pandas import DataFrame
-from pyproj import Proj
 from shapely.geometry import shape, Point, mapping
 
-training = os.path.join(os.path.expanduser('~'), 'data_mt', 'IrrigationGIS', 'EE_sample')
+training = os.path.join(os.path.expanduser('~'), 'IrrigationGIS', 'EE_sample')
 
-WETLAND = os.path.join(training, 'wetlands.shp')
-UNCULTIVATED = os.path.join(training, 'uncultivated.shp')
-IRRIGATED = os.path.join(training, 'irrigated.shp')
-UNIRRIGATED = os.path.join(training, 'unirrigated.shp')
-
-YEARS = list(range(1984, 2018))
+WETLAND = os.path.join(training, 'wetlands_8NOV.shp')
+UNCULTIVATED = os.path.join(training, 'uncultivated_8NOV.shp')
+IRRIGATED = os.path.join(training, 'irrigated_8NOV.shp')
+UNIRRIGATED = os.path.join(training, 'unirrigated_8NOV.shp')
 
 
 class PointsRunspec(object):
 
-    def __init__(self, root, **kwargs):
+    def __init__(self, root, buffer, **kwargs):
         self.root = root
         self.features = []
         self.object_id = 0
         self.year = None
-        self.aea = Proj(
-            '+proj=aea +lat_1=20 +lat_2=60 +lat_0=40 +lon_0=-96'
-            ' +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs')
-        self.wgs = Proj('+init=EPSG:4326')
         self.meta = None
         self.extracted_points = DataFrame(columns=['FID', 'X', 'Y', 'POINT_TYPE', 'YEAR'])
+
+        self.buffer = buffer
 
         self.irr_path = IRRIGATED
         self.unirr_path = UNIRRIGATED
@@ -87,11 +82,23 @@ class PointsRunspec(object):
         positive_area = sum([x.area for x in polygons])
         print('area: {} in {} features'.format(positive_area / 1e6, len(polygons)))
         for i, poly in enumerate(polygons):
+
             if attribute:
                 self.year = years[i]
+
+            if self.buffer:
+                buf_poly = poly.buffer(self.buffer, resolution=128)
+            else:
+                buf_poly = poly
+
             fractional_area = poly.area / positive_area
             required_points = max([1, fractional_area * n])
-            x_range, y_range = self._random_points(poly.bounds, n)
+
+            try:
+                x_range, y_range = self._random_points(buf_poly.bounds, n)
+            except IndexError:
+                x_range, y_range = self._random_points(poly.bounds, n)
+
             poly_pt_ct = 0
             for coord in zip(x_range, y_range):
                 if Point(coord[0], coord[1]).within(poly):
@@ -164,13 +171,13 @@ if __name__ == '__main__':
     extract = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'point_shp')
 
     kwargs = {
-        'irrigated': 100,
-        'wetlands': 100,
-        'uncultivated': 100,
-        'unirrigated': 100,
+        'irrigated': 200000,
+        'wetlands': 100000,
+        'uncultivated': 100000,
+        'unirrigated': 100000,
     }
 
-    prs = PointsRunspec(gis, **kwargs)
+    prs = PointsRunspec(gis, **kwargs, buffer=-15)
     prs.save_sample_points(os.path.join(extract, 'sample_test_yrsPSF.shp'.format()))
 
 # ========================= EOF ====================================================================
