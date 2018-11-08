@@ -18,7 +18,7 @@ import os
 from subprocess import check_call
 
 
-def convert_kml_to_shp(ogr_path, in_dir, out_dir, t_srs, s_srs):
+def convert_kml_to_shp(ogr_path, in_dir, out_dir, t_srs, s_srs, skip_existing=False):
     l = [os.path.join(in_dir, x) for x in os.listdir(in_dir) if x.endswith('.kml')]
     l.sort()
     for s in l:
@@ -26,10 +26,18 @@ def convert_kml_to_shp(ogr_path, in_dir, out_dir, t_srs, s_srs):
             name_in = os.path.basename(s)
             name_out = name_in.replace('ee_export.kml', '.shp')
             out_shp = os.path.join(out_dir, name_out)
-            cmd = ['{}'.format(ogr_path), '{}'.format(out_shp), '{}'.format(s),
-                   '-t_srs', 'EPSG:{}'.format(t_srs), '-s_srs', 'EPSG:{}'.format(s_srs),
-                   '-skipfailures', '-nlt', 'geometry']
-            check_call(cmd)
+            if not os.path.exists(out_shp):
+                cmd = ['{}'.format(ogr_path), '{}'.format(out_shp), '{}'.format(s),
+                       '-t_srs', 'EPSG:{}'.format(t_srs), '-s_srs', 'EPSG:{}'.format(s_srs),
+                       '-skipfailures', '-nlt', 'geometry']
+                check_call(cmd)
+            elif not skip_existing:
+                cmd = ['{}'.format(ogr_path), '{}'.format(out_shp), '{}'.format(s),
+                       '-t_srs', 'EPSG:{}'.format(t_srs), '-s_srs', 'EPSG:{}'.format(s_srs),
+                       '-skipfailures', '-nlt', 'geometry']
+                check_call(cmd)
+            else:
+                print('skipping {}'.format(out_shp))
         except:
             pass
 
@@ -50,5 +58,5 @@ if __name__ == '__main__':
     #
     # rename(os.path.join(irr, 'NM'), 'Farmington', '_WGS84', '')
     #
-    convert_kml_to_shp(ogr, _in, out, '4326', '4326')
+    convert_kml_to_shp(ogr, _in, out, '4326', '4326', skip_existing=True)
 # ========================= EOF ====================================================================
