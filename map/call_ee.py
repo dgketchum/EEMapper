@@ -82,7 +82,7 @@ def export_classification(file_prefix):
     for yr in YEARS:
         input_bands = stack_bands(yr, roi)
         annual_stack = input_bands.select(input_props)
-        classified_img = annual_stack.classify(trained_model)
+        classified_img = annual_stack.classify(trained_model).int()
 
         task = ee.batch.Export.image.toCloudStorage(
             image=classified_img,
@@ -90,7 +90,7 @@ def export_classification(file_prefix):
             bucket='wudr',
             fileNamePrefix='{}_{}'.format(yr, file_prefix),
             scale=30,
-            maxPixels=1e12)
+            maxPixels=1e10)
 
         task.start()
         print(yr)
@@ -313,5 +313,5 @@ if __name__ == '__main__':
     is_authorized()
     # request_band_extract('eF_2k_MT')
     # filter_irrigated()
-    # export_classification('MT_3927_7NOV')
+    export_classification('MT_3927_7NOVcloud')
 # ========================= EOF ====================================================================
