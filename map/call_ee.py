@@ -20,13 +20,15 @@
 # 'UCRB_NM': ('ft:1pBSJDPdFDHARbdc5vpT5FzRek-3KXLKjNBeVyGdR', [1987, 2001, 2004, 2007, 2016], 0.4),  # a.k.a. 2009
 # ===============================================================================
 
+import os
 from datetime import datetime
 from pprint import pprint
 
 import ee
 
 ROI = 'users/dgketchum/boundaries/western_states_expanded_union'
-ROI_MT = 'users/dgketchum/boundaries/MT_3927'
+ROI_MT = 'users/dgketchum/boundaries/MT'
+ASSET = 'users/dgketchum/classy'
 
 PLOTS = 'ft:1nNO0AfiHcZk5a_aPSr2Oo2gHqu7tvEcYn-w0RgvL'  # 100k
 # PLOTS = 'ft:1oSEFGaE6wc08c_xMunUxfTqLpwR-cCL8vopDtqLi'  # 2k
@@ -63,13 +65,13 @@ ID_IRR = {
 YEARS = [1986, 1996, 2002, 2006, 2008, 2009, 2010, 2011, 1987, 2001, 2004,
          2007, 2016, 1998, 2003, 2013, 2014, 1988, 2017, 2005, 1994, 1997]
 
+TEST_YEARS = [2010]
 
-def export_classification(file_prefix):
+
+def export_classification(file_prefix, out_name):
     fc = ee.FeatureCollection(TABLE)
     roi = ee.FeatureCollection(ROI_MT)
     mask = roi.geometry().bounds().getInfo()['coordinates']
-
-    print(mask)
 
     classifier = ee.Classifier.randomForest(
         numberOfTrees=50,
@@ -82,15 +84,15 @@ def export_classification(file_prefix):
     input_props = fc.first().propertyNames().remove('YEAR').remove('POINT_TYPE').remove('system:index')
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
-    for yr in YEARS:
+    for yr in TEST_YEARS:
         input_bands = stack_bands(yr, roi)
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.classify(trained_model).int()
 
-        task = ee.batch.Export.image.toCloudStorage(
+        task = ee.batch.Export.image.toAsset(
             image=classified_img,
             description='{}_{}'.format(file_prefix, yr),
-            bucket='wudr',
+            assetId=os.path.join(ASSET, out_name),
             fileNamePrefix='{}_{}'.format(yr, file_prefix),
             region=mask,
             scale=30,
@@ -317,5 +319,5 @@ if __name__ == '__main__':
     is_authorized()
     # request_band_extract('eF_2k_MT')
     # filter_irrigated()
-    export_classification('MT_3927_7NOVcloud')
+    export_classification('MT_7NOVcloud', out_name='MT_100keF')
 # ========================= EOF ====================================================================
