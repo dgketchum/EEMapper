@@ -37,11 +37,12 @@ TABLE = 'ft:1AEkGeGUjaVoE4ct-zR30o7BtujvdLjIGanRAhuO7'  # 100k extract eF
 # TABLE = 'ft:1AEkGeGUjaVoE4ct-zR30o7BtujvdLjIGanRAhuO7'  # 2k extract eF
 
 IRR = {
-    'Acequias': ('ft:1j_Z6exiBQy5NlVLZUe25AsFp-jSfCHn_HAWGT06D', [1987, 2001, 2004, 2007, 2016], 0.5),
+    # 'Acequias': ('ft:1j_Z6exiBQy5NlVLZUe25AsFp-jSfCHn_HAWGT06D', [1987, 2001, 2004, 2007, 2016], 0.5),
     # 'CO_DIV1': ('ft:1wRNUsKChMUb9rUWDbxOeGeTaNWNZUA0YHXSLXPv2', [1998, 2003, 2006, 2013, 2016], 0.5),
     # 'CO_SanLuis': ('ft:1mcBXyFw1PoVOoAGibDpZjCgb001jA_Mj_hyd-h92', [1998, 2003, 2006, 2013, 2016], 0.5),
     # 'CA': ('ft:1oadWhheDKaonOPhIJ9lJVCwnOt5g0G644p3FC9oy', [2014], 0.5),
     # 'EastStates': ('ft:1AZUak3iuAtah1SHpkLfw0IRk_U5ei23VsPzBWxpD', [1987, 2001, 2004, 2007, 2016], 0.5),
+    'OK': ('ft:1EjuYeilOTU3el9GsYZZXCi6sNC7z_jJ6mGa2wHIe', [2006, 2007, 2011, 2013, 2015], 0.5),
     # 'ID': ('ft:1jDB3C181w1PGVamr64-ewpJVDQkzJc4Bvd1IPAFg', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
     # 'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2001, 2011)], 0.5),
     # 'OR': ('ft:1FJMi4VXUe4BrhU6u0OF2l0uFU_rGUe3rFrSSSBVD', [1994, 1997, 2011], 0.5),
@@ -61,9 +62,8 @@ ID_IRR = {
     'ID_2011': ('ft:1NxN6aOViiJBklaUEEeGJJo6Kpy-QB10f_yGWOUyC', [2011], 0.5),
 }
 
-
-YEARS = [1986, 1996, 2002, 2006, 2008, 2009, 2010, 2011, 1987, 2001, 2004,
-         2007, 2016, 1998, 2003, 2013, 2014, 1988, 2017, 2005, 1994, 1997]
+YEARS = [1986, 1987, 1988, 1994, 1996, 1997, 1998, 2001, 2002, 2003, 2004,
+         2005, 2006, 2007, 2008, 2009, 2010, 2011, 2013, 2014, 2016, 2017]
 
 TEST_YEARS = [2010]
 
@@ -83,24 +83,32 @@ def export_classification(file_prefix, out_name):
 
     input_props = fc.first().propertyNames().remove('YEAR').remove('POINT_TYPE').remove('system:index')
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
+    confusion = trained_model.confusionMatrix()
 
-    for yr in TEST_YEARS:
-        input_bands = stack_bands(yr, roi)
-        annual_stack = input_bands.select(input_props)
-        classified_img = annual_stack.classify(trained_model).int()
+    exportAccuracy = ee.Feature(confusion)
+    table_task = ee.batch.Export.table.toDrive(exportAccuracy,
+                                               description='confusion matrix_{}'.format(file_prefix),
+                                               fileFormat='CSV',
+                                               )
+    table_task.start()
 
-        task = ee.batch.Export.image.toAsset(
-            image=classified_img,
-            description='{}_{}'.format(file_prefix, yr),
-            assetId=os.path.join(ASSET, out_name),
-            fileNamePrefix='{}_{}'.format(yr, file_prefix),
-            region=mask,
-            scale=30,
-            maxPixels=1e10)
-
-        task.start()
-        print(yr)
-        break
+    # for yr in TEST_YEARS:
+    #     input_bands = stack_bands(yr, roi)
+    #     annual_stack = input_bands.select(input_props)
+    #     classified_img = annual_stack.classify(trained_model).int()
+    #
+    #     task = ee.batch.Export.image.toAsset(
+    #         image=classified_img,
+    #         description='{}_{}'.format(file_prefix, yr),
+    #         assetId=os.path.join(ASSET, out_name),
+    #         fileNamePrefix='{}_{}'.format(yr, file_prefix),
+    #         region=mask,
+    #         scale=30,
+    #         maxPixels=1e10)
+    #
+    #     task.start()
+    #     print(yr)
+    #     break
 
 
 def filter_irrigated():
@@ -194,6 +202,9 @@ def stack_bands(yr, roi):
     lsSR_sum_mn = ee.Image(lsSR_masked.filterDate(summer_s, fall_s).mean())
     lsSR_fal_mn = ee.Image(lsSR_masked.filterDate(fall_s, end_date).mean())
 
+    proj = lsSR_fal_mn.select('B2').projection().getInfo()
+    crs = lsSR_fal_mn.select('B2').projection().crs().getInfo()
+
     gridmet = ee.ImageCollection("IDAHO_EPSCOR/GRIDMET").filterBounds(
         roi).filterDate(start, end_date).select('pr', 'eto', 'tmmn', 'tmmx')
     temp_reducer = ee.Reducer.percentile([10, 50, 90])
@@ -219,7 +230,8 @@ def stack_bands(yr, roi):
     tpi_150 = elev.subtract(elev.focal_mean(150, 'circle', 'meters')).add(0.5).rename('tpi_150')
     static_input_bands = static_input_bands.addBands([tpi_1250, tpi_250, tpi_150, world_climate])
 
-    input_bands = input_bands.addBands(static_input_bands).clip(roi)
+    input_bands = input_bands.addBands(static_input_bands).clip(roi).reproject(crs=proj['crs'],
+                                                                               scale=30)
     return input_bands
 
 
@@ -319,5 +331,5 @@ if __name__ == '__main__':
     is_authorized()
     # request_band_extract('eF_2k_MT')
     # filter_irrigated()
-    export_classification('MT_7NOVcloud', out_name='MT_100keF')
+    export_classification('MT_8NOVcloud', out_name='MT_100keF_reproj')
 # ========================= EOF ====================================================================
