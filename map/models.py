@@ -44,7 +44,7 @@ def mlp(csv):
     print('')
     print('train on {}'.format(data.shape))
 
-    nodes = 300
+    nodes = 500
     eta = 0.01
     epochs = 10000
     seed = 128
@@ -92,9 +92,10 @@ def mlp(csv):
                 pred = tf.nn.softmax(y_pred)
                 correct_prediction = tf.equal(tf.argmax(pred, 1), tf.argmax(Y, 1))
                 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-                print('Test accuracy: {}, loss {}'.format(accuracy.eval({X: x_test, Y: y_test}), loss))
 
-    print('training time: {} seconds'.format(datetime.now() - start).seconds)
+        print('Test accuracy: {}, loss {}'.format(accuracy.eval({X: x_test, Y: y_test}), loss))
+
+    print('training time: {} seconds'.format((datetime.now() - start).seconds))
     return None
 
 
@@ -151,9 +152,9 @@ def random_forest(csv):
         _, l = sess.run([train_op, loss_op], feed_dict=feed_dict)
 
         if i % 100 == 0:
-            correct_prediction = tf.equal(tf.argmax(pred, 1), tf.argmax(Y, 1))
-            accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-            print('Test accuracy: {}, loss {}'.format(accuracy.eval({X: x_test, Y: y_test}), loss))
+            pred = sess.run(correct_prediction, feed_dict={X: x_test, Y: y_test})
+            accuracy = tf.reduce_mean(tf.cast(pred, tf.float32))
+            print('Test accuracy: {}, loss {}'.format(accuracy.eval({X: x_test, Y: y_test}), l))
 
     print("Test Accuracy:", sess.run(accuracy_op, feed_dict={X: x_test, Y: y_test}))
     print('training time: {} seconds'.format(datetime.now() - start).seconds)
