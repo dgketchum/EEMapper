@@ -27,7 +27,7 @@ from pprint import pprint
 import ee
 
 ROI = 'users/dgketchum/boundaries/western_states_expanded_union'
-ROI_MT = 'users/dgketchum/boundaries/MT'
+ROI_MT = 'users/dgketchum/boundaries/MT_3927'
 ASSET = 'users/dgketchum/classy'
 
 PLOTS = 'ft:1nNO0AfiHcZk5a_aPSr2Oo2gHqu7tvEcYn-w0RgvL'  # 100k
@@ -207,41 +207,52 @@ def stack_bands(yr, roi):
     crs = lsSR_fal_mn.select('B2').projection().crs().getInfo()
 
     gridmet = ee.ImageCollection("IDAHO_EPSCOR/GRIDMET").filterBounds(
-        roi).filterDate(start, end_date).select('pr', 'eto', 'tmmn', 'tmmx')
+        roi).filterDate(start, end_date).select('pr', 'eto', 'tmmn', 'tmmx').resample('bilinear').reproject(
+        crs=proj['crs'],
+        scale=30)
+
     temp_reducer = ee.Reducer.percentile([10, 50, 90])
     t_names = ['tmmn_p10_cy', 'tmmn_p50_cy', 'tmmn_p90_cy', 'tmmx_p10_cy', 'tmmx_p50_cy', 'tmmx_p90_cy']
-    temp_perc = gridmet.select('tmmn', 'tmmx').reduce(temp_reducer).rename(t_names)
+    temp_perc = gridmet.select('tmmn', 'tmmx').reduce(temp_reducer).rename(t_names).resample(
+        'bilinear').reproject(crs=proj['crs'], scale=30)
+
     precip_reducer = ee.Reducer.sum()
-    precip_sum = gridmet.select('pr', 'eto').reduce(precip_reducer).rename('precip_total_cy', 'pet_total_cy')
+    precip_sum = gridmet.select('pr', 'eto').reduce(precip_reducer).rename(
+        'precip_total_cy', 'pet_total_cy').resample('bilinear').reproject(crs=proj['crs'], scale=30)
     wd_estimate = precip_sum.select('precip_total_cy').subtract(precip_sum.select(
         'pet_total_cy')).rename('wd_est_cy')
     input_bands = lsSR_spr_mn.addBands([lsSR_sum_mn, lsSR_fal_mn, temp_perc, precip_sum, wd_estimate])
+    coords = ee.Image.pixelLonLat().rename(['Lon_GCS', 'LAT_GCS']).resample('bilinear').reproject(crs=proj['crs'],
+                                                                                                  scale=30)
 
-    coords = ee.Image.pixelLonLat().rename(['Lon_GCS', 'LAT_GCS'])
     static_input_bands = coords
     ned = ee.Image('USGS/NED')
-    terrain = ee.Terrain.products(ned).select('elevation', 'slope', 'aspect')
+    terrain = ee.Terrain.products(ned).select('elevation', 'slope', 'aspect').reduceResolution(
+        ee.Reducer.mean()).reproject(crs=proj['crs'], scale=30)
     static_input_bands = static_input_bands.addBands(terrain)
 
     # Extended Fetures/ eF
-    world_climate = get_world_climate()
+    world_climate = get_world_climate(proj=proj)
     elev = terrain.select('elevation')
     tpi_1250 = elev.subtract(elev.focal_mean(1250, 'circle', 'meters')).add(0.5).rename('tpi_1250')
     tpi_250 = elev.subtract(elev.focal_mean(250, 'circle', 'meters')).add(0.5).rename('tpi_250')
     tpi_150 = elev.subtract(elev.focal_mean(150, 'circle', 'meters')).add(0.5).rename('tpi_150')
     static_input_bands = static_input_bands.addBands([tpi_1250, tpi_250, tpi_150, world_climate])
 
-    input_bands = input_bands.addBands(static_input_bands).clip(roi).reproject(crs=proj['crs'],
-                                                                               scale=30)
+    input_bands = input_bands.addBands(static_input_bands).clip(roi)
     return input_bands
 
 
-def get_world_climate():
+def get_world_climate(proj):
     n = list(range(1, 13))
     months = [str(x).zfill(2) for x in n]
     parameters = ['tavg', 'tmin', 'tmax', 'prec']
     combinations = [(m, p) for m in months for p in parameters]
-    l = [ee.Image('WORLDCLIM/V1/MONTHLY/{}'.format(m)).select(p) for m, p in combinations]
+
+    l = [ee.Image('WORLDCLIM/V1/MONTHLY/{}'.format(m)).select(p).resample('bilinear').reproject(crs=proj['crs'],
+                                                                                                scale=30) for m, p in
+         combinations]
+
     i = ee.Image(l[0])
     i = i.addBands(l)
     return i
