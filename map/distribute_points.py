@@ -37,7 +37,7 @@ class PointsRunspec(object):
         self.features = []
         self.object_id = 0
         self.year = None
-        self.meta = None
+        self.crs = None
         self.extracted_points = DataFrame(columns=['FID', 'X', 'Y', 'POINT_TYPE', 'YEAR'])
 
         self.buffer = buffer
@@ -133,8 +133,7 @@ class PointsRunspec(object):
         points_schema = {
             'properties': dict([('FID', 'int:10'), ('POINT_TYPE', 'int:10'), ('YEAR', 'int:10')]),
             'geometry': 'Point'}
-        crs = {'proj': 'longlat', 'ellps': 'WGS84', 'datum': 'WGS84'}
-        meta = {'driver': 'ESRI Shapefile', 'schema': points_schema, 'crs': crs}
+        meta = {'driver': 'ESRI Shapefile', 'schema': points_schema, 'crs': self.crs}
 
         with fiona.open(path, 'w', **meta) as output:
             for index, row in self.extracted_points.iterrows():
@@ -149,6 +148,10 @@ class PointsRunspec(object):
 
     def _get_polygons(self, vector, attr=None):
         with fiona.open(vector, 'r') as src:
+            if not self.crs:
+                self.crs = src.crs
+            else:
+                assert src.crs == self.crs
             polys = []
             bad_geo_count = 0
             for feat in src:
@@ -171,13 +174,13 @@ if __name__ == '__main__':
     extract = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'point_shp')
 
     kwargs = {
-        'irrigated': 200000,
-        'wetlands': 100000,
-        'uncultivated': 100000,
-        'unirrigated': 100000,
+        'irrigated': 30000,
+        'wetlands': 10000,
+        'uncultivated': 10000,
+        'unirrigated': 10000,
     }
 
     prs = PointsRunspec(gis, **kwargs, buffer=-15)
-    prs.save_sample_points(os.path.join(extract, 'sample_test_yrsPSF.shp'.format()))
+    prs.save_sample_points(os.path.join(extract, 'points_60k_9NOV18.shp'.format()))
 
 # ========================= EOF ====================================================================
