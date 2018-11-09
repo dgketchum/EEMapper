@@ -110,55 +110,6 @@ def random_forest(csv):
     x = normalize_feature_array(data)
     y = get_dummies(labels.reshape((labels.shape[0],))).values
 
-    x, x_test, y, y_test = train_test_split(x, y, test_size=0.33,
-                                            random_state=None)
-
-    num_steps = 500
-    batch_size = 1024
-    num_classes = 4
-    num_features = len(df.columns)
-    num_trees = 75
-    max_nodes = 1000
-
-    X = tf.placeholder(tf.float32, shape=[None, num_features])
-    Y = tf.placeholder(tf.int32, shape=[None, num_classes])
-
-    hparams = tensor_forest.ForestHParams(num_classes=num_classes,
-                                          num_features=num_features,
-                                          num_trees=num_trees,
-                                          max_nodes=max_nodes,
-                                          regression=False).fill()
-
-    forest_graph = tensor_forest.RandomForestGraphs(hparams)
-    train_op = forest_graph.training_graph(X, Y)
-    loss_op = forest_graph.training_loss(X, Y)
-
-    infer_op, _, _ = forest_graph.inference_graph(X)
-    correct_prediction = tf.equal(tf.argmax(infer_op, 1), tf.cast(Y, tf.int64))
-    accuracy_op = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-
-    init_vars = tf.group(tf.global_variables_initializer(),
-                         resources.initialize_resources(resources.shared_resources()))
-    sess = tf.Session()
-    sess.run(init_vars)
-
-    for i in range(1, num_steps + 1):
-
-        offset = randint(0, y.shape[0] - batch_size - 1)
-        batch_data = x[offset:(offset + batch_size), :]
-        batch_labels = y[offset:(offset + batch_size), :]
-        feed_dict = {X: batch_data, Y: batch_labels}
-
-        _, l = sess.run([train_op, loss_op], feed_dict=feed_dict)
-
-        if i % 100 == 0:
-            pred = sess.run(correct_prediction, feed_dict={X: x_test, Y: y_test})
-            accuracy = tf.reduce_mean(tf.cast(pred, tf.float32))
-            print('Test accuracy: {}, loss {}'.format(accuracy.eval({X: x_test, Y: y_test}), l))
-
-    print("Test Accuracy:", sess.run(accuracy_op, feed_dict={X: x_test, Y: y_test}))
-    print('training time: {} seconds'.format(datetime.now() - start).seconds)
-
 
 def multilayer_perceptron(x, weights, biases):
     out_layer = tf.add(tf.matmul(x, weights), biases)
