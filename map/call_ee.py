@@ -30,10 +30,13 @@ ROI = 'users/dgketchum/boundaries/western_states_expanded_union'
 ROI_MT = 'users/dgketchum/boundaries/MT_3927'
 ASSET = 'users/dgketchum/classy'
 
-PLOTS = 'ft:1nNO0AfiHcZk5a_aPSr2Oo2gHqu7tvEcYn-w0RgvL'  # 100k
+# PLOTS = 'ft:1nNO0AfiHcZk5a_aPSr2Oo2gHqu7tvEcYn-w0RgvL'  # 100k
+# PLOTS = 'ft:1TuN7nJfElROHPoH_ST9lFf5-AwDJIBo_MvULZZo3'  # 60k
+PLOTS = 'ft:1cTV-veUjcOXrYfEB_-ggf3Sl6-F84k53HIZU4l9Y'  # 30k
 # PLOTS = 'ft:1oSEFGaE6wc08c_xMunUxfTqLpwR-cCL8vopDtqLi'  # 2k
 
 TABLE = 'ft:1AEkGeGUjaVoE4ct-zR30o7BtujvdLjIGanRAhuO7'  # 100k extract eF
+# TABLE = 'ft:1w8arH7yo1BtiOIp3ndHpUzF22G29N1X4M1OJCAtf'  # 100k extract original
 # TABLE = 'ft:1AEkGeGUjaVoE4ct-zR30o7BtujvdLjIGanRAhuO7'  # 2k extract eF
 
 IRR = {
@@ -64,7 +67,7 @@ ID_IRR = {
 }
 
 YEARS = [1986, 1987, 1988, 1994, 1996, 1997, 1998, 2001, 2002, 2003, 2004,
-         2005, 2006, 2007, 2008, 2009, 2010, 2011, 2013, 2014, 2016, 2017]
+         2005, 2006, 2007, 2008, 2009, 2010, 2011, 2013, 2014, 2016]
 
 TEST_YEARS = [2010]
 
@@ -82,34 +85,44 @@ def export_classification(file_prefix, out_name):
         outOfBagMode=False,
         seed=0).setOutputMode('CLASSIFICATION')
 
-    input_props = fc.first().propertyNames().remove('YEAR').remove('POINT_TYPE').remove('system:index')
+    input_props = fc.first().propertyNames().remove('YEAR').remove(
+        'POINT_TYPE').remove('system:index')
+
+    raster_bands = sorted([b for b in input_props.getInfo()])
+    feature_bands = sorted([b for b in fc.first().getInfo()['properties']])
+    feature_bands.remove('POINT_TYPE')
+    feature_bands.remove('YEAR')
+
+    print(raster_bands)
+    print(feature_bands)
+
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
     confusion = trained_model.confusionMatrix()
 
-    exportAccuracy = ee.Feature(confusion)
-    table_task = ee.batch.Export.table.toDrive(exportAccuracy,
-                                               description='confusion matrix_{}'.format(file_prefix),
-                                               fileFormat='CSV',
-                                               )
-    table_task.start()
+    # exportAccuracy = ee.Feature(confusion)
+    # table_task = ee.batch.Export.table.toDrive(exportAccuracy,
+    #                                            description='confusion matrix_{}'.format(file_prefix),
+    #                                            fileFormat='CSV',
+    #                                            )
+    # table_task.start()
 
-    # for yr in TEST_YEARS:
-    #     input_bands = stack_bands(yr, roi)
-    #     annual_stack = input_bands.select(input_props)
-    #     classified_img = annual_stack.classify(trained_model).int()
-    #
-    #     task = ee.batch.Export.image.toAsset(
-    #         image=classified_img,
-    #         description='{}_{}'.format(file_prefix, yr),
-    #         assetId=os.path.join(ASSET, out_name),
-    #         fileNamePrefix='{}_{}'.format(yr, file_prefix),
-    #         region=mask,
-    #         scale=30,
-    #         maxPixels=1e10)
-    #
-    #     task.start()
-    #     print(yr)
-    #     break
+    for yr in TEST_YEARS:
+        input_bands = stack_bands(yr, roi)
+        annual_stack = input_bands.select(input_props)
+        classified_img = annual_stack.classify(trained_model).int()
+
+        task = ee.batch.Export.image.toAsset(
+            image=classified_img,
+            description='{}_{}'.format(file_prefix, yr),
+            assetId=os.path.join(ASSET, out_name),
+            fileNamePrefix='{}_{}'.format(yr, file_prefix),
+            region=mask,
+            scale=30,
+            maxPixels=1e10)
+
+        task.start()
+        print(yr)
+        break
 
 
 def filter_irrigated():
@@ -207,9 +220,7 @@ def stack_bands(yr, roi):
     crs = lsSR_fal_mn.select('B2').projection().crs().getInfo()
 
     gridmet = ee.ImageCollection("IDAHO_EPSCOR/GRIDMET").filterBounds(
-        roi).filterDate(start, end_date).select('pr', 'eto', 'tmmn', 'tmmx').resample('bilinear').reproject(
-        crs=proj['crs'],
-        scale=30)
+        roi).filterDate(start, end_date).select('pr', 'eto', 'tmmn', 'tmmx')
 
     temp_reducer = ee.Reducer.percentile([10, 50, 90])
     t_names = ['tmmn_p10_cy', 'tmmn_p50_cy', 'tmmn_p90_cy', 'tmmx_p10_cy', 'tmmx_p50_cy', 'tmmx_p90_cy']
@@ -240,6 +251,16 @@ def stack_bands(yr, roi):
     static_input_bands = static_input_bands.addBands([tpi_1250, tpi_250, tpi_150, world_climate])
 
     input_bands = input_bands.addBands(static_input_bands).clip(roi)
+
+    # standardize names to match EE javascript output
+    standard_names = []
+    for name in input_bands.bandNames().getInfo():
+        if '_1_1' in name:
+            replace_ = name.replace('_1_1', '_2')
+            standard_names.append(replace_)
+        else:
+            standard_names.append(name)
+    input_bands = input_bands.rename(standard_names)
     return input_bands
 
 
@@ -253,8 +274,8 @@ def get_world_climate(proj):
                                                                                                 scale=30) for m, p in
          combinations]
 
-    i = ee.Image(l[0])
-    i = i.addBands(l)
+    i = ee.Image([0])
+    i = i.addBands(l[1:])
     return i
 
 
@@ -341,7 +362,7 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    # request_band_extract('eF_2k_MT')
-    filter_irrigated()
-    # export_classification('MT_8NOVcloud', out_name='MT_100keF_reproj')
+    request_band_extract('bands_30k_rY_9NOV18')
+    # filter_irrigated()
+    # export_classification('MT_3927_9NOV', out_name='MT_3927_100keF_reprojResample_2')
 # ========================= EOF ====================================================================

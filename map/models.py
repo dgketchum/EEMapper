@@ -17,18 +17,14 @@
 import os
 import sys
 from pprint import pprint
-from numpy import unique, mean
-from numpy.random import randint, shuffle
+from numpy import unique
+from numpy.random import randint
 import tensorflow as tf
-from tensorflow.contrib.tensor_forest.python import tensor_forest
-from tensorflow.python.ops import resources
 from pandas import get_dummies, read_csv
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import r2_score
-from sklearn.model_selection import ShuffleSplit
+
 from sklearn.ensemble import RandomForestClassifier
-from collections import defaultdict
 from datetime import datetime
 
 abspath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
