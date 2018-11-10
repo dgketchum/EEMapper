@@ -18,9 +18,11 @@ import os
 
 import fiona
 from numpy import linspace, max, ceil
-from numpy.random import shuffle
+from numpy.random import shuffle, choice
 from pandas import DataFrame
 from shapely.geometry import shape, Point, mapping
+
+from map.call_ee import YEARS
 
 training = os.path.join(os.path.expanduser('~'), 'IrrigationGIS', 'EE_sample')
 
@@ -79,12 +81,15 @@ class PointsRunspec(object):
         shuffle(polygons)
         if attribute:
             years, polygons = [x[1] for x in polygons], [x[0] for x in polygons]
+
         positive_area = sum([x.area for x in polygons])
         print('area: {} in {} features'.format(positive_area / 1e6, len(polygons)))
         for i, poly in enumerate(polygons):
 
             if attribute:
                 self.year = years[i]
+            else:
+                self.year = choice(YEARS)
 
             if self.buffer:
                 buf_poly = poly.buffer(self.buffer, resolution=128)
@@ -174,13 +179,13 @@ if __name__ == '__main__':
     extract = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'point_shp')
 
     kwargs = {
-        'irrigated': 30000,
-        'wetlands': 10000,
-        'uncultivated': 10000,
-        'unirrigated': 10000,
+        'irrigated': 15000,
+        'wetlands': 5000,
+        'uncultivated': 5000,
+        'unirrigated': 5000,
     }
 
     prs = PointsRunspec(gis, **kwargs, buffer=-15)
-    prs.save_sample_points(os.path.join(extract, 'points_60k_9NOV18.shp'.format()))
+    prs.save_sample_points(os.path.join(extract, 'points_30k_9NOV18.shp'.format()))
 
 # ========================= EOF ====================================================================
