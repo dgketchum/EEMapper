@@ -16,18 +16,23 @@
 
 import os
 import sys
-
-abspath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(abspath)
-from numpy import unique
-from numpy.random import randint
+from pprint import pprint
+from numpy import unique, mean
+from numpy.random import randint, shuffle
 import tensorflow as tf
 from tensorflow.contrib.tensor_forest.python import tensor_forest
 from tensorflow.python.ops import resources
 from pandas import get_dummies, read_csv
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import r2_score
+from sklearn.model_selection import ShuffleSplit
+from sklearn.ensemble import RandomForestClassifier
+from collections import defaultdict
 from datetime import datetime
+
+abspath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(abspath)
 
 
 def mlp(csv):
@@ -99,16 +104,40 @@ def mlp(csv):
     return None
 
 
+def find_rf_variable_importance(csv):
+    first = True
+    master = {}
+    for x in range(10):
+        imp = random_forest(csv)
+        if first:
+            for (k, v) in imp:
+                master[k] = v
+            first = False
+        else:
+            for (k, v) in imp:
+                master[k] += v
+
+    pprint(master)
+
+
 def random_forest(csv):
-    os.environ["CUDA_VISIBLE_DEVICES"] = ""
-    start = datetime.now()
     df = read_csv(csv, engine='python')
     labels = df['POINT_TYPE'].values
     df.drop(columns=['YEAR', 'POINT_TYPE'], inplace=True)
     data = df.values
+    names = df.columns
 
-    x = normalize_feature_array(data)
-    y = get_dummies(labels.reshape((labels.shape[0],))).values
+    x = data
+    y = labels.reshape((labels.shape[0],))
+
+    x, x_test, y, y_test = train_test_split(x, y, test_size=0.33,
+                                            random_state=None)
+
+    rf = RandomForestClassifier(n_estimators=100)
+    rf.fit(x, y)
+    _list = [(f, v) for f, v in zip(names, rf.feature_importances_)]
+    important = sorted(_list, key=lambda x: x[1], reverse=True)
+    return important
 
 
 def multilayer_perceptron(x, weights, biases):
@@ -143,5 +172,5 @@ if __name__ == '__main__':
     csv_loaction = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated')
     csv = os.path.join(csv_loaction, 'eF_100k.csv')
     # mlp(csv)
-    random_forest(csv)
+
 # ========================= EOF ====================================================================
