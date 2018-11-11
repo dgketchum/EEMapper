@@ -133,6 +133,7 @@ def random_forest(csv):
     rf.fit(x, y)
     _list = [(f, v) for f, v in zip(names, rf.feature_importances_)]
     important = sorted(_list, key=lambda x: x[1], reverse=True)
+    print(rf.score(x_test, y_test))
     return important
 
 
@@ -166,7 +167,7 @@ def get_size(start_path='.'):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     csv_loaction = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated')
-    csv = os.path.join(csv_loaction, 'eF_100k.csv')
-    # mlp(csv)
-
+    csv = os.path.join(csv_loaction, 'bands_30k_rY_10NOV18.csv')
+    # random_forest(csv)
+    mlp(csv)
 # ========================= EOF ====================================================================

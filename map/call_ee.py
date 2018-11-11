@@ -27,17 +27,14 @@ from pprint import pprint
 import ee
 
 ROI = 'users/dgketchum/boundaries/western_states_expanded_union'
-ROI_MT = 'users/dgketchum/boundaries/MT'
+ROI_MT = 'users/dgketchum/boundaries/NV'
 ASSET = 'users/dgketchum/classy'
 
-# PLOTS = 'ft:1nNO0AfiHcZk5a_aPSr2Oo2gHqu7tvEcYn-w0RgvL'  # 100k
-# PLOTS = 'ft:1TuN7nJfElROHPoH_ST9lFf5-AwDJIBo_MvULZZo3'  # 60k
-PLOTS = 'ft:1cTV-veUjcOXrYfEB_-ggf3Sl6-F84k53HIZU4l9Y'  # 30k
-# PLOTS = 'ft:1oSEFGaE6wc08c_xMunUxfTqLpwR-cCL8vopDtqLi'  # 2k
+PLOTS = 'ft:1Qjgporhswa2Js3TsDH3OzRnssWQWXFeTZQjr3iHB'  # 500k
+# PLOTS = 'ft:1cTV-veUjcOXrYfEB_-ggf3Sl6-F84k53HIZU4l9Y'  # 30k
 
-TABLE = 'ft:1AEkGeGUjaVoE4ct-zR30o7BtujvdLjIGanRAhuO7'  # 100k extract eF
-# TABLE = 'ft:1w8arH7yo1BtiOIp3ndHpUzF22G29N1X4M1OJCAtf'  # 100k extract original
-# TABLE = 'ft:1AEkGeGUjaVoE4ct-zR30o7BtujvdLjIGanRAhuO7'  # 2k extract eF
+TABLE = 'ft:14bYpzET7GzMllIy14dizhGpCemIuN88rbFVU-UYi'
+
 
 IRR = {
     # 'Acequias': ('ft:1j_Z6exiBQy5NlVLZUe25AsFp-jSfCHn_HAWGT06D', [1987, 2001, 2004, 2007, 2016], 0.5),
@@ -78,10 +75,10 @@ def export_classification(file_prefix, out_name):
     mask = roi.geometry().bounds().getInfo()['coordinates']
 
     classifier = ee.Classifier.randomForest(
-        numberOfTrees=50,
+        numberOfTrees=100,
         variablesPerSplit=0,
         minLeafPopulation=1,
-        bagFraction=0.5,
+        bagFraction=0.3,
         outOfBagMode=False,
         seed=0).setOutputMode('CLASSIFICATION')
 
@@ -122,7 +119,6 @@ def export_classification(file_prefix, out_name):
 
         task.start()
         print(yr)
-        break
 
 
 def filter_irrigated():
@@ -361,7 +357,7 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    # request_band_extract('bands_30k_rY_10NOV18')
+    # request_band_extract('bands_500k_rY_10NOV18')
     # filter_irrigated()
-    export_classification('MT_10NOV', out_name='MT_30keF')
+    export_classification('NV_11NOV', out_name='NV_30keF')
 # ========================= EOF ====================================================================
