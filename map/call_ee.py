@@ -27,7 +27,7 @@ from pprint import pprint
 import ee
 
 ROI = 'users/dgketchum/boundaries/western_states_expanded_union'
-ROI_MT = 'users/dgketchum/boundaries/MT_3927'
+ROI_MT = 'users/dgketchum/boundaries/MT'
 ASSET = 'users/dgketchum/classy'
 
 # PLOTS = 'ft:1nNO0AfiHcZk5a_aPSr2Oo2gHqu7tvEcYn-w0RgvL'  # 100k
@@ -69,7 +69,7 @@ ID_IRR = {
 YEARS = [1986, 1987, 1988, 1994, 1996, 1997, 1998, 2001, 2002, 2003, 2004,
          2005, 2006, 2007, 2008, 2009, 2010, 2011, 2013, 2014, 2016]
 
-TEST_YEARS = [2010]
+TEST_YEARS = [2010, 2011, 2012]
 
 
 def export_classification(file_prefix, out_name):
@@ -273,9 +273,8 @@ def get_world_climate(proj):
     l = [ee.Image('WORLDCLIM/V1/MONTHLY/{}'.format(m)).select(p).resample('bilinear').reproject(crs=proj['crs'],
                                                                                                 scale=30) for m, p in
          combinations]
-
-    i = ee.Image([0])
-    i = i.addBands(l[1:])
+    # not sure how to do this without initializing the image with a constant
+    i = ee.Image(l)
     return i
 
 
@@ -362,7 +361,7 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    request_band_extract('bands_30k_rY_9NOV18')
+    # request_band_extract('bands_30k_rY_10NOV18')
     # filter_irrigated()
-    # export_classification('MT_3927_9NOV', out_name='MT_3927_100keF_reprojResample_2')
+    export_classification('MT_10NOV', out_name='MT_30keF')
 # ========================= EOF ====================================================================

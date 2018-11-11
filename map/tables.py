@@ -38,7 +38,7 @@ def concatenate(root, out_dir, glob='None'):
             pass
 
     df.drop(columns=['system:index', '.geo'], inplace=True)
-    out_file = os.path.join(out_dir, '{}_renamed.csv'.format(glob))
+    out_file = os.path.join(out_dir, '{}.csv'.format(glob))
     for c in df.columns:
         if c in INT_COLS:
             df[c] = df[c].astype(int, copy=True)
@@ -52,7 +52,7 @@ if __name__ == '__main__':
     extracts = os.path.join(home, 'IrrigationGIS', 'EE_extracts')
     rt = os.path.join(extracts, 'to_concatenate')
     out = os.path.join(extracts, 'concatenated')
-    concatenate(rt, out, glob='bands_60k_9NOV18')
+    concatenate(rt, out, glob='bands_30k_rY_9NOV18')
 
     # csv = os.path.join(extracts, 'concatenated', '')
 
