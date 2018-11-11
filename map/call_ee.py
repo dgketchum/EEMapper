@@ -82,8 +82,7 @@ def export_classification(file_prefix, out_name):
         outOfBagMode=False,
         seed=0).setOutputMode('CLASSIFICATION')
 
-    input_props = fc.first().propertyNames().remove('YEAR').remove(
-        'POINT_TYPE').remove('system:index')
+    input_props = fc.first().propertyNames().remove('YEAR').remove('POINT_TYPE').remove('system:index')
 
     raster_bands = sorted([b for b in input_props.getInfo()])
     feature_bands = sorted([b for b in fc.first().getInfo()['properties']])
@@ -94,14 +93,6 @@ def export_classification(file_prefix, out_name):
     print(feature_bands)
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
-    confusion = trained_model.confusionMatrix()
-
-    # exportAccuracy = ee.Feature(confusion)
-    # table_task = ee.batch.Export.table.toDrive(exportAccuracy,
-    #                                            description='confusion matrix_{}'.format(file_prefix),
-    #                                            fileFormat='CSV',
-    #                                            )
-    # table_task.start()
 
     for yr in TEST_YEARS:
         input_bands = stack_bands(yr, roi)
