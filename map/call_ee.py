@@ -30,11 +30,9 @@ ROI = 'users/dgketchum/boundaries/western_states_expanded_union'
 ROI_MT = 'users/dgketchum/boundaries/NV'
 ASSET = 'users/dgketchum/classy'
 
-PLOTS = 'ft:1Qjgporhswa2Js3TsDH3OzRnssWQWXFeTZQjr3iHB'  # 500k
-# PLOTS = 'ft:1cTV-veUjcOXrYfEB_-ggf3Sl6-F84k53HIZU4l9Y'  # 30k
+PLOTS = 'ft:1YaoL4eT5pFtF1qV2kPcBhTidmm-Q1oYawkIdpdCr'
 
 TABLE = 'ft:14bYpzET7GzMllIy14dizhGpCemIuN88rbFVU-UYi'
-
 
 IRR = {
     # 'Acequias': ('ft:1j_Z6exiBQy5NlVLZUe25AsFp-jSfCHn_HAWGT06D', [1987, 2001, 2004, 2007, 2016], 0.5),
@@ -68,10 +66,11 @@ ID_IRR = {
     'ID_2011': ('ft:1NxN6aOViiJBklaUEEeGJJo6Kpy-QB10f_yGWOUyC', [2011], 0.5),
 }
 
-YEARS = [1986, 1987, 1988, 1994, 1996, 1997, 1998, 2001, 2002, 2003, 2004,
-         2005, 2006, 2007, 2008, 2009, 2010, 2011, 2013, 2014, 2016]
+YEARS = [  # 1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998, 2000, 2001,
+    # 2002, 2003, 2004,
+    2005, 2006, 2007, 2008, 2009, 2010, 2011, 2013, 2014, 2016]
 
-TEST_YEARS = [1986]
+TEST_YEARS = [1986, 2011, 2016]
 
 
 def export_classification(file_prefix, out_name):
@@ -207,7 +206,6 @@ def stack_bands(yr, roi):
     lsSR_fal_mn = ee.Image(lsSR_masked.filterDate(fall_s, end_date).mean())
 
     proj = lsSR_fal_mn.select('B2').projection().getInfo()
-    crs = lsSR_fal_mn.select('B2').projection().crs().getInfo()
 
     gridmet = ee.ImageCollection("IDAHO_EPSCOR/GRIDMET").filterBounds(
         roi).filterDate(start, end_date).select('pr', 'eto', 'tmmn', 'tmmx')
@@ -239,6 +237,29 @@ def stack_bands(yr, roi):
     tpi_250 = elev.subtract(elev.focal_mean(250, 'circle', 'meters')).add(0.5).rename('tpi_250')
     tpi_150 = elev.subtract(elev.focal_mean(150, 'circle', 'meters')).add(0.5).rename('tpi_150')
     static_input_bands = static_input_bands.addBands([tpi_1250, tpi_250, tpi_150, world_climate])
+
+    # land use classes
+    if yr < 1998:
+        cdl_year = 1997
+    elif yr in [2005, 2007]:  # these appear to be missing
+        cdl_year = 2006
+    else:
+        cdl_year = yr
+    cdl = ee.Image('USDA/NASS/CDL/{}'.format(cdl_year)).reproject(crs=proj['crs'], scale=30)
+
+    if yr < 2001:
+        nlcd_year = 1992
+    elif 2001 <= yr < 2006:
+        nlcd_year = 2001
+    elif 2006 <= yr < 2011:
+        nlcd_year = 2006
+    elif yr >= 2011:
+        nlcd_year = 2001
+    else:
+        nlcd_year = None
+
+    nlcd = ee.Image('USGS/NLCD/NLCD{}'.format(nlcd_year)).select('landcover').reproject(crs=proj['crs'], scale=30)
+    static_input_bands = static_input_bands.addBands([cdl, nlcd])
 
     input_bands = input_bands.addBands(static_input_bands).clip(roi)
 
@@ -351,7 +372,7 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    # request_band_extract('bands_500k_rY_10NOV18')
+    request_band_extract('bands_40k_13NOV')
     # filter_irrigated()
     # export_classification('NV_11NOV', out_name='NV_30keF')
 # ========================= EOF ====================================================================
