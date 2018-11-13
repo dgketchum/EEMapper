@@ -38,6 +38,7 @@ TABLE = 'ft:14bYpzET7GzMllIy14dizhGpCemIuN88rbFVU-UYi'
 
 IRR = {
     # 'Acequias': ('ft:1j_Z6exiBQy5NlVLZUe25AsFp-jSfCHn_HAWGT06D', [1987, 2001, 2004, 2007, 2016], 0.5),
+    'AZ': ('ft:1ZwRYaGmMc7oJuDTrKbrZm3oL7yBYdeKjEa05n5oX', [2001, 2003, 2004, 2007, 2016], 0.5),
     # 'CO_DIV1': ('ft:1wRNUsKChMUb9rUWDbxOeGeTaNWNZUA0YHXSLXPv2', [1998, 2003, 2006, 2013, 2016], 0.5),
     # 'CO_SanLuis': ('ft:1mcBXyFw1PoVOoAGibDpZjCgb001jA_Mj_hyd-h92', [1998, 2003, 2006, 2013, 2016], 0.5),
     # 'CA': ('ft:1oadWhheDKaonOPhIJ9lJVCwnOt5g0G644p3FC9oy', [2014], 0.5),
@@ -47,7 +48,7 @@ IRR = {
     # 'ID': ('ft:1jDB3C181w1PGVamr64-ewpJVDQkzJc4Bvd1IPAFg', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
     # 'NM_SanJuan': ('ft:1_-haRl7-ppkBYWBN-cPzItftKQC7yWI7sfgoVx1R', [1987, 2001, 2004, 2007, 2016], 0.5),
     # 'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2001, 2011)], 0.5),
-    'MT': ('ft:1f8TqNMwDLWlb1bgDkgF1A4H77jG8kb18tGlM7Vsu', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
+    # 'MT': ('ft:1f8TqNMwDLWlb1bgDkgF1A4H77jG8kb18tGlM7Vsu', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
     # 'OR': ('ft:1FJMi4VXUe4BrhU6u0OF2l0uFU_rGUe3rFrSSSBVD', [1994, 1997, 2011], 0.5),
     # 'UT': ('ft:1oA0v3UUBQj3qn9sa_pDJ8bwsAphfRZUlwwPWpFrT', [1998, 2003, 2006, 2013, 2016], 0.5),
     # 'UT_CO': ('ft:1Av2WlcPRBd7JZqYOU73VCLOJ-b5q6H5u6Bboebdv', [1998, 2003, 2006, 2013, 2016], 0.5),
@@ -88,7 +89,6 @@ def export_classification(file_prefix, out_name):
 
     input_props = fc.first().propertyNames().remove('YEAR').remove('POINT_TYPE').remove('system:index')
 
-    raster_bands = sorted([b for b in input_props.getInfo()])
     feature_bands = sorted([b for b in fc.first().getInfo()['properties']])
     feature_bands.remove('POINT_TYPE')
     feature_bands.remove('YEAR')
@@ -352,6 +352,6 @@ def is_authorized():
 if __name__ == '__main__':
     is_authorized()
     # request_band_extract('bands_500k_rY_10NOV18')
-    filter_irrigated()
+    # filter_irrigated()
     # export_classification('NV_11NOV', out_name='NV_30keF')
 # ========================= EOF ====================================================================
