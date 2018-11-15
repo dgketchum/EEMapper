@@ -30,13 +30,13 @@ ROI = 'users/dgketchum/boundaries/western_states_expanded_union'
 ROI_MT = 'users/dgketchum/boundaries/NV'
 ASSET = 'users/dgketchum/classy'
 
-PLOTS = 'ft:1YaoL4eT5pFtF1qV2kPcBhTidmm-Q1oYawkIdpdCr'
+PLOTS = 'ft:10JdPX_88s88G2B2KS6Kv10X1HgcWC2ehMLAAvdgC'
 
 TABLE = 'ft:14bYpzET7GzMllIy14dizhGpCemIuN88rbFVU-UYi'
 
 IRR = {
     # 'Acequias': ('ft:1j_Z6exiBQy5NlVLZUe25AsFp-jSfCHn_HAWGT06D', [1987, 2001, 2004, 2007, 2016], 0.5),
-    'AZ': ('ft:1ZwRYaGmMc7oJuDTrKbrZm3oL7yBYdeKjEa05n5oX', [2001, 2003, 2004, 2007, 2016], 0.5),
+    # 'AZ': ('ft:1ZwRYaGmMc7oJuDTrKbrZm3oL7yBYdeKjEa05n5oX', [2001, 2003, 2004, 2007, 2016], 0.5),
     # 'CO_DIV1': ('ft:1wRNUsKChMUb9rUWDbxOeGeTaNWNZUA0YHXSLXPv2', [1998, 2003, 2006, 2013, 2016], 0.5),
     # 'CO_SanLuis': ('ft:1mcBXyFw1PoVOoAGibDpZjCgb001jA_Mj_hyd-h92', [1998, 2003, 2006, 2013, 2016], 0.5),
     # 'CA': ('ft:1oadWhheDKaonOPhIJ9lJVCwnOt5g0G644p3FC9oy', [2014], 0.5),
@@ -48,6 +48,7 @@ IRR = {
     # 'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2001, 2011)], 0.5),
     # 'MT': ('ft:1f8TqNMwDLWlb1bgDkgF1A4H77jG8kb18tGlM7Vsu', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
     # 'OR': ('ft:1FJMi4VXUe4BrhU6u0OF2l0uFU_rGUe3rFrSSSBVD', [1994, 1997, 2011], 0.5),
+    'NW_OR': ('ft:1kXr3oMe9Ybsd3N7tyBBDCTweAxb4c8GBz6B8_ELm', [1994, 1996, 1997, 2001, 2011, 2013], 0.5),
     # 'UT': ('ft:1oA0v3UUBQj3qn9sa_pDJ8bwsAphfRZUlwwPWpFrT', [1998, 2003, 2006, 2013, 2016], 0.5),
     # 'UT_CO': ('ft:1Av2WlcPRBd7JZqYOU73VCLOJ-b5q6H5u6Bboebdv', [1998, 2003, 2006, 2013, 2016], 0.5),
     # 'WA': ('ft:1tGN7UdKijI7gZgna19wJ-cKMumSKRwsfEQQZNQjl', [1997, 1996], 0.5),
@@ -66,9 +67,9 @@ ID_IRR = {
     'ID_2011': ('ft:1NxN6aOViiJBklaUEEeGJJo6Kpy-QB10f_yGWOUyC', [2011], 0.5),
 }
 
-YEARS = [  # 1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998, 2000, 2001,
-    # 2002, 2003, 2004,
-    2005, 2006, 2007, 2008, 2009, 2010, 2011, 2013, 2014, 2016]
+YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
+         2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
+         2010, 2011, 2013, 2014, 2016]
 
 TEST_YEARS = [1986, 2011, 2016]
 
@@ -238,28 +239,9 @@ def stack_bands(yr, roi):
     tpi_150 = elev.subtract(elev.focal_mean(150, 'circle', 'meters')).add(0.5).rename('tpi_150')
     static_input_bands = static_input_bands.addBands([tpi_1250, tpi_250, tpi_150, world_climate])
 
-    # land use classes
-    if yr < 1998:
-        cdl_year = 1997
-    elif yr in [2005, 2007]:  # these appear to be missing
-        cdl_year = 2006
-    else:
-        cdl_year = yr
-    cdl = ee.Image('USDA/NASS/CDL/{}'.format(cdl_year)).reproject(crs=proj['crs'], scale=30)
-
-    if yr < 2001:
-        nlcd_year = 1992
-    elif 2001 <= yr < 2006:
-        nlcd_year = 2001
-    elif 2006 <= yr < 2011:
-        nlcd_year = 2006
-    elif yr >= 2011:
-        nlcd_year = 2001
-    else:
-        nlcd_year = None
-
-    nlcd = ee.Image('USGS/NLCD/NLCD{}'.format(nlcd_year)).select('landcover').reproject(crs=proj['crs'], scale=30)
-    static_input_bands = static_input_bands.addBands([cdl, nlcd])
+    nlcd = ee.Image('USGS/NLCD/NLCD2011').select('landcover').reproject(crs=proj['crs'], scale=30)
+    cdl = ee.Image('USDA/NASS/CDL/2017').select('cultivated').remap([1, 2], [0, 1]).reproject(crs=proj['crs'], scale=30)
+    static_input_bands = static_input_bands.addBands([nlcd, cdl])
 
     input_bands = input_bands.addBands(static_input_bands).clip(roi)
 
@@ -372,7 +354,7 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    request_band_extract('bands_40k_13NOV')
+    request_band_extract('bands_300k_14NOV')
     # filter_irrigated()
     # export_classification('NV_11NOV', out_name='NV_30keF')
 # ========================= EOF ====================================================================

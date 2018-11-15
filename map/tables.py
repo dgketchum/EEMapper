@@ -21,7 +21,7 @@ from pandas import read_csv, concat, errors
 INT_COLS = ['POINT_TYPE', 'YEAR']
 
 
-def concatenate(root, out_dir, glob='None'):
+def concatenate(root, out_dir, glob='None', sample=None):
     l = [os.path.join(root, x) for x in os.listdir(root) if glob in x]
     l.sort()
     first = True
@@ -31,8 +31,9 @@ def concatenate(root, out_dir, glob='None'):
                 df = read_csv(csv)
                 first = False
             else:
-                df = concat([df, read_csv(csv)])
-
+                c = read_csv(csv)
+                df = concat([df, c], sort=False)
+                print(c.shape, csv)
         except errors.EmptyDataError:
             print('{} is empty'.format(csv))
             pass
@@ -45,6 +46,8 @@ def concatenate(root, out_dir, glob='None'):
         else:
             df[c] = df[c].astype(float, copy=True)
     print('size: {}'.format(df.shape))
+    if sample:
+        df = df.sample(frac=sample).reset_index(drop=True)
     df.to_csv(out_file, index=False)
 
 
@@ -53,7 +56,7 @@ if __name__ == '__main__':
     extracts = os.path.join(home, 'IrrigationGIS', 'EE_extracts')
     rt = os.path.join(extracts, 'to_concatenate')
     out = os.path.join(extracts, 'concatenated')
-    concatenate(rt, out, glob='test_lc_2k_13NOV18')
+    concatenate(rt, out, glob='bands_40k_14NOV')
 
     # csv = os.path.join(extracts, 'concatenated', '')
 
