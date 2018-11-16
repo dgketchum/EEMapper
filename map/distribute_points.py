@@ -27,7 +27,7 @@ from map.call_ee import YEARS
 training = os.path.join(os.path.expanduser('~'), 'IrrigationGIS', 'EE_sample')
 
 WETLAND = os.path.join(training, 'wetlands_8NOV.shp')
-UNCULTIVATED = os.path.join(training, 'uncultivated_14NOV.shp')
+UNCULTIVATED = os.path.join(training, 'uncultivated_15NOV.shp')
 IRRIGATED = os.path.join(training, 'irrigated_14NOV.shp')
 UNIRRIGATED = os.path.join(training, 'unirrigated_8NOV.shp')
 
@@ -179,17 +179,7 @@ if __name__ == '__main__':
     extract = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'point_shp')
 
     kwargs = {
-        'irrigated': 20000,
-        'wetlands': 8000,
-        'uncultivated': 8000,
-        'unirrigated': 4000,
-    }
-
-    prs = PointsRunspec(gis, **kwargs, buffer=-15)
-    prs.save_sample_points(os.path.join(extract, 'points_40k_14NOV18.shp'.format()))
-
-    kwargs = {
-        'irrigated': 150000,
+        'irrigated': 70000,
         'wetlands': 60000,
         'uncultivated': 60000,
         'unirrigated': 30000,

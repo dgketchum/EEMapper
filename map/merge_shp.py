@@ -100,7 +100,7 @@ if __name__ == '__main__':
     s_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'uncultivated', 'to_merge')
     d_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'uncultivated')
     l = get_list(s_dir)
-    fiona_merge_no_attribute(os.path.join(d_dir, 'uncultivated_14NOV.shp'), l)
+    fiona_merge_no_attribute(os.path.join(d_dir, 'uncultivated_15NOV.shp'), l)
     # s_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated', 'inspected')
     # _dir = [os.path.join(s_dir, x) for x in os.listdir(s_dir) if x.endswith('.shp')]
     # o_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated', 'merged_attributed')

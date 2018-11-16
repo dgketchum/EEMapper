@@ -23,6 +23,7 @@ import tensorflow as tf
 from pandas import get_dummies, read_csv
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 
 from sklearn.ensemble import RandomForestClassifier
 from datetime import datetime
@@ -100,6 +101,27 @@ def mlp(csv):
     return None
 
 
+def pca(csv):
+    df = read_csv(csv, engine='python')
+    labels = df['POINT_TYPE'].values
+    df.drop(columns=['YEAR', 'POINT_TYPE'], inplace=True)
+    data = df.values
+    names = df.columns
+
+    x = data
+    y = labels.reshape((labels.shape[0],))
+
+    comps = 10
+    pca = PCA(n_components=comps)
+    X_r = pca.fit(x).transform(x)
+
+    # Percentage of variance explained for each components
+    print('explained variance ratio (first {} components): {}'.format(comps, pca.explained_variance_ratio_))
+
+    x, x_test, y, y_test = train_test_split(x, y, test_size=0.33,
+                                            random_state=None)
+
+
 def find_rf_variable_importance(csv):
     first = True
     master = {}
@@ -167,7 +189,8 @@ def get_size(start_path='.'):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     csv_loaction = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated')
-    csv = os.path.join(csv_loaction, 'bands_30k_rY_10NOV18.csv')
+    csv = os.path.join(csv_loaction, 'bands_300k_14NOV_135.csv')
+    pca(csv)
     # random_forest(csv)
-    mlp(csv)
+    # mlp(csv)
 # ========================= EOF ====================================================================

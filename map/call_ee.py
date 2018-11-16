@@ -27,12 +27,12 @@ from pprint import pprint
 import ee
 
 ROI = 'users/dgketchum/boundaries/western_states_expanded_union'
-ROI_MT = 'users/dgketchum/boundaries/NV'
+ROI_MT = 'users/dgketchum/boundaries/Beaverhead'
 ASSET = 'users/dgketchum/classy'
 
-PLOTS = 'ft:10JdPX_88s88G2B2KS6Kv10X1HgcWC2ehMLAAvdgC'
+POINTS = 'ft:10JdPX_88s88G2B2KS6Kv10X1HgcWC2ehMLAAvdgC'
 
-TABLE = 'ft:14bYpzET7GzMllIy14dizhGpCemIuN88rbFVU-UYi'
+TABLE = 'ft:1yiEFkiyrZZtZfp9m9F1w1EHcJAxQHpSW-DfsH-Zr'
 
 IRR = {
     # 'Acequias': ('ft:1j_Z6exiBQy5NlVLZUe25AsFp-jSfCHn_HAWGT06D', [1987, 2001, 2004, 2007, 2016], 0.5),
@@ -71,16 +71,16 @@ YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
          2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
          2010, 2011, 2013, 2014, 2016]
 
-TEST_YEARS = [1986, 2011, 2016]
+TEST_YEARS = [2016]
 
 
-def export_classification(file_prefix, out_name):
+def export_classification(file_prefix, out_name, export='asset'):
     fc = ee.FeatureCollection(TABLE)
     roi = ee.FeatureCollection(ROI_MT)
     mask = roi.geometry().bounds().getInfo()['coordinates']
 
     classifier = ee.Classifier.randomForest(
-        numberOfTrees=100,
+        numberOfTrees=70,
         variablesPerSplit=0,
         minLeafPopulation=1,
         bagFraction=0.3,
@@ -100,14 +100,26 @@ def export_classification(file_prefix, out_name):
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.classify(trained_model).int()
 
-        task = ee.batch.Export.image.toAsset(
-            image=classified_img,
-            description='{}_{}'.format(file_prefix, yr),
-            assetId=os.path.join(ASSET, '{}_{}'.format(out_name, yr)),
-            fileNamePrefix='{}_{}'.format(yr, file_prefix),
-            region=mask,
-            scale=30,
-            maxPixels=1e10)
+        if export == 'asset':
+            task = ee.batch.Export.image.toAsset(
+                image=classified_img,
+                description='{}_{}'.format(file_prefix, yr),
+                assetId=os.path.join(ASSET, '{}_{}'.format(out_name, yr)),
+                fileNamePrefix='{}_{}'.format(yr, file_prefix),
+                region=mask,
+                scale=30,
+                maxPixels=1e10)
+        elif export == 'cloud':
+            task = ee.batch.Export.image.toCloudStorage(
+                image=classified_img,
+                description='{}_{}'.format(file_prefix, yr),
+                bucket='wudr',
+                fileNamePrefix='{}_{}'.format(yr, file_prefix),
+                region=mask,
+                scale=30,
+                maxPixels=1e10)
+        else:
+            raise NotImplementedError('choose asset or cloud for export')
 
         task.start()
         print(yr)
@@ -160,7 +172,7 @@ def filter_irrigated():
 
 def request_band_extract(file_prefix):
     roi = ee.FeatureCollection(ROI)
-    plots = ee.FeatureCollection(PLOTS)
+    plots = ee.FeatureCollection(POINTS)
 
     for yr in YEARS:
         input_bands = stack_bands(yr, roi)
@@ -354,7 +366,7 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    request_band_extract('bands_300k_14NOV')
+    # request_band_extract('bands_300k_14NOV')
     # filter_irrigated()
-    # export_classification('NV_11NOV', out_name='NV_30keF')
+    export_classification('BVR_15NOV', out_name='BVR_15NOV', export='asset')
 # ========================= EOF ====================================================================
