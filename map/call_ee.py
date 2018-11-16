@@ -32,7 +32,7 @@ ASSET = 'users/dgketchum/classy'
 
 POINTS = 'ft:10JdPX_88s88G2B2KS6Kv10X1HgcWC2ehMLAAvdgC'
 
-TABLE = 'ft:1yiEFkiyrZZtZfp9m9F1w1EHcJAxQHpSW-DfsH-Zr'
+TABLE = 'ft:1Zh1-0_QB6p5koVKfrB0xl7zS01A2Wjd_giG-vPM8'
 
 IRR = {
     # 'Acequias': ('ft:1j_Z6exiBQy5NlVLZUe25AsFp-jSfCHn_HAWGT06D', [1987, 2001, 2004, 2007, 2016], 0.5),
@@ -368,5 +368,5 @@ if __name__ == '__main__':
     is_authorized()
     # request_band_extract('bands_300k_14NOV')
     # filter_irrigated()
-    export_classification('BVR_15NOV', out_name='BVR_15NOV', export='asset')
+    export_classification('BVR_15NOV', out_name='BVR_16NOV', export='asset')
 # ========================= EOF ====================================================================
