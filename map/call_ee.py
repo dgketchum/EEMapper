@@ -32,7 +32,7 @@ ASSET = 'users/dgketchum/classy'
 
 POINTS = 'ft:1nht3-QOX9PG1csjm7t_Uy--kQAGxyYCG5tnAVpbo'
 
-TABLE = 'ft:1Zh1-0_QB6p5koVKfrB0xl7zS01A2Wjd_giG-vPM8'
+TABLE = 'ft:1tiSs2Q3oqOwkWkn_ESeb8akbG-vb_rB4U6Zhkb-h'
 
 IRR = {
     # 'Acequias': ('ft:1j_Z6exiBQy5NlVLZUe25AsFp-jSfCHn_HAWGT06D', [1987, 2001, 2004, 2007, 2016], 0.5),
@@ -95,7 +95,7 @@ def export_classification(file_prefix, out_name, export='asset'):
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
-    for yr in TEST_YEARS:
+    for yr in YEARS:
         input_bands = stack_bands(yr, roi)
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.classify(trained_model).int()
@@ -366,7 +366,7 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    request_band_extract('bands_300k_15NOV')
+    # request_band_extract('bands_300k_15NOV')
     # filter_irrigated()
-    # export_classification('BVR_15NOV', out_name='BVR_16NOV', export='asset')
+    export_classification('WUS_16NOV', out_name='WUS_16NOV', export='asset')
 # ========================= EOF ====================================================================
