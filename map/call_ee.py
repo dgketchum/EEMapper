@@ -30,7 +30,7 @@ ROI = 'users/dgketchum/boundaries/western_states_expanded_union'
 ROI_MT = 'users/dgketchum/boundaries/Beaverhead'
 ASSET = 'users/dgketchum/classy'
 
-POINTS = 'ft:10JdPX_88s88G2B2KS6Kv10X1HgcWC2ehMLAAvdgC'
+POINTS = 'ft:1nht3-QOX9PG1csjm7t_Uy--kQAGxyYCG5tnAVpbo'
 
 TABLE = 'ft:1Zh1-0_QB6p5koVKfrB0xl7zS01A2Wjd_giG-vPM8'
 
@@ -76,7 +76,7 @@ TEST_YEARS = [2016]
 
 def export_classification(file_prefix, out_name, export='asset'):
     fc = ee.FeatureCollection(TABLE)
-    roi = ee.FeatureCollection(ROI_MT)
+    roi = ee.FeatureCollection(ROI)
     mask = roi.geometry().bounds().getInfo()['coordinates']
 
     classifier = ee.Classifier.randomForest(
@@ -366,7 +366,7 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    # request_band_extract('bands_300k_14NOV')
+    request_band_extract('bands_300k_15NOV')
     # filter_irrigated()
-    export_classification('BVR_15NOV', out_name='BVR_16NOV', export='asset')
+    # export_classification('BVR_15NOV', out_name='BVR_16NOV', export='asset')
 # ========================= EOF ====================================================================
