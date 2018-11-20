@@ -30,9 +30,9 @@ ROI = 'users/dgketchum/boundaries/western_states_expanded_union'
 ROI_MT = 'users/dgketchum/boundaries/Beaverhead'
 ASSET = 'users/dgketchum/classy'
 
-POINTS = 'ft:1nht3-QOX9PG1csjm7t_Uy--kQAGxyYCG5tnAVpbo'
+POINTS = 'ft:1nRwj3r33HvgVpuj4jyJp00YnZ5MkxH2Cmw5RxcxS'
 
-TABLE = 'ft:1tiSs2Q3oqOwkWkn_ESeb8akbG-vb_rB4U6Zhkb-h'
+TABLE = 'ft:1YgqI048n_5pzsqzWfhQY0J7OWcibYM6AGkVFINOL'
 
 IRR = {
     # 'Acequias': ('ft:1j_Z6exiBQy5NlVLZUe25AsFp-jSfCHn_HAWGT06D', [1987, 2001, 2004, 2007, 2016], 0.5),
@@ -71,7 +71,7 @@ YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
          2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
          2010, 2011, 2013, 2014, 2016]
 
-TEST_YEARS = [2016]
+TEST_YEARS = [1986, 1996, 2006, 2016]
 
 
 def export_classification(file_prefix, out_name, export='asset'):
@@ -95,7 +95,7 @@ def export_classification(file_prefix, out_name, export='asset'):
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
-    for yr in YEARS:
+    for yr in TEST_YEARS:
         input_bands = stack_bands(yr, roi)
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.classify(trained_model).int()
@@ -366,7 +366,7 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    # request_band_extract('bands_300k_15NOV')
+    # request_band_extract('bands_140k_19NOV')
     # filter_irrigated()
-    export_classification('WUS_16NOV', out_name='WUS_16NOV', export='asset')
+    export_classification('WUS_19NOV', out_name='WUS_19NOV', export='asset')
 # ========================= EOF ====================================================================

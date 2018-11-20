@@ -28,7 +28,7 @@ training = os.path.join(os.path.expanduser('~'), 'IrrigationGIS', 'EE_sample')
 
 WETLAND = os.path.join(training, 'wetlands_8NOV.shp')
 UNCULTIVATED = os.path.join(training, 'uncultivated_15NOV.shp')
-IRRIGATED = os.path.join(training, 'irrigated_14NOV.shp')
+IRRIGATED = os.path.join(training, 'irrigated_19NOV.shp')
 UNIRRIGATED = os.path.join(training, 'unirrigated_8NOV.shp')
 
 
@@ -186,16 +186,16 @@ if __name__ == '__main__':
     }
 
     prs = PointsRunspec(gis, **kwargs, buffer=-15)
-    prs.save_sample_points(os.path.join(extract, 'points_40k_14NOV18.shp'.format()))
+    prs.save_sample_points(os.path.join(extract, 'points_40k_19NOV18.shp'.format()))
 
     kwargs = {
-        'irrigated': 150000,
-        'wetlands': 60000,
-        'uncultivated': 60000,
-        'unirrigated': 30000,
+        'irrigated': 70000,
+        'wetlands': 30000,
+        'uncultivated': 30000,
+        'unirrigated': 10000,
     }
 
     prs = PointsRunspec(gis, **kwargs, buffer=-15)
-    prs.save_sample_points(os.path.join(extract, 'points_300k_14NOV18.shp'.format()))
+    prs.save_sample_points(os.path.join(extract, 'points_140k_19NOV18.shp'.format()))
 
 # ========================= EOF ====================================================================
