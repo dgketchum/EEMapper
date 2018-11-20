@@ -368,5 +368,5 @@ if __name__ == '__main__':
     is_authorized()
     # request_band_extract('bands_140k_19NOV')
     # filter_irrigated()
-    export_classification('WUS_19NOV', out_name='WUS_19NOV', export='asset')
+    export_classification('WUS_19NOV', out_name='WUS_19NOV', export='cloud')
 # ========================= EOF ====================================================================
