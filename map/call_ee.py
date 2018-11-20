@@ -27,7 +27,7 @@ from pprint import pprint
 import ee
 
 ROI = 'users/dgketchum/boundaries/western_states_expanded_union'
-ROI_MT = 'users/dgketchum/boundaries/Beaverhead'
+ROI_ROOT = 'users/dgketchum/boundaries'
 ASSET = 'users/dgketchum/classy'
 
 POINTS = 'ft:1nRwj3r33HvgVpuj4jyJp00YnZ5MkxH2Cmw5RxcxS'
@@ -74,9 +74,9 @@ YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
 TEST_YEARS = [1986, 1996, 2006, 2016]
 
 
-def export_classification(file_prefix, out_name, export='asset'):
+def export_classification(file_prefix, out_name, asset=None, export='asset'):
     fc = ee.FeatureCollection(TABLE)
-    roi = ee.FeatureCollection(ROI)
+    roi = ee.FeatureCollection(asset)
     mask = roi.geometry().bounds().getInfo()['coordinates']
 
     classifier = ee.Classifier.randomForest(
@@ -368,5 +368,9 @@ if __name__ == '__main__':
     is_authorized()
     # request_band_extract('bands_140k_19NOV')
     # filter_irrigated()
-    export_classification('WUS_19NOV', out_name='WUS_19NOV', export='cloud')
+    states = ['CA', 'OR', 'WA', 'NV', 'ID', 'MT']
+    ASSET_LIST = [os.path.join(ROI_ROOT, st) for st in states]
+    for state in ASSET_LIST:
+        export_classification('{}'.format(state), out_name='{}'.format(state),
+                              asset=state, export='asset')
 # ========================= EOF ====================================================================

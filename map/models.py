@@ -17,10 +17,10 @@
 import os
 import sys
 from pprint import pprint
-from numpy import unique
+from numpy import unique, dot, mean
 from numpy.random import randint
 import tensorflow as tf
-from pandas import get_dummies, read_csv
+from pandas import get_dummies, read_csv, DataFrame
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
@@ -110,16 +110,17 @@ def pca(csv):
 
     x = data
     y = labels.reshape((labels.shape[0],))
-
-    comps = 10
-    pca = PCA(0.99)
-    X_r = pca.fit(x).transform(x)
-
-    print('explained variance: {}'.format(pca.explained_variance_ratio_))
-
     x, x_test, y, y_test = train_test_split(x, y, test_size=0.33,
                                             random_state=None)
 
+    pca = PCA()
+    _ = pca.fit_transform(x)
+    x_centered = x - mean(x, axis=0)
+    cov_matrix = dot(x_centered.T, x_centered) / len(names)
+    eigenvalues = pca.explained_variance_
+    for eigenvalue, eigenvector in zip(eigenvalues, pca.components_):
+        print(dot(eigenvector.T, dot(cov_matrix, eigenvector)))
+        print(eigenvalue)
 
 def find_rf_variable_importance(csv):
     first = True
@@ -188,7 +189,7 @@ def get_size(start_path='.'):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     csv_loaction = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated')
-    csv = os.path.join(csv_loaction, 'bands_300k_14NOV.csv')
+    csv = os.path.join(csv_loaction, 'bands_40k_14NOV.csv')
     pca(csv)
     # random_forest(csv)
     # mlp(csv)
