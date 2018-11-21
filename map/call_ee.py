@@ -27,12 +27,14 @@ from pprint import pprint
 import ee
 
 ROI = 'users/dgketchum/boundaries/western_states_expanded_union'
-ROI_ROOT = 'users/dgketchum/boundaries'
-ASSET = 'users/dgketchum/classy'
+BOUNDARIES = 'users/dgketchum/boundaries'
+ASSET_ROOT = 'users/dgketchum/classy'
+
+STATES = ['AZ', 'CA', 'CO', 'ID', 'KS', 'MT', 'ND', 'NE',
+          'NM', 'NV', 'OK', 'OR', 'SD', 'TX', 'UT', 'WA', 'WY']
 
 POINTS = 'ft:1nRwj3r33HvgVpuj4jyJp00YnZ5MkxH2Cmw5RxcxS'
-
-TABLE = 'ft:1YgqI048n_5pzsqzWfhQY0J7OWcibYM6AGkVFINOL'
+TABLE = 'ft:1hm22gvddupx7AD6hX8Ej9wZ5woyRxPic6j2Y35b3'
 
 IRR = {
     # 'Acequias': ('ft:1j_Z6exiBQy5NlVLZUe25AsFp-jSfCHn_HAWGT06D', [1987, 2001, 2004, 2007, 2016], 0.5),
@@ -67,14 +69,14 @@ ID_IRR = {
     'ID_2011': ('ft:1NxN6aOViiJBklaUEEeGJJo6Kpy-QB10f_yGWOUyC', [2011], 0.5),
 }
 
-YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
-         2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-         2010, 2011, 2013, 2014, 2016]
+YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997,
+         1998, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
+         2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016]
 
 TEST_YEARS = [1986, 1996, 2006, 2016]
 
 
-def export_classification(file_prefix, out_name, asset=None, export='asset'):
+def export_classification(out_name, asset, export='asset'):
     fc = ee.FeatureCollection(TABLE)
     roi = ee.FeatureCollection(asset)
     mask = roi.geometry().bounds().getInfo()['coordinates']
@@ -103,18 +105,18 @@ def export_classification(file_prefix, out_name, asset=None, export='asset'):
         if export == 'asset':
             task = ee.batch.Export.image.toAsset(
                 image=classified_img,
-                description='{}_{}'.format(file_prefix, yr),
-                assetId=os.path.join(ASSET, '{}_{}'.format(out_name, yr)),
-                fileNamePrefix='{}_{}'.format(yr, file_prefix),
+                description='{}_{}'.format(out_name, yr),
+                assetId=os.path.join(ASSET_ROOT, '{}_{}'.format(out_name, yr)),
+                fileNamePrefix='{}_{}'.format(yr, out_name),
                 region=mask,
                 scale=30,
                 maxPixels=1e10)
         elif export == 'cloud':
             task = ee.batch.Export.image.toCloudStorage(
                 image=classified_img,
-                description='{}_{}'.format(file_prefix, yr),
+                description='{}_{}'.format(out_name, yr),
                 bucket='wudr',
-                fileNamePrefix='{}_{}'.format(yr, file_prefix),
+                fileNamePrefix='{}_{}'.format(yr, out_name),
                 region=mask,
                 scale=30,
                 maxPixels=1e10)
@@ -368,9 +370,7 @@ if __name__ == '__main__':
     is_authorized()
     # request_band_extract('bands_140k_19NOV')
     # filter_irrigated()
-    states = ['CA', 'OR', 'WA', 'NV', 'ID', 'MT']
-    ASSET_LIST = [os.path.join(ROI_ROOT, st) for st in states]
-    for state in ASSET_LIST:
-        export_classification('{}'.format(state), out_name='{}'.format(state),
-                              asset=state, export='asset')
+    for state in STATES:
+        bounds = os.path.join(BOUNDARIES, state)
+        export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
 # ========================= EOF ====================================================================

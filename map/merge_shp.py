@@ -97,13 +97,13 @@ if __name__ == '__main__':
     # d_dir = os.path.join(home, 'IrrigationGIS', 'Montana', 'OE_Shapefiles_WGS')
     # l = get_list(s_dir)
     # fiona_merge_MT(os.path.join(d_dir, 'OE_Sites.shp'), l)
-    # s_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'uncultivated', 'to_merge')
-    # d_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'uncultivated')
-    # l = get_list(s_dir)
-    # fiona_merge_no_attribute(os.path.join(d_dir, 'uncultivated_15NOV.shp'), l)
-    s_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated', 'inspected')
-    _dir = [os.path.join(s_dir, x) for x in os.listdir(s_dir) if x.endswith('.shp')]
-    o_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated', 'merged_attributed')
-    fiona_merge_attribute(os.path.join(o_dir, 'Irr_NOV19.shp'), _dir)
+    s_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'uncultivated', 'to_merge')
+    d_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'uncultivated')
+    l = get_list(s_dir)
+    fiona_merge_no_attribute(os.path.join(d_dir, 'uncultivated_20NOV.shp'), l)
+    # s_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated', 'inspected')
+    # _dir = [os.path.join(s_dir, x) for x in os.listdir(s_dir) if x.endswith('.shp')]
+    # o_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated', 'merged_attributed')
+    # fiona_merge_attribute(os.path.join(o_dir, 'Irr_NOV20.shp'), _dir)
 
 # ========================= EOF ====================================================================

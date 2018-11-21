@@ -63,7 +63,7 @@ if __name__ == '__main__':
     extracts = os.path.join(home, 'IrrigationGIS', 'EE_extracts')
     rt = os.path.join(extracts, 'to_concatenate')
     out = os.path.join(extracts, 'concatenated')
-    concatenate(rt, out, glob='bands_40k_19NOV')
+    concatenate(rt, out, glob='bands_140k_19NOV', sample=0.6)
 
     # csv = os.path.join(extracts, 'concatenated', '')
 
