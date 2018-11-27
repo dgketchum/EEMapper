@@ -13,35 +13,45 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===============================================================================
-
-import os
+import ee
 import csv
+import os
 from subprocess import Popen, PIPE, check_call
 
+home = os.path.expanduser('~')
+EXEC = os.path.join(home, 'miniconda2', 'envs', 'ee', 'bin', 'earthengine')
 
-def delete_assets(ee_path, loc):
-    command = 'ls'
+
+def delete_assets(ee_asset_path):
 
     for year in range(2008, 2014):
-        _dir = os.path.join(loc, str(year))
-        cmd = ['{}'.format(ee_path), '{}'.format(command), '{}'.format(_dir)]
-        l = Popen(cmd, stdout=PIPE)
-        stdout, stderr = l.communicate()
-        reader = csv.DictReader(stdout.decode('ascii').splitlines(),
-                                delimiter=' ', skipinitialspace=True,
-                                fieldnames=['name'])
+        _dir = os.path.join(ee_asset_path, str(year))
+        reader = list_assets(_dir)
+
     for r in reader:
         command = 'rm'
-        cmd = ['{}'.format(ee_path), '{}'.format(command), '{}'.format(r['name'])]
+        cmd = ['{}'.format(EXEC), '{}'.format(command), '{}'.format(r['name'])]
         check_call(cmd)
 
 
-if __name__ == '__main__':
-    home = os.path.expanduser('~')
-    loc = os.path.join('users', 'dgketchum', 'ssebop', 'MT')
-    ogr = os.path.join(home, 'miniconda2', 'envs', 'ee', 'bin', 'earthengine')
-    delete_assets(ogr, loc)
+def images_to_collection(location):
+    _list = list_assets(location)
+    for l in _list:
+        print(l)
+
+
+def list_assets(location):
+    command = 'ls'
+    cmd = ['{}'.format(EXEC), '{}'.format(command), '{}'.format(location)]
+    asset_list = Popen(cmd, stdout=PIPE)
+    stdout, stderr = asset_list.communicate()
+    reader = csv.DictReader(stdout.decode('ascii').splitlines(),
+                            delimiter=' ', skipinitialspace=True,
+                            fieldnames=['name'])
+    return reader
+
 
 if __name__ == '__main__':
-    pass
+    loc = os.path.join('users', 'dgketchum', 'classy')
+    images_to_collection(loc)
 # ========================= EOF ====================================================================
