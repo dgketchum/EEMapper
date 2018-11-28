@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===============================================================================
-import ee
 import csv
 import os
 from subprocess import Popen, PIPE, check_call
@@ -23,7 +22,7 @@ EXEC = os.path.join(home, 'miniconda2', 'envs', 'ee', 'bin', 'earthengine')
 
 
 def delete_assets(ee_asset_path):
-
+    reader = None
     for year in range(2008, 2014):
         _dir = os.path.join(ee_asset_path, str(year))
         reader = list_assets(_dir)
@@ -34,12 +33,6 @@ def delete_assets(ee_asset_path):
         check_call(cmd)
 
 
-def images_to_collection(location):
-    _list = list_assets(location)
-    for l in _list:
-        print(l)
-
-
 def list_assets(location):
     command = 'ls'
     cmd = ['{}'.format(EXEC), '{}'.format(command), '{}'.format(location)]
@@ -48,10 +41,18 @@ def list_assets(location):
     reader = csv.DictReader(stdout.decode('ascii').splitlines(),
                             delimiter=' ', skipinitialspace=True,
                             fieldnames=['name'])
-    return reader
+    assets = [x['name'] for x in reader]
+    return assets
 
 
 if __name__ == '__main__':
     loc = os.path.join('users', 'dgketchum', 'classy')
-    images_to_collection(loc)
+    _list = list_assets(loc)
+    years = ['1986', '1996', '2006', '2016']
+    dct = {'1986': [], '1996': [], '2006': [], '2016': []}
+    for l in _list:
+        e = l[-4:]
+        dct[e].append(l)
+    for key, val in dct.items():
+        print(val)
 # ========================= EOF ====================================================================
