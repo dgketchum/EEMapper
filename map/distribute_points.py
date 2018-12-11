@@ -27,9 +27,9 @@ from map.call_ee import YEARS
 training = os.path.join(os.path.expanduser('~'), 'IrrigationGIS', 'EE_sample')
 
 WETLAND = os.path.join(training, 'wetlands_8NOV.shp')
-UNCULTIVATED = os.path.join(training, 'uncultivated_20NOV.shp')
-IRRIGATED = os.path.join(training, 'irrigated_20NOV.shp')
-UNIRRIGATED = os.path.join(training, 'unirrigated_8NOV.shp')
+UNCULTIVATED = os.path.join(training, 'uncultivated_11DEC.shp')
+IRRIGATED = os.path.join(training, 'irrigated_11DEC.shp')
+UNIRRIGATED = os.path.join(training, 'unirrigated_11DEC.shp')
 
 
 class PointsRunspec(object):
@@ -179,23 +179,13 @@ if __name__ == '__main__':
     extract = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'point_shp')
 
     kwargs = {
-        'irrigated': 20000,
-        'wetlands': 8000,
-        'uncultivated': 8000,
-        'unirrigated': 4000,
+        'irrigated': 50000,
+        'wetlands': 16000,
+        'uncultivated': 16000,
+        'unirrigated': 16000,
     }
 
     prs = PointsRunspec(gis, **kwargs, buffer=-20)
-    prs.save_sample_points(os.path.join(extract, 'points_40k_20NOV18.shp'.format()))
-
-    kwargs = {
-        'irrigated': 70000,
-        'wetlands': 30000,
-        'uncultivated': 30000,
-        'unirrigated': 10000,
-    }
-
-    prs = PointsRunspec(gis, **kwargs, buffer=-20)
-    prs.save_sample_points(os.path.join(extract, 'points_140k_20NOV18.shp'.format()))
+    prs.save_sample_points(os.path.join(extract, 'points_11DEC18.shp'.format()))
 
 # ========================= EOF ====================================================================
