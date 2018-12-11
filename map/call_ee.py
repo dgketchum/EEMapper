@@ -33,7 +33,7 @@ ASSET_ROOT = 'users/dgketchum/classy'
 STATES = ['AZ', 'CA', 'CO', 'ID', 'KS', 'MT', 'ND', 'NE',
           'NM', 'NV', 'OK', 'OR', 'SD', 'TX', 'UT', 'WA', 'WY']
 
-POINTS = 'ft:1F9bmFE7pimYXburkLBM2pufDfnvNOeJqS9p5AV8B'
+POINTS = 'ft:14TVZnvAa5R4lACgpuP3BkjqmOv3A04SFsbMMFeyG'
 TABLE = 'ft:1hm22gvddupx7AD6hX8Ej9wZ5woyRxPic6j2Y35b3'
 
 IRR = {
@@ -368,7 +368,7 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    request_band_extract('bands_140k_20NOV')
+    request_band_extract('bands_11DEC')
     # filter_irrigated()
     # for state in STATES:
     #     bounds = os.path.join(BOUNDARIES, state)
