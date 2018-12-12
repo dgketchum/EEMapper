@@ -22,7 +22,6 @@
 
 import os
 from datetime import datetime
-from pprint import pprint
 
 import ee
 
@@ -33,7 +32,7 @@ ASSET_ROOT = 'users/dgketchum/classy'
 STATES = ['AZ', 'CA', 'CO', 'ID', 'KS', 'MT', 'ND', 'NE',
           'NM', 'NV', 'OK', 'OR', 'SD', 'TX', 'UT', 'WA', 'WY']
 
-POINTS = 'ft:14TVZnvAa5R4lACgpuP3BkjqmOv3A04SFsbMMFeyG'
+POINTS = 'ft:1Ai9IqHeW4vhZfLP_F6T9vE7N6Gcppx4-WDctiYGi'
 TABLE = 'ft:1hm22gvddupx7AD6hX8Ej9wZ5woyRxPic6j2Y35b3'
 
 IRR = {
