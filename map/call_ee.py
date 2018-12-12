@@ -32,8 +32,10 @@ ASSET_ROOT = 'users/dgketchum/classy'
 STATES = ['AZ', 'CA', 'CO', 'ID', 'KS', 'MT', 'ND', 'NE',
           'NM', 'NV', 'OK', 'OR', 'SD', 'TX', 'UT', 'WA', 'WY']
 
+EDIT_STATES = ['CO', 'ID', 'KS', 'ND', 'NE', 'OK', 'SD', 'TX']
+
 POINTS = 'ft:1Ai9IqHeW4vhZfLP_F6T9vE7N6Gcppx4-WDctiYGi'
-TABLE = 'ft:1hm22gvddupx7AD6hX8Ej9wZ5woyRxPic6j2Y35b3'
+TABLE = 'ft:1xSWqNQ2P_Og3TwSsp1semWMu88n-I3_kc7Cu4Drq'
 
 IRR = {
     # 'Acequias': ('ft:1j_Z6exiBQy5NlVLZUe25AsFp-jSfCHn_HAWGT06D', [1987, 2001, 2004, 2007, 2016], 0.5),
@@ -367,7 +369,7 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    request_band_extract('bands_11DEC')
+    # request_band_extract('bands_11DEC')
     # filter_irrigated()
     # for state in STATES:
     #     bounds = os.path.join(BOUNDARIES, state)
