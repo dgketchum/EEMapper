@@ -32,7 +32,7 @@ ASSET_ROOT = 'users/dgketchum/classy'
 STATES = ['AZ', 'CA', 'CO', 'ID', 'KS', 'MT', 'ND', 'NE',
           'NM', 'NV', 'OK', 'OR', 'SD', 'TX', 'UT', 'WA', 'WY']
 
-EDIT_STATES = ['CO', 'ID', 'KS', 'ND', 'NE', 'OK', 'SD', 'TX']
+EDIT_STATES = ['CO', 'KS', 'ND', 'NE', 'OK', 'SD', 'TX']
 
 POINTS = 'ft:1Ai9IqHeW4vhZfLP_F6T9vE7N6Gcppx4-WDctiYGi'
 TABLE = 'ft:1xSWqNQ2P_Og3TwSsp1semWMu88n-I3_kc7Cu4Drq'
