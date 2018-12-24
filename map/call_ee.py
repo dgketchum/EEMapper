@@ -75,6 +75,7 @@ YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997,
          2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016]
 
 TEST_YEARS = [1986, 1996, 2006, 2016]
+MISSING_YEARS = [1990, 1991, 1992, 1999]
 
 
 def export_classification(out_name, asset, export='asset'):
@@ -98,7 +99,7 @@ def export_classification(out_name, asset, export='asset'):
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
-    for yr in TEST_YEARS:
+    for yr in MISSING_YEARS:
         input_bands = stack_bands(yr, roi)
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.classify(trained_model).int()
