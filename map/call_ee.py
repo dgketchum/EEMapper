@@ -24,15 +24,18 @@ import os
 from datetime import datetime
 
 import ee
+from map.assets import list_assets
 
 ROI = 'users/dgketchum/boundaries/western_states_expanded_union'
 BOUNDARIES = 'users/dgketchum/boundaries'
 ASSET_ROOT = 'users/dgketchum/classy'
+IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
 
 STATES = ['AZ', 'CA', 'CO', 'ID', 'KS', 'MT', 'ND', 'NE',
           'NM', 'NV', 'OK', 'OR', 'SD', 'TX', 'UT', 'WA', 'WY']
 
 EDIT_STATES = ['ID']  # 'CO', 'KS', 'ND', 'NE', 'OK', 'SD', 'TX']
+TARGET_STATES = ['CA', 'NV']
 
 POINTS = 'ft:1Ai9IqHeW4vhZfLP_F6T9vE7N6Gcppx4-WDctiYGi'
 TABLE = 'ft:1xSWqNQ2P_Og3TwSsp1semWMu88n-I3_kc7Cu4Drq'
@@ -76,6 +79,26 @@ YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997,
 
 TEST_YEARS = [1986, 1996, 2006, 2016]
 MISSING_YEARS = [1990, 1991, 1992, 1999]
+
+
+def attribute_irrigation():
+
+    fc = ee.FeatureCollection(IRRIGATION_TABLE)
+    images = [os.path.join(ASSET_ROOT, '{}_{}'.format(s, yr)) for yr in TEST_YEARS for s in TARGET_STATES]
+    coll = ee.Image(images)
+    tot = coll.select('classification')
+    means = tot.reduceRegions(collection=fc,
+                              reducer=ee.Reducer.mean(),
+                              scale=30)
+
+    task = ee.batch.Export.table.toCloudStorage(
+        means,
+        description='{}'.format('NV_red'),
+        bucket='wudr',
+        fileNamePrefix='{}'.format('NV_red'),
+        fileFormat='CSV')
+
+    task.start()
 
 
 def export_classification(out_name, asset, export='asset'):
@@ -372,7 +395,8 @@ if __name__ == '__main__':
     is_authorized()
     # request_band_extract('bands_11DEC')
     # filter_irrigated()
-    for state in EDIT_STATES:
-        bounds = os.path.join(BOUNDARIES, state)
-        export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
+    # for state in STATES:
+    #     bounds = os.path.join(BOUNDARIES, state)
+    #     export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
+    attribute_irrigation()
 # ========================= EOF ====================================================================
