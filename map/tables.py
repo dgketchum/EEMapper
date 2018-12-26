@@ -16,9 +16,14 @@
 
 import os
 
-from pandas import read_csv, concat, errors, merge
+from geopandas import GeoDataFrame, read_file
+from numpy import where, array, sum
+from pandas import read_csv, concat, errors, DataFrame
 
 INT_COLS = ['POINT_TYPE', 'YEAR']
+
+KML_JUNK = ['Name', 'descriptio', 'timestamp', 'begin', 'end', 'altitudeMo',
+            'tessellate', 'extrude', 'visibility', 'drawOrder', 'icon']
 
 
 def concatenate_band_extract(root, out_dir, glob='None', sample=None):
@@ -58,31 +63,55 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None):
     df.to_csv(out_file, index=False)
 
 
-def concatenate_irrigation_attrs(_dir):
-    _files = [os.path.join(_dir, x) for x in os.listdir(_dir)]
-
+def concatenate_irrigation_attrs(_dir, out_filename):
+    _files = [os.path.join(_dir, x) for x in os.listdir(_dir) if x.endswith('.shp')]
+    _files.sort()
     first_year = True
-    for year in range(1986, 2017):
+    for year in range(1986, 2016):
         yr_files = [f for f in _files if str(year) in f]
         first_state = True
         for f in yr_files:
             if first_state:
-                df = read_csv(f, index_col=0)
-                df.dropna(subset=['mean'], inplace=True)
-                df.rename(columns={'mean': 'IrrPct_{}'.format(year)}, inplace=True)
+                gdf = read_file(f).drop(columns=KML_JUNK)
+                df = DataFrame(gdf).set_index('system_ind')
+                if 'mean' in df.columns:
+                    print(f)
+                else:
+                    print('not in', f)
+                # df.dropna(subset=['mean'], inplace=True)
+                # df.rename(columns={'mean': 'IrrPct_{}'.format(year)}, inplace=True)
+                # df.drop_duplicates(subset=['.geo'], keep='first', inplace=True)
+                # df['Irr_{}'.format(year)] = where(df['IrrPct_{}'.format(year)].values > 0.5, 1, 0)
                 first_state = False
             else:
-                c = read_csv(f, index_col=0)
-                c.dropna(subset=['mean'], inplace=True)
-                c.rename(columns={'mean': 'IrrPct_{}'.format(year)}, inplace=True)
-                df = concat([df, c], sort=False)
-                df.drop_duplicates(subset=['.geo'], keep='first', inplace=True)
-        if first_year:
-            master = df
-            first_year = False
-        else:
-            master = concat([master, df], sort=False)
-        pass
+                gdc = read_file(f).drop(columns=KML_JUNK)
+                c = DataFrame(gdc).set_index('system_ind')
+                if 'mean' in c.columns:
+                    print(f)
+                else:
+                    print('not in', f)
+                # c.dropna(subset=['mean'], inplace=True)
+                # c.rename(columns={'mean': 'IrrPct_{}'.format(year)}, inplace=True)
+                # c['Irr_{}'.format(year)] = where(c['IrrPct_{}'.format(year)].values > 0.5, 1, 0)
+                # df = concat([df, c], sort=False)
+                # df.drop_duplicates(subset=['.geo'], keep='first', inplace=True)
+
+        # print(df.shape)
+        # if first_year:
+        #     master = df
+        #     master.rename(columns={'.geo': 'geometry'}, inplace=True)
+        #     first_year = False
+        # else:
+        #     master['IrrPct_{}'.format(year)] = df['IrrPct_{}'.format(year)]
+        #     master['Irr_{}'.format(year)] = df['Irr_{}'.format(year)]
+
+    # bool_cols = array([master[x].values for x in master.columns if 'Irr_' in x])
+    # bool_sum = sum(bool_cols, axis=0)
+    # master['Years_Irrigated'] = bool_sum
+    # gpd = GeoDataFrame(master)
+    # for i, r in gpd.iterrows():
+    #     print(r['geometry'].geom_type)
+    # gpd.to_file(out_filename)
 
 
 if __name__ == '__main__':
@@ -91,9 +120,10 @@ if __name__ == '__main__':
     # rt = os.path.join(extracts, 'to_concatenate')
     # out = os.path.join(extracts, 'concatenated')
     # concatenate_band_extract(rt, out, glob='bands_11DEC')
-    extracts = os.path.join(home, 'IrrigationGIS', 'attr_irr')
+    extracts = os.path.join(home, 'IrrigationGIS', 'attr_irr', 'shp')
+    o = os.path.join(home, 'IrrigationGIS', 'attr_irr', 'shp', 'DRI_agpoly_IrrAttr.shp')
     d = os.path.join(extracts, 'DRI_agpoly')
-    concatenate_irrigation_attrs(d)
+    concatenate_irrigation_attrs(d, o)
 
     # csv = os.path.join(extracts, 'concatenated', '')
 
