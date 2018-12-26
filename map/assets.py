@@ -18,7 +18,7 @@ import os
 from pprint import pprint
 from subprocess import Popen, PIPE, check_call
 
-EDIT_STATES = ['CO', 'ID', 'KS', 'ND', 'NE', 'OK', 'SD', 'TX']
+EDIT_STATES = ['KS', 'ND', 'NE', 'OK', 'SD']
 TEST_YEARS = [1986, 1996, 2006, 2016]
 
 home = os.path.expanduser('~')
@@ -56,7 +56,10 @@ if __name__ == '__main__':
     dct = {}
     for l in _list:
         e = l[-4:]
-        if e not in dct.keys():
+        s = l[-7:-5]
+        if s in EDIT_STATES:
+            pass
+        elif e not in dct.keys():
             dct[e] = [l]
         else:
             dct[e].append(l)

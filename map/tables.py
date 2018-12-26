@@ -60,23 +60,28 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None):
 
 def concatenate_irrigation_attrs(_dir):
     _files = [os.path.join(_dir, x) for x in os.listdir(_dir)]
-    tables = []
 
+    first_year = True
     for year in range(1986, 2017):
         yr_files = [f for f in _files if str(year) in f]
-        first = True
+        first_state = True
         for f in yr_files:
-            if first:
+            if first_state:
                 df = read_csv(f, index_col=0)
                 df.dropna(subset=['mean'], inplace=True)
                 df.rename(columns={'mean': 'IrrPct_{}'.format(year)}, inplace=True)
-                first = False
+                first_state = False
             else:
                 c = read_csv(f, index_col=0)
                 c.dropna(subset=['mean'], inplace=True)
                 c.rename(columns={'mean': 'IrrPct_{}'.format(year)}, inplace=True)
                 df = concat([df, c], sort=False)
                 df.drop_duplicates(subset=['.geo'], keep='first', inplace=True)
+        if first_year:
+            master = df
+            first_year = False
+        else:
+            master = concat([master, df], sort=False)
         pass
 
 

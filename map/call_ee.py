@@ -24,7 +24,6 @@ import os
 from datetime import datetime
 
 import ee
-from map.assets import list_assets
 
 ROI = 'users/dgketchum/boundaries/western_states_expanded_union'
 BOUNDARIES = 'users/dgketchum/boundaries'
@@ -84,21 +83,24 @@ MISSING_YEARS = [1990, 1991, 1992, 1999]
 def attribute_irrigation():
 
     fc = ee.FeatureCollection(IRRIGATION_TABLE)
-    images = [os.path.join(ASSET_ROOT, '{}_{}'.format(s, yr)) for yr in TEST_YEARS for s in TARGET_STATES]
-    coll = ee.Image(images)
-    tot = coll.select('classification')
-    means = tot.reduceRegions(collection=fc,
-                              reducer=ee.Reducer.mean(),
-                              scale=30)
+    for state in TARGET_STATES:
+        for yr in range(1986, 2017):
+            images = os.path.join(ASSET_ROOT, '{}_{}'.format(state, yr))
+            coll = ee.Image(images)
+            tot = coll.select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
+            means = tot.reduceRegions(collection=fc,
+                                      reducer=ee.Reducer.mean(),
+                                      scale=30)
 
-    task = ee.batch.Export.table.toCloudStorage(
-        means,
-        description='{}'.format('NV_red'),
-        bucket='wudr',
-        fileNamePrefix='{}'.format('NV_red'),
-        fileFormat='CSV')
+            task = ee.batch.Export.table.toCloudStorage(
+                means,
+                description='{}_{}'.format(state, yr),
+                bucket='wudr',
+                fileNamePrefix='attr_{}_{}'.format(state, yr),
+                fileFormat='CSV')
 
-    task.start()
+            print(state, yr)
+            task.start()
 
 
 def export_classification(out_name, asset, export='asset'):
