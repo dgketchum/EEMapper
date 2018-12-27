@@ -97,7 +97,7 @@ def attribute_irrigation():
                 description='{}_{}'.format(state, yr),
                 bucket='wudr',
                 fileNamePrefix='attr_{}_{}'.format(state, yr),
-                fileFormat='CSV')
+                fileFormat='KML')
 
             print(state, yr)
             task.start()
