@@ -22,19 +22,22 @@
 
 import os
 from datetime import datetime
-from pprint import pprint
 
 import ee
 
 ROI = 'users/dgketchum/boundaries/western_states_expanded_union'
 BOUNDARIES = 'users/dgketchum/boundaries'
 ASSET_ROOT = 'users/dgketchum/classy'
+IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
 
-STATES = ['AZ', 'CA', 'CO', 'ID', 'MT',
-          'NM', 'NV', 'OR', 'TX', 'UT', 'WA', 'WY']
+STATES = ['AZ', 'CA', 'CO', 'ID', 'KS', 'MT', 'ND', 'NE',
+          'NM', 'NV', 'OK', 'OR', 'SD', 'TX', 'UT', 'WA', 'WY']
 
-POINTS = 'ft:14TVZnvAa5R4lACgpuP3BkjqmOv3A04SFsbMMFeyG'
-TABLE = 'ft:1hm22gvddupx7AD6hX8Ej9wZ5woyRxPic6j2Y35b3'
+EDIT_STATES = ['ID']  # 'CO', 'KS', 'ND', 'NE', 'OK', 'SD', 'TX']
+TARGET_STATES = ['CA', 'NV']
+
+POINTS = 'ft:1Ai9IqHeW4vhZfLP_F6T9vE7N6Gcppx4-WDctiYGi'
+TABLE = 'ft:1xSWqNQ2P_Og3TwSsp1semWMu88n-I3_kc7Cu4Drq'
 
 IRR = {
     # 'Acequias': ('ft:1j_Z6exiBQy5NlVLZUe25AsFp-jSfCHn_HAWGT06D', [1987, 2001, 2004, 2007, 2016], 0.5),
@@ -69,11 +72,35 @@ ID_IRR = {
     'ID_2011': ('ft:1NxN6aOViiJBklaUEEeGJJo6Kpy-QB10f_yGWOUyC', [2011], 0.5),
 }
 
-YEARS = [1987, 1988, 1989, 1993, 1994, 1995, 1997,
-         1998, 2000, 2001, 2002, 2003, 2004, 2005, 2007,
-         2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015]
+YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997,
+         1998, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
+         2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016]
 
 TEST_YEARS = [1986, 1996, 2006, 2016]
+MISSING_YEARS = [1990, 1991, 1992, 1999]
+
+
+def attribute_irrigation():
+
+    fc = ee.FeatureCollection(IRRIGATION_TABLE)
+    for state in TARGET_STATES:
+        for yr in range(1986, 2017):
+            images = os.path.join(ASSET_ROOT, '{}_{}'.format(state, yr))
+            coll = ee.Image(images)
+            tot = coll.select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
+            means = tot.reduceRegions(collection=fc,
+                                      reducer=ee.Reducer.mean(),
+                                      scale=30)
+
+            task = ee.batch.Export.table.toCloudStorage(
+                means,
+                description='{}_{}'.format(state, yr),
+                bucket='wudr',
+                fileNamePrefix='attr_{}_{}'.format(state, yr),
+                fileFormat='KML')
+
+            print(state, yr)
+            task.start()
 
 
 def export_classification(out_name, asset, export='asset'):
@@ -97,7 +124,7 @@ def export_classification(out_name, asset, export='asset'):
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
-    for yr in YEARS:
+    for yr in MISSING_YEARS:
         input_bands = stack_bands(yr, roi)
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.classify(trained_model).int()
@@ -370,8 +397,8 @@ if __name__ == '__main__':
     is_authorized()
     # request_band_extract('bands_11DEC')
     # filter_irrigated()
-    for state in STATES:
-        bounds = os.path.join(BOUNDARIES, state)
-        print(state)
-        export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
+    # for state in STATES:
+    #     bounds = os.path.join(BOUNDARIES, state)
+    #     export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
+    attribute_irrigation()
 # ========================= EOF ====================================================================

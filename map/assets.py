@@ -15,7 +15,11 @@
 # ===============================================================================
 import csv
 import os
+from pprint import pprint
 from subprocess import Popen, PIPE, check_call
+
+EDIT_STATES = ['KS', 'ND', 'NE', 'OK', 'SD']
+TEST_YEARS = [1986, 1996, 2006, 2016]
 
 home = os.path.expanduser('~')
 EXEC = os.path.join(home, 'miniconda2', 'envs', 'ee', 'bin', 'earthengine')
@@ -48,11 +52,18 @@ def list_assets(location):
 if __name__ == '__main__':
     loc = os.path.join('users', 'dgketchum', 'classy')
     _list = list_assets(loc)
-    years = ['1986', '1996', '2006', '2016']
-    dct = {'1986': [], '1996': [], '2006': [], '2016': []}
+    years = [x for x in range(1986, 2017)]
+    dct = {}
     for l in _list:
         e = l[-4:]
-        dct[e].append(l)
+        s = l[-7:-5]
+        if s in EDIT_STATES:
+            pass
+        elif e not in dct.keys():
+            dct[e] = [l]
+        else:
+            dct[e].append(l)
+
     for key, val in dct.items():
         print(val)
 # ========================= EOF ====================================================================
