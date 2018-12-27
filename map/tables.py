@@ -70,7 +70,7 @@ def concatenate_irrigation_attrs(_dir, out_filename):
     _files = [os.path.join(_dir, x) for x in os.listdir(_dir) if x.endswith('.csv')]
     _files.sort()
     first_year = True
-    for year in range(1986, 1990):
+    for year in range(1986, 2017):
         yr_files = [f for f in _files if str(year) in f]
         first_state = True
         for f in yr_files:
@@ -89,7 +89,7 @@ def concatenate_irrigation_attrs(_dir, out_filename):
                 df = concat([df, c], sort=False)
                 df.drop_duplicates(subset=['.geo'], keep='first', inplace=True)
 
-        print(df.shape)
+        print(year, df.shape)
         if first_year:
             master = df
             first_year = False
@@ -128,7 +128,7 @@ if __name__ == '__main__':
     # concatenate_band_extract(rt, out, glob='bands_11DEC')
     extracts = os.path.join(home, 'IrrigationGIS', 'attr_irr', 'csv')
     d = os.path.join(extracts, 'DRI_agpoly')
-    o = os.path.join(home, 'IrrigationGIS', 'attr_irr', 'shp', 'DRI_agpoly', 'DRI_agpoly_IrrAttr.shp')
+    o = os.path.join(home, 'IrrigationGIS', 'attr_irr', 'shp', 'DRI_agpoly_IrrAttr.shp')
     concatenate_irrigation_attrs(d, o)
 
     # csv = os.path.join(extracts, 'concatenated', '')
