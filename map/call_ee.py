@@ -21,14 +21,18 @@
 # ===============================================================================
 
 import os
+import ee
+from pprint import pprint
 from datetime import datetime
 
-import ee
+from map.assets import list_assets
 
 ROI = 'users/dgketchum/boundaries/western_states_expanded_union'
 BOUNDARIES = 'users/dgketchum/boundaries'
 ASSET_ROOT = 'users/dgketchum/classy'
 IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
+HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
+HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
 
 STATES = ['AZ', 'CA', 'CO', 'ID', 'KS', 'MT', 'ND', 'NE',
           'NM', 'NV', 'OK', 'OR', 'SD', 'TX', 'UT', 'WA', 'WY']
@@ -78,6 +82,33 @@ YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997,
 
 TEST_YEARS = [1986, 1996, 2006, 2016]
 MISSING_YEARS = [1990, 1991, 1992, 1999]
+
+
+def reduce_regions(tables):
+    images = list_assets('users/dgketchum/classy')
+    print(images)
+    fc = ee.FeatureCollection(tables)
+    pprint(fc.first().getInfo())
+
+        # for i in images:
+        #     year = i[-4:]
+        #     summer = ee.ImageCollection('users/dgketchum/ssebop/MT/'
+        #                                 '{}'.format(year)).filterDate('{}-04-15'.format(year),
+        #                                                               '{}-10-15'.format(year))
+        #
+        #     tot = summer.select('et_actual').sum()
+        #     means = tot.reduceRegions(collection=fc,
+        #                               reducer=ee.Reducer.mean(),
+        #                               scale=30)
+        #
+        #     task = ee.batch.Export.table.toCloudStorage(
+        #         means,
+        #         description='{}_{}'.format(fc.getInfo()['id'].split('/')[-1], year),
+        #         bucket='wudr',
+        #         fileNamePrefix='{}_{}'.format(fc.getInfo()['id'].split('/')[-1], year),
+        #         fileFormat='CSV')
+        #
+        #     task.start()
 
 
 def attribute_irrigation():
@@ -400,5 +431,6 @@ if __name__ == '__main__':
     # for state in STATES:
     #     bounds = os.path.join(BOUNDARIES, state)
     #     export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
-    attribute_irrigation()
+    # attribute_irrigation()
+    reduce_regions(HUC_6)
 # ========================= EOF ====================================================================
