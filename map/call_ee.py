@@ -21,9 +21,9 @@
 # ===============================================================================
 
 import os
-import ee
-from pprint import pprint
 from datetime import datetime
+
+import ee
 
 from map.assets import list_assets
 
@@ -34,10 +34,9 @@ IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
 HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
 HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
 
-STATES = ['AZ', 'CA', 'CO', 'ID', 'KS', 'MT', 'ND', 'NE',
-          'NM', 'NV', 'OK', 'OR', 'SD', 'TX', 'UT', 'WA', 'WY']
+STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
 
-EDIT_STATES = ['ID']  # 'CO', 'KS', 'ND', 'NE', 'OK', 'SD', 'TX']
+EDIT_STATES = ['KS', 'ND', 'NE', 'OK', 'SD', 'TX']
 TARGET_STATES = ['CA', 'NV']
 
 POINTS = 'ft:1Ai9IqHeW4vhZfLP_F6T9vE7N6Gcppx4-WDctiYGi'
@@ -84,31 +83,35 @@ TEST_YEARS = [1986, 1996, 2006, 2016]
 MISSING_YEARS = [1990, 1991, 1992, 1999]
 
 
-def reduce_regions(tables):
-    images = list_assets('users/dgketchum/classy')
-    print(images)
+def reduce_regions(tables, operation='mean'):
+    image_list = list_assets('users/dgketchum/classy')
     fc = ee.FeatureCollection(tables)
-    pprint(fc.first().getInfo())
+    for yr in range(1986, 2017):
+        yr_img = [x for x in image_list if x.endswith(str(yr))]
+        coll = ee.Image(yr_img)
+        tot = coll.select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
+        print(tot.getInfo())
+        if operation == 'mean':
+            reduce = tot.reduceRegions(collection=fc,
+                                       reducer=ee.Reducer.mean(),
+                                       scale=30)
+        elif operation == 'count':
+            reduce = tot.reduceRegions(collection=fc,
+                                       reducer=ee.Reducer.count(),
+                                       scale=30)
+        else:
+            raise NotImplementedError
 
-        # for i in images:
-        #     year = i[-4:]
-        #     summer = ee.ImageCollection('users/dgketchum/ssebop/MT/'
-        #                                 '{}'.format(year)).filterDate('{}-04-15'.format(year),
-        #                                                               '{}-10-15'.format(year))
-        #
-        #     tot = summer.select('et_actual').sum()
-        #     means = tot.reduceRegions(collection=fc,
-        #                               reducer=ee.Reducer.mean(),
-        #                               scale=30)
-        #
-        #     task = ee.batch.Export.table.toCloudStorage(
-        #         means,
-        #         description='{}_{}'.format(fc.getInfo()['id'].split('/')[-1], year),
-        #         bucket='wudr',
-        #         fileNamePrefix='{}_{}'.format(fc.getInfo()['id'].split('/')[-1], year),
-        #         fileFormat='CSV')
-        #
-        #     task.start()
+        task = ee.batch.Export.table.toCloudStorage(
+            reduce,
+            description='Red{}_{}'.format(operation, yr),
+            bucket='wudr',
+            fileNamePrefix='Red{}_{}'.format(operation, yr),
+            fileFormat='CSV')
+
+        print(yr)
+        task.start()
+        break
 
 
 def attribute_irrigation():
@@ -432,5 +435,5 @@ if __name__ == '__main__':
     #     bounds = os.path.join(BOUNDARIES, state)
     #     export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
     # attribute_irrigation()
-    reduce_regions(HUC_6)
+    reduce_regions(HUC_6, operation='count')
 # ========================= EOF ====================================================================
