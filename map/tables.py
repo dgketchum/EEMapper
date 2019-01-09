@@ -109,6 +109,13 @@ def concatenate_irrigation_attrs(_dir, out_filename):
     gpd.to_file(out_filename)
 
 
+def concatenate_sum_attrs(_dir, out_filename):
+    _files = [os.path.join(_dir, x) for x in os.listdir(_dir) if x.endswith('.csv')]
+    _files.sort()
+    for year in range(1986, 2017):
+        yr_files = [f for f in _files if str(year) in f]
+
+
 def to_polygon(j):
     if not isinstance(j, list):
         return nan
