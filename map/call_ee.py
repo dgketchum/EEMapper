@@ -88,9 +88,8 @@ def reduce_regions(tables, operation='mean'):
     fc = ee.FeatureCollection(tables)
     for yr in range(1986, 2017):
         yr_img = [x for x in image_list if x.endswith(str(yr))]
-        coll = ee.Image(yr_img)
-        tot = coll.select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
-        print(tot.getInfo())
+        coll = ee.ImageCollection(yr_img)
+        tot = coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
         if operation == 'mean':
             reduce = tot.reduceRegions(collection=fc,
                                        reducer=ee.Reducer.mean(),
@@ -111,7 +110,6 @@ def reduce_regions(tables, operation='mean'):
 
         print(yr)
         task.start()
-        break
 
 
 def attribute_irrigation():
@@ -436,4 +434,5 @@ if __name__ == '__main__':
     #     export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
     # attribute_irrigation()
     reduce_regions(HUC_6, operation='count')
+    reduce_regions(HUC_6, operation='mean')
 # ========================= EOF ====================================================================
