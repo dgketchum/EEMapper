@@ -18,10 +18,11 @@ import json
 import os
 
 from geopandas import GeoDataFrame
-from numpy import where, array, sum, nan, any
+from numpy import where, array, sum, nan
 from pandas import read_csv, concat, errors, Series
 from pandas.io.json import json_normalize
 from shapely import geometry
+from shapely.geometry.polygon import Polygon
 
 INT_COLS = ['POINT_TYPE', 'YEAR']
 
@@ -121,7 +122,8 @@ def concatenate_sum_attrs(_dir, out_filename):
         _count = [f for f in yr_files if 'count' in f][0]
         if first:
             df = read_csv(_mean, index_col=0)
-            # df.dropna(subset=['mean'], inplace=True)
+            df_geo = df['.geo']
+            df.drop(columns=['.geo'], inplace=True)
             df.rename(columns={'mean': 'Mean_{}'.format(year)}, inplace=True)
             count_arr = read_csv(_count, index_col=0)['count'].values
             df['Count_{}'.format(year)] = count_arr
@@ -132,14 +134,14 @@ def concatenate_sum_attrs(_dir, out_filename):
             df['Count_{}'.format(year)] = count_arr
             df['Mean_{}'.format(year)] = mean_arr
 
-    df.to_csv(out_filename)
-    coords = Series(json_normalize(df['.geo'].apply(json.loads))['coordinates'].values,
+    # df.to_csv(out_filename)
+    coords = Series(json_normalize(df_geo.apply(json.loads))['coordinates'].values,
                     index=df.index)
     df['geometry'] = coords.apply(to_polygon)
     df.dropna(subset=['geometry'], inplace=True)
-    gpd = GeoDataFrame(df.drop(['.geo'], axis=1),
-                       crs={'init': 'epsg:4326'})
-    gpd.to_file(out_filename.replace('concatenated.csv', 'irrigation_timeseries.shp'))
+    gpd = GeoDataFrame(df, crs={'init': 'epsg:4326'})
+    geo = gpd['geometry']
+    gpd.to_file(out_filename.replace(os.path.basename(out_filename), 'irrigation_timeseries_huc6.shp'))
 
 
 def to_polygon(j):
@@ -156,7 +158,7 @@ def to_polygon(j):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     extracts = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_huc6')
-    out_table = os.path.join(home, 'IrrigationGIS', 'time_series', 'tables', 'concatenated.csv')
+    out_table = os.path.join(home, 'IrrigationGIS', 'time_series', 'tables', 'concatenated_huc6.csv')
     concatenate_sum_attrs(extracts, out_table)
     # csv = os.path.join(extracts, 'concatenated', '')
 
