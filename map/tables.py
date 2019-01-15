@@ -14,14 +14,14 @@
 # limitations under the License.
 # ===============================================================================
 
+import json
 import os
 
-from geopandas import GeoDataFrame, read_file
-from numpy import where, array, sum, nan, isnan, count_nonzero
+from geopandas import GeoDataFrame
+from numpy import where, array, sum, nan, any
 from pandas import read_csv, concat, errors, Series
-from shapely import geometry
-import json
 from pandas.io.json import json_normalize
+from shapely import geometry
 
 INT_COLS = ['POINT_TYPE', 'YEAR']
 
@@ -101,7 +101,8 @@ def concatenate_irrigation_attrs(_dir, out_filename):
     bool_sum = sum(bool_cols, axis=0)
     master['IYears'] = bool_sum
     master.dropna(subset=['.geo'], inplace=True)
-    coords = Series(json_normalize(master['.geo'].apply(json.loads))['coordinates'].values, index=master.index)
+    coords = Series(json_normalize(master['.geo'].apply(json.loads))['coordinates'].values,
+                    index=master.index)
     master['geometry'] = coords.apply(to_polygon)
     master.dropna(subset=['geometry'], inplace=True)
     gpd = GeoDataFrame(master.drop(['.geo'], axis=1),
@@ -112,8 +113,33 @@ def concatenate_irrigation_attrs(_dir, out_filename):
 def concatenate_sum_attrs(_dir, out_filename):
     _files = [os.path.join(_dir, x) for x in os.listdir(_dir) if x.endswith('.csv')]
     _files.sort()
+    first = True
     for year in range(1986, 2017):
+        print(year)
         yr_files = [f for f in _files if str(year) in f]
+        _mean = [f for f in yr_files if 'mean' in f][0]
+        _count = [f for f in yr_files if 'count' in f][0]
+        if first:
+            df = read_csv(_mean, index_col=0)
+            # df.dropna(subset=['mean'], inplace=True)
+            df.rename(columns={'mean': 'Mean_{}'.format(year)}, inplace=True)
+            count_arr = read_csv(_count, index_col=0)['count'].values
+            df['Count_{}'.format(year)] = count_arr
+            first = False
+        else:
+            mean_arr = read_csv(_mean, index_col=0)['mean'].values
+            count_arr = read_csv(_count, index_col=0)['count'].values
+            df['Count_{}'.format(year)] = count_arr
+            df['Mean_{}'.format(year)] = mean_arr
+
+    df.to_csv(out_filename)
+    coords = Series(json_normalize(df['.geo'].apply(json.loads))['coordinates'].values,
+                    index=df.index)
+    df['geometry'] = coords.apply(to_polygon)
+    df.dropna(subset=['geometry'], inplace=True)
+    gpd = GeoDataFrame(df.drop(['.geo'], axis=1),
+                       crs={'init': 'epsg:4326'})
+    gpd.to_file(out_filename.replace('concatenated.csv', 'irrigation_timeseries.shp'))
 
 
 def to_polygon(j):
@@ -129,15 +155,9 @@ def to_polygon(j):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    # extracts = os.path.join(home, 'IrrigationGIS', 'EE_extracts')
-    # rt = os.path.join(extracts, 'to_concatenate')
-    # out = os.path.join(extracts, 'concatenated')
-    # concatenate_band_extract(rt, out, glob='bands_11DEC')
-    extracts = os.path.join(home, 'IrrigationGIS', 'attr_irr', 'csv')
-    d = os.path.join(extracts, 'DRI_agpoly')
-    o = os.path.join(home, 'IrrigationGIS', 'attr_irr', 'shp', 'DRI_agpoly_IrrAttr.shp')
-    concatenate_irrigation_attrs(d, o)
-
+    extracts = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_huc6')
+    out_table = os.path.join(home, 'IrrigationGIS', 'time_series', 'tables', 'concatenated.csv')
+    concatenate_sum_attrs(extracts, out_table)
     # csv = os.path.join(extracts, 'concatenated', '')
 
 # ========================= EOF ====================================================================
