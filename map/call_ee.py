@@ -433,6 +433,6 @@ if __name__ == '__main__':
     #     bounds = os.path.join(BOUNDARIES, state)
     #     export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
     # attribute_irrigation()
-    reduce_regions(HUC_6, operation='count')
-    reduce_regions(HUC_6, operation='mean')
+    reduce_regions(HUC_8, operation='count')
+    reduce_regions(HUC_8, operation='mean')
 # ========================= EOF ====================================================================
