@@ -114,7 +114,7 @@ def concatenate_irrigation_attrs(_dir, out_filename):
     gpd.to_file(out_filename)
 
 
-def concatenate_sum_attrs(_dir, out_filename, template_geometry=None):
+def concatenate_sum_attrs(_dir, out_filename, template_geometry):
 
     _files = [os.path.join(_dir, x) for x in os.listdir(_dir) if x.endswith('.csv')]
     _files.sort()
@@ -134,18 +134,11 @@ def concatenate_sum_attrs(_dir, out_filename, template_geometry=None):
             check = []
             names = [(check.append(x), print(x)) for x in names.values if x in check]
 
-            if template_geometry:
-                template_gpd = read_file(template_geometry)
-                for i, r in template_gpd.iterrows():
-                    if r['Name'] in names.values and r['Name'] not in template_names:
-                        df_geo.append(r['geometry'])
-                        template_names.append(r['Name'])
-
-            else:
-                str_geo = df['.geo']
-                coords = Series(json_normalize(str_geo.apply(json.loads))['coordinates'].values,
-                                index=df.index)
-                df_geo = coords.apply(to_polygon)
+            template_gpd = read_file(template_geometry)
+            for i, r in template_gpd.iterrows():
+                if r['Name'] in names.values and r['Name'] not in template_names:
+                    df_geo.append(r['geometry'])
+                    template_names.append(r['Name'])
 
             df.drop(columns=['.geo'], inplace=True)
             df.rename(columns={'mean': 'Mean_{}'.format(year)}, inplace=True)
