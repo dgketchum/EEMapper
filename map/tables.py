@@ -119,22 +119,27 @@ def concatenate_sum_attrs(_dir, out_filename, template_geometry=None):
     _files = [os.path.join(_dir, x) for x in os.listdir(_dir) if x.endswith('.csv')]
     _files.sort()
     first = True
+    df_geo = []
+    template_names = []
 
     for year in range(1986, 1987):
         print(year)
-        df_geo = None
         yr_files = [f for f in _files if str(year) in f]
         _mean = [f for f in yr_files if 'mean' in f][0]
         _count = [f for f in yr_files if 'count' in f][0]
 
         if first:
-            df = read_csv(_mean, index_col=0)
+            df = read_csv(_mean)
             names = df['Name']
+            check = []
+            names = [(check.append(x), print(x)) for x in names.values if x in check]
 
             if template_geometry:
                 template_gpd = read_file(template_geometry)
-                str_geo = template_gpd['geometry']
-
+                for i, r in template_gpd.iterrows():
+                    if r['Name'] in names.values and r['Name'] not in template_names:
+                        df_geo.append(r['geometry'])
+                        template_names.append(r['Name'])
 
             else:
                 str_geo = df['.geo']
@@ -157,12 +162,10 @@ def concatenate_sum_attrs(_dir, out_filename, template_geometry=None):
     df.drop(columns=['Name'], inplace=True)
     [df.drop(columns=[x], inplace=True) for x in df.columns if x not in KML_TIME_SERIES_KEEP]
     df['Name'] = names
-    # df.to_csv(out_filename)
-    for i, r in str_geo.iteritems():
-        if not isinstance(r, Polygon):
-            print(type(r), df.iloc[i])
-    gpd = GeoDataFrame(df, crs={'init': 'epsg:4326'}, geometry=template_gpd['geometry'])
-    gpd.to_file(out_filename.replace(os.path.basename(out_filename), '_irrigation_timeseries_huc6.shp'))
+    df['geometry'] = df_geo
+    df.to_csv(out_filename)
+    gpd = GeoDataFrame(df, crs={'init': 'epsg:4326'}, geometry=df_geo)
+    gpd.to_file(out_filename.replace(os.path.basename(out_filename), 'irrigation_timeseries_huc8.shp'))
 
 
 def to_polygon(j):
@@ -178,9 +181,9 @@ def to_polygon(j):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    extracts = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_huc6')
-    out_table = os.path.join(home, 'IrrigationGIS', 'time_series', 'tables', 'concatenated_huc6.csv')
-    template = os.path.join(home, 'IrrigationGIS', 'hydrography', 'huc6_semiarid_clip.shp')
+    extracts = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_huc8')
+    out_table = os.path.join(home, 'IrrigationGIS', 'time_series', 'tables', 'concatenated_huc8.csv')
+    template = os.path.join(home, 'IrrigationGIS', 'hydrography', 'huc8_semiarid.shp')
     concatenate_sum_attrs(extracts, out_table, template_geometry=template)
     # csv = os.path.join(extracts, 'concatenated', '')
 
