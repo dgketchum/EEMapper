@@ -31,13 +31,10 @@ KML_DROP = ['system:index', 'altitudeMo', 'descriptio',
             'sourcefeat', 'sourceorig', 'system_ind', 'tessellate',
             'tnmid', 'visibility', ]
 
-DUPLICATE_HUC8_NAMES = ['Beaver', 'Redwater', 'Beaver', 'Beaver', 'Teton', 'Blackfoot', 'Willow', 'Stillwater',
-                        'Willow',
-                        'Rock', 'Willow', 'Willow', 'Smith', 'Rock', 'Big Sandy', 'Santa Maria', 'San Francisco',
-                        'White', 'Palo Duro', 'Big Sandy', 'White', 'Silver', 'Carrizo', 'Colorado Headwaters', 'Muddy',
-                        'Willow', 'Muddy', 'Big Sandy', 'Muddy', 'Upper Bear', 'Jordan', 'Salt', 'Upper White', 'Horse',
-                        'Clear', 'Beaver', 'Pawnee', 'Frenchman', 'Beaver', 'Lower White', 'Medicine', 'Crow', 'Cedar',
-                        'Lower Beaver']
+DUPLICATE_HUC8_NAMES = ['Beaver', 'Big Sandy', 'Blackfoot', 'Carrizo', 'Cedar', 'Clear', 'Colorado Headwaters', 'Crow',
+                        'Frenchman', 'Horse', 'Jordan', 'Lower Beaver', 'Lower White', 'Medicine', 'Muddy', 'Palo Duro',
+                        'Pawnee', 'Redwater', 'Rock', 'Salt', 'San Francisco', 'Santa Maria', 'Silver', 'Smith',
+                        'Stillwater', 'Teton', 'Upper Bear', 'Upper White', 'White', 'Willow']
 
 
 def concatenate_band_extract(root, out_dir, glob='None', sample=None):
@@ -121,19 +118,20 @@ def concatenate_irrigation_attrs(_dir, out_filename):
     gpd.to_file(out_filename)
 
 
-def concatenate_sum_attrs(_dir, out_filename, template_geometry):
+def concatenate_attrs(_dir, out_filename, template_geometry, huc_level=8):
 
     _files = [os.path.join(_dir, x) for x in os.listdir(_dir) if x.endswith('.csv')]
     _files.sort()
     first = True
     df_geo = []
     template_names = []
+    count_arr = None
+    names = None
 
     for year in range(1986, 2017):
         print(year)
         yr_files = [f for f in _files if str(year) in f]
         _mean = [f for f in yr_files if 'mean' in f][0]
-        _count = [f for f in yr_files if 'count' in f][0]
 
         if first:
             df = read_csv(_mean)
@@ -145,25 +143,23 @@ def concatenate_sum_attrs(_dir, out_filename, template_geometry):
                 if r['Name'] in DUPLICATE_HUC8_NAMES:
                     df_geo.append(r['geometry'])
                     template_names.append('{}_{}'.format(r['Name'], str(r['states']).replace(',', '_')))
-
                 elif r['Name'] in names.values and r['Name'] not in template_names:
                     df_geo.append(r['geometry'])
                     template_names.append(r['Name'])
-
                 else:
                     raise NotImplementedError
 
-            df.drop(columns=['.geo'], inplace=True)
-            df.rename(columns={'mean': 'Mean_{}'.format(year)}, inplace=True)
-            count_arr = read_csv(_count, index_col=0)['count'].values
-            df['Count_{}'.format(year)] = count_arr
+            mean_arr = df['mean']
+            df.drop(columns=['.geo', 'mean'], inplace=True)
+            _count_csv = [f for f in yr_files if 'count' in f][0]
+            count_arr = read_csv(_count_csv, index_col=0)['count'].values
+            df['TotalPix'.format(year)] = count_arr
+            df['IrrPix_{}'.format(year)] = mean_arr * count_arr
             first = False
 
         else:
             mean_arr = read_csv(_mean, index_col=0)['mean'].values
-            count_arr = read_csv(_count, index_col=0)['count'].values
-            df['Count_{}'.format(year)] = count_arr
-            df['Mean_{}'.format(year)] = mean_arr
+            df['IrrPix_{}'.format(year)] = mean_arr * count_arr
 
     df.drop(columns=['Name'], inplace=True)
     df.drop(columns=KML_DROP, inplace=True)
@@ -171,7 +167,8 @@ def concatenate_sum_attrs(_dir, out_filename, template_geometry):
     df['geometry'] = df_geo
     df.to_csv(out_filename)
     gpd = GeoDataFrame(df, crs={'init': 'epsg:4326'}, geometry=df_geo)
-    gpd.to_file(out_filename.replace(os.path.basename(out_filename), 'irrigation_timeseries_huc6.shp'))
+    gpd.to_file(out_filename.replace(os.path.basename(out_filename),
+                                     'irrigation_timeseries_huc{}.shp'.format(huc_level)))
 
 
 def to_polygon(j):
@@ -187,10 +184,11 @@ def to_polygon(j):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    extracts = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_huc6')
-    out_table = os.path.join(home, 'IrrigationGIS', 'time_series', 'tables', 'concatenated_huc6.csv')
-    template = os.path.join(home, 'IrrigationGIS', 'hydrography', 'huc6_semiarid.shp')
-    concatenate_sum_attrs(extracts, out_table, template_geometry=template)
+    huc_lev = 8
+    extracts = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_huc{}'.format(huc_lev))
+    out_table = os.path.join(home, 'IrrigationGIS', 'time_series', 'tables', 'concatenated_huc{}.csv'.format(huc_lev))
+    template = os.path.join(home, 'IrrigationGIS', 'hydrography', 'huc{}_semiarid.shp'.format(huc_lev))
+    concatenate_attrs(extracts, out_table, template_geometry=template)
     # csv = os.path.join(extracts, 'concatenated', '')
 
 # ========================= EOF ====================================================================
