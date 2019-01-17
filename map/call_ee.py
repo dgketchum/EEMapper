@@ -103,9 +103,9 @@ def reduce_regions(tables, operation='mean'):
 
         task = ee.batch.Export.table.toCloudStorage(
             reduce,
-            description='Red{}_{}'.format(operation, yr),
+            description='reduceFC_{}_{}'.format(operation, yr),
             bucket='wudr',
-            fileNamePrefix='Red{}_{}'.format(operation, yr),
+            fileNamePrefix='reduceFC_{}_{}'.format(operation, yr),
             fileFormat='CSV')
 
         print(yr)
