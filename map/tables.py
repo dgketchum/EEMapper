@@ -22,15 +22,22 @@ from numpy import where, array, sum, nan
 from pandas import read_csv, concat, errors, Series
 from pandas.io.json import json_normalize
 from shapely import geometry
-from shapely.geometry.polygon import Polygon
 
 INT_COLS = ['POINT_TYPE', 'YEAR']
 
-KML_JUNK = ['Name', 'descriptio', 'timestamp', 'begin', 'end', 'altitudeMo',
-            'tessellate', 'extrude', 'visibility', 'drawOrder', 'icon']
+KML_DROP = ['system:index', 'altitudeMo', 'descriptio',
+            'extrude', 'gnis_id', 'icon', 'loaddate',
+            'metasource', 'name_1', 'shape_area', 'shape_leng', 'sourcedata',
+            'sourcefeat', 'sourceorig', 'system_ind', 'tessellate',
+            'tnmid', 'visibility', ]
 
-KML_TIME_SERIES_KEEP = ['areaacres', 'areasqkm', 'huc6', 'loaddate', 'Mean_1986',
-                        'shape_area', 'shape_leng', 'states', 'Count_1986', 'geometry']
+DUPLICATE_HUC8_NAMES = ['Beaver', 'Redwater', 'Beaver', 'Beaver', 'Teton', 'Blackfoot', 'Willow', 'Stillwater',
+                        'Willow',
+                        'Rock', 'Willow', 'Willow', 'Smith', 'Rock', 'Big Sandy', 'Santa Maria', 'San Francisco',
+                        'White', 'Palo Duro', 'Big Sandy', 'White', 'Silver', 'Carrizo', 'Colorado Headwaters', 'Muddy',
+                        'Willow', 'Muddy', 'Big Sandy', 'Muddy', 'Upper Bear', 'Jordan', 'Salt', 'Upper White', 'Horse',
+                        'Clear', 'Beaver', 'Pawnee', 'Frenchman', 'Beaver', 'Lower White', 'Medicine', 'Crow', 'Cedar',
+                        'Lower Beaver']
 
 
 def concatenate_band_extract(root, out_dir, glob='None', sample=None):
@@ -122,7 +129,7 @@ def concatenate_sum_attrs(_dir, out_filename, template_geometry):
     df_geo = []
     template_names = []
 
-    for year in range(1986, 1987):
+    for year in range(1986, 2017):
         print(year)
         yr_files = [f for f in _files if str(year) in f]
         _mean = [f for f in yr_files if 'mean' in f][0]
@@ -131,14 +138,20 @@ def concatenate_sum_attrs(_dir, out_filename, template_geometry):
         if first:
             df = read_csv(_mean)
             names = df['Name']
-            check = []
-            names = [(check.append(x), print(x)) for x in names.values if x in check]
-
             template_gpd = read_file(template_geometry)
+
             for i, r in template_gpd.iterrows():
-                if r['Name'] in names.values and r['Name'] not in template_names:
+
+                if r['Name'] in DUPLICATE_HUC8_NAMES:
+                    df_geo.append(r['geometry'])
+                    template_names.append('{}_{}'.format(r['Name'], str(r['states']).replace(',', '_')))
+
+                elif r['Name'] in names.values and r['Name'] not in template_names:
                     df_geo.append(r['geometry'])
                     template_names.append(r['Name'])
+
+                else:
+                    raise NotImplementedError
 
             df.drop(columns=['.geo'], inplace=True)
             df.rename(columns={'mean': 'Mean_{}'.format(year)}, inplace=True)
@@ -153,12 +166,12 @@ def concatenate_sum_attrs(_dir, out_filename, template_geometry):
             df['Mean_{}'.format(year)] = mean_arr
 
     df.drop(columns=['Name'], inplace=True)
-    [df.drop(columns=[x], inplace=True) for x in df.columns if x not in KML_TIME_SERIES_KEEP]
+    df.drop(columns=KML_DROP, inplace=True)
     df['Name'] = names
     df['geometry'] = df_geo
     df.to_csv(out_filename)
     gpd = GeoDataFrame(df, crs={'init': 'epsg:4326'}, geometry=df_geo)
-    gpd.to_file(out_filename.replace(os.path.basename(out_filename), 'irrigation_timeseries_huc8.shp'))
+    gpd.to_file(out_filename.replace(os.path.basename(out_filename), 'irrigation_timeseries_huc6.shp'))
 
 
 def to_polygon(j):
@@ -174,9 +187,9 @@ def to_polygon(j):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    extracts = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_huc8')
-    out_table = os.path.join(home, 'IrrigationGIS', 'time_series', 'tables', 'concatenated_huc8.csv')
-    template = os.path.join(home, 'IrrigationGIS', 'hydrography', 'huc8_semiarid.shp')
+    extracts = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_huc6')
+    out_table = os.path.join(home, 'IrrigationGIS', 'time_series', 'tables', 'concatenated_huc6.csv')
+    template = os.path.join(home, 'IrrigationGIS', 'hydrography', 'huc6_semiarid.shp')
     concatenate_sum_attrs(extracts, out_table, template_geometry=template)
     # csv = os.path.join(extracts, 'concatenated', '')
 
