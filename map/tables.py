@@ -18,8 +18,8 @@ import json
 import os
 
 from geopandas import GeoDataFrame, read_file
-from numpy import where, array, sum, nan
-from pandas import read_csv, concat, errors, Series
+from numpy import where, sum, nan, std, array, min, max, mean
+from pandas import read_csv, concat, errors, Series, DataFrame
 from pandas.io.json import json_normalize
 from shapely import geometry
 
@@ -147,19 +147,19 @@ def concatenate_attrs(_dir, out_filename, template_geometry, huc_level=8):
                     df_geo.append(r['geometry'])
                     template_names.append(r['Name'])
                 else:
-                    raise NotImplementedError
+                    print('{} is in the list'.format(r['Name']))
 
             mean_arr = df['mean']
             df.drop(columns=['.geo', 'mean'], inplace=True)
             _count_csv = [f for f in yr_files if 'count' in f][0]
             count_arr = read_csv(_count_csv, index_col=0)['count'].values
             df['TotalPix'.format(year)] = count_arr
-            df['IrrPix_{}'.format(year)] = mean_arr * count_arr
+            df['Ct_{}'.format(year)] = mean_arr * count_arr
             first = False
 
         else:
             mean_arr = read_csv(_mean, index_col=0)['mean'].values
-            df['IrrPix_{}'.format(year)] = mean_arr * count_arr
+            df['Ct_{}'.format(year)] = mean_arr * count_arr
 
     df.drop(columns=['Name'], inplace=True)
     df.drop(columns=KML_DROP, inplace=True)
@@ -169,6 +169,35 @@ def concatenate_attrs(_dir, out_filename, template_geometry, huc_level=8):
     gpd = GeoDataFrame(df, crs={'init': 'epsg:4326'}, geometry=df_geo)
     gpd.to_file(out_filename.replace(os.path.basename(out_filename),
                                      'irrigation_timeseries_huc{}.shp'.format(huc_level)))
+
+
+def add_stat_attrs(shp, out_shp):
+
+    template_gpd = read_file(shp)
+    df = DataFrame(template_gpd)
+    df.drop(columns=['geometry'], inplace=True)
+    df.dropna(axis=0, how='any', inplace=True)
+    year_cts = [x for x in df.columns if 'Ct_' in x]
+    cts = df.drop(columns=[x for x in df.columns if x not in year_cts])
+
+    arr = cts.values
+    max_pct = (max(arr, axis=1) / df['TotalPix'].values).reshape(arr.shape[0], 1)
+    df['max_pct'] = max_pct
+
+    min_pct = (min(arr, axis=1) / df['TotalPix'].values).reshape(arr.shape[0], 1)
+    df['min_pct'] = min_pct
+
+    mean_pct = (mean(arr, axis=1) / df['TotalPix'].values).reshape(arr.shape[0], 1)
+    df['mean_pct'] = mean_pct
+
+    diff = (max_pct - min_pct) / mean_pct
+    df['diff_pct'] = diff
+
+    std_ = std(arr, axis=1).reshape(arr.shape[0], 1)
+    df['std_dev'] = std_
+
+    gpd = GeoDataFrame(df, crs={'init': 'epsg:4326'}, geometry=template_gpd['geometry'])
+    gpd.to_file(out_shp)
 
 
 def to_polygon(j):
@@ -186,9 +215,13 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     huc_lev = 8
     extracts = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_huc{}'.format(huc_lev))
-    out_table = os.path.join(home, 'IrrigationGIS', 'time_series', 'tables', 'concatenated_huc{}.csv'.format(huc_lev))
-    template = os.path.join(home, 'IrrigationGIS', 'hydrography', 'huc{}_semiarid.shp'.format(huc_lev))
-    concatenate_attrs(extracts, out_table, template_geometry=template)
+    tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'tables')
+    out_table = os.path.join(tables, 'concatenated_huc{}.csv'.format(huc_lev))
+    template = os.path.join(home, 'IrrigationGIS', 'hydrography', 'huc{}_temp_17JAN.shp'.format(huc_lev))
+    # concatenate_attrs(extracts, out_table, template_geometry=template)
     # csv = os.path.join(extracts, 'concatenated', '')
+    shapes = os.path.join(tables, 'irrigation_timeseries_huc{}.shp'.format(huc_lev))
+    out_shapes = os.path.join(tables, 'irrigation_stats_huc{}.shp'.format(huc_lev))
+    add_stat_attrs(shp=shapes, out_shp=out_shapes)
 
 # ========================= EOF ====================================================================
