@@ -22,7 +22,7 @@
 
 import os
 from datetime import datetime
-
+from pprint import pprint
 import ee
 
 from map.assets import list_assets
@@ -279,6 +279,8 @@ def stack_bands(yr, roi):
     lsSR_sum_mn = ee.Image(lsSR_masked.filterDate(summer_s, fall_s).mean())
     lsSR_fal_mn = ee.Image(lsSR_masked.filterDate(fall_s, end_date).mean())
 
+    ndvi_series = get_ndvi_series(start)
+
     proj = lsSR_fal_mn.select('B2').projection().getInfo()
 
     gridmet = ee.ImageCollection("IDAHO_EPSCOR/GRIDMET").filterBounds(
@@ -330,16 +332,70 @@ def stack_bands(yr, roi):
     return input_bands
 
 
+def get_ndvi_series(d, when='early'):
+
+    ndvi_l5, ndvi_l7, ndvi_l8 = ndvi5(), ndvi7(), ndvi8()
+    ndvi = ee.ImageCollection(ndvi_l5.merge(ndvi_l7).merge(ndvi_l8))
+
+    def early_ndvi_temp(date):
+        tc = ee.Image(temporal_collection(ndvi, ee.Date(date).advance(3, 'month'), 3, 'month'))
+        return tc
+
+    def mid_ndvi_temp(date):
+        tc = ee.Image(temporal_collection(ndvi, ee.Date(date).advance(5, 'month'), 3, 'month'))
+        return tc
+
+    def late_ndvi_temp(date):
+        tc = ee.Image(temporal_collection(ndvi, ee.Date(date).advance(8, 'month'), 3, 'month'))
+        return tc
+
+    startDate = (ee.Date(d).millis())
+    endDate = (ee.Date(d).advance(1.0, 'year')).millis()
+    minus_two = (ee.Date(d).advance(-2.0, 'year')).millis()
+    minus_one = (ee.Date(d).advance(-1.0, 'year')).millis()
+    plus_two = (ee.Date(d).advance(2.0, 'year')).millis()
+
+    if when == 'early':
+        bands = get_ndvi_range(ee.ImageCollection([early_ndvi_temp(minus_two), early_ndvi_temp(minus_one),
+                                                   early_ndvi_temp(startDate), early_ndvi_temp(endDate),
+                                                   early_ndvi_temp(plus_two)]))
+    elif when == 'middle':
+        bands = get_ndvi_range(ee.ImageCollection([mid_ndvi_temp(minus_two), mid_ndvi_temp(minus_one),
+                                                   mid_ndvi_temp(startDate), mid_ndvi_temp(endDate),
+                                                   mid_ndvi_temp(plus_two)]))
+    elif when == 'late':
+        bands = get_ndvi_range(ee.ImageCollection([late_ndvi_temp(minus_two), late_ndvi_temp(minus_one),
+                                                   late_ndvi_temp(startDate), late_ndvi_temp(endDate),
+                                                   late_ndvi_temp(plus_two)]))
+    else:
+        raise NotImplementedError
+
+    pprint(bands.getInfo())
+    return bands
+
+
+def get_ndvi_range(collection):
+    first = ee.Image(collection.first()).select([])
+    band_list = [x for x in collection.getBands()]
+    return band_list
+
+
+def temporal_collection(collection, start, interval, units):
+    start_date = ee.Date(start)
+    end_date = start_date.advance(ee.Number(interval).multiply(ee.Number(interval + 1)), units)
+    red = ee.Reducer.mean().combine(ee.Reducer.minMax())
+    c = collection.filterDate(start_date, end_date).reduce(ee.Reducer.mean())
+    return c
+
+
 def get_world_climate(proj):
     n = list(range(1, 13))
     months = [str(x).zfill(2) for x in n]
     parameters = ['tavg', 'tmin', 'tmax', 'prec']
     combinations = [(m, p) for m in months for p in parameters]
-
     l = [ee.Image('WORLDCLIM/V1/MONTHLY/{}'.format(m)).select(p).resample('bilinear').reproject(crs=proj['crs'],
                                                                                                 scale=30) for m, p in
          combinations]
-    # not sure how to do this without initializing the image with a constant
     i = ee.Image(l)
     return i
 
@@ -427,12 +483,12 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    # request_band_extract('bands_11DEC')
+    request_band_extract('bands_23JAN')
     # filter_irrigated()
     # for state in STATES:
     #     bounds = os.path.join(BOUNDARIES, state)
     #     export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
     # attribute_irrigation()
-    reduce_regions(HUC_8, operation='count')
-    reduce_regions(HUC_8, operation='mean')
+    # reduce_regions(HUC_8, operation='count')
+    # reduce_regions(HUC_8, operation='mean')
 # ========================= EOF ====================================================================
