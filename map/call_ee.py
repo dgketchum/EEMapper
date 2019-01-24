@@ -23,6 +23,7 @@
 import os
 from datetime import datetime
 from pprint import pprint
+
 import ee
 
 from map.assets import list_assets
@@ -155,9 +156,15 @@ def export_classification(out_name, asset, export='asset'):
     feature_bands.remove('YEAR')
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
-
+    first_year = True
     for yr in MISSING_YEARS:
         input_bands = stack_bands(yr, roi)
+
+        if first_year:
+            ndvi = get_ndvi_series(yr)
+            input_bands.addBands(ndvi)
+            first_year = False
+
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.classify(trained_model).int()
 
@@ -234,9 +241,15 @@ def filter_irrigated():
 def request_band_extract(file_prefix):
     roi = ee.FeatureCollection(ROI)
     plots = ee.FeatureCollection(POINTS)
-
+    first_year = True
     for yr in YEARS:
-        input_bands = stack_bands(yr, roi)
+
+        if first_year:
+            ndvi = get_ndvi_series(YEARS, roi)
+            input_bands.addBands(ndvi)
+            first_year = False
+            input_bands = stack_bands(yr, roi)
+
         start = '{}-01-01'.format(yr)
         d = datetime.strptime(start, '%Y-%m-%d')
         epoch = datetime.utcfromtimestamp(0)
@@ -261,6 +274,56 @@ def request_band_extract(file_prefix):
         print(yr)
 
 
+def get_ndvi_series(years, roi):
+
+    ndvi_l5, ndvi_l7, ndvi_l8 = ndvi5(), ndvi7(), ndvi8()
+    ndvi = ee.ImageCollection(ndvi_l5.merge(ndvi_l7).merge(ndvi_l8)).filterBounds(roi)
+
+    def early_ndvi_temp(date):
+        etc = ndvi.filterDate(ee.Date(date).advance(3, 'month'),
+                              ee.Date(date).advance(6, 'month')).toBands()
+        stats = ee.Image([etc.reduce(ee.Reducer.mean()).rename('nd_mean_e_{}'.format(date[:4])),
+                          etc.reduce(ee.Reducer.minMax()).rename('nd_min_e_{}'.format(date[:4]),
+                                                                 'nd_max_e_{}'.format(date[:4]))])
+        return stats
+
+    def mid_ndvi_temp(date):
+        etc = ndvi.filterDate(ee.Date(date).advance(5, 'month'),
+                              ee.Date(date).advance(8, 'month')).toBands()
+        stats = ee.Image([etc.reduce(ee.Reducer.mean()).rename('nd_mean_e_{}'.format(date[:4])),
+                          etc.reduce(ee.Reducer.minMax()).rename('nd_min_e_{}'.format(date[:4]),
+                                                                 'nd_max_e_{}'.format(date[:4]))])
+        return stats
+
+    def late_ndvi_temp(date):
+        etc = ndvi.filterDate(ee.Date(date).advance(7, 'month'),
+                              ee.Date(date).advance(10, 'month')).toBands()
+        stats = ee.Image([etc.reduce(ee.Reducer.mean()).rename('nd_mean_e_{}'.format(date[:4])),
+                          etc.reduce(ee.Reducer.minMax()).rename('nd_min_e_{}'.format(date[:4]),
+                                                                 'nd_max_e_{}'.format(date[:4]))])
+        return stats
+
+    bands = None
+    first_year = True
+    for yr in years:
+
+        d = '{}-01-01'.format(yr)
+
+        e_bands = early_ndvi_temp(d)
+        m_bands = mid_ndvi_temp(d)
+        l_bands = late_ndvi_temp(d)
+
+        year_bands = e_bands.addBands([m_bands, l_bands])
+
+        if first_year:
+            bands = year_bands
+            first_year = False
+        else:
+            bands.addBands([e_bands, m_bands, l_bands])
+
+    return bands
+
+
 def stack_bands(yr, roi):
     start = '{}-01-01'.format(yr)
     end_date = '{}-01-01'.format(yr + 1)
@@ -278,8 +341,6 @@ def stack_bands(yr, roi):
     lsSR_spr_mn = ee.Image(lsSR_masked.filterDate(spring_s, summer_s).mean())
     lsSR_sum_mn = ee.Image(lsSR_masked.filterDate(summer_s, fall_s).mean())
     lsSR_fal_mn = ee.Image(lsSR_masked.filterDate(fall_s, end_date).mean())
-
-    ndvi_series = get_ndvi_series(start)
 
     proj = lsSR_fal_mn.select('B2').projection().getInfo()
 
@@ -330,62 +391,6 @@ def stack_bands(yr, roi):
             standard_names.append(name)
     input_bands = input_bands.rename(standard_names)
     return input_bands
-
-
-def get_ndvi_series(d, when='early'):
-
-    ndvi_l5, ndvi_l7, ndvi_l8 = ndvi5(), ndvi7(), ndvi8()
-    ndvi = ee.ImageCollection(ndvi_l5.merge(ndvi_l7).merge(ndvi_l8))
-
-    def early_ndvi_temp(date):
-        tc = ee.Image(temporal_collection(ndvi, ee.Date(date).advance(3, 'month'), 3, 'month'))
-        return tc
-
-    def mid_ndvi_temp(date):
-        tc = ee.Image(temporal_collection(ndvi, ee.Date(date).advance(5, 'month'), 3, 'month'))
-        return tc
-
-    def late_ndvi_temp(date):
-        tc = ee.Image(temporal_collection(ndvi, ee.Date(date).advance(8, 'month'), 3, 'month'))
-        return tc
-
-    startDate = (ee.Date(d).millis())
-    endDate = (ee.Date(d).advance(1.0, 'year')).millis()
-    minus_two = (ee.Date(d).advance(-2.0, 'year')).millis()
-    minus_one = (ee.Date(d).advance(-1.0, 'year')).millis()
-    plus_two = (ee.Date(d).advance(2.0, 'year')).millis()
-
-    if when == 'early':
-        bands = get_ndvi_range(ee.ImageCollection([early_ndvi_temp(minus_two), early_ndvi_temp(minus_one),
-                                                   early_ndvi_temp(startDate), early_ndvi_temp(endDate),
-                                                   early_ndvi_temp(plus_two)]))
-    elif when == 'middle':
-        bands = get_ndvi_range(ee.ImageCollection([mid_ndvi_temp(minus_two), mid_ndvi_temp(minus_one),
-                                                   mid_ndvi_temp(startDate), mid_ndvi_temp(endDate),
-                                                   mid_ndvi_temp(plus_two)]))
-    elif when == 'late':
-        bands = get_ndvi_range(ee.ImageCollection([late_ndvi_temp(minus_two), late_ndvi_temp(minus_one),
-                                                   late_ndvi_temp(startDate), late_ndvi_temp(endDate),
-                                                   late_ndvi_temp(plus_two)]))
-    else:
-        raise NotImplementedError
-
-    pprint(bands.getInfo())
-    return bands
-
-
-def get_ndvi_range(collection):
-    first = ee.Image(collection.first()).select([])
-    band_list = [x for x in collection.getBands()]
-    return band_list
-
-
-def temporal_collection(collection, start, interval, units):
-    start_date = ee.Date(start)
-    end_date = start_date.advance(ee.Number(interval).multiply(ee.Number(interval + 1)), units)
-    red = ee.Reducer.mean().combine(ee.Reducer.minMax())
-    c = collection.filterDate(start_date, end_date).reduce(ee.Reducer.mean())
-    return c
 
 
 def get_world_climate(proj):
