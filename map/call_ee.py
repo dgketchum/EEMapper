@@ -241,15 +241,10 @@ def filter_irrigated():
 def request_band_extract(file_prefix):
     roi = ee.FeatureCollection(ROI)
     plots = ee.FeatureCollection(POINTS)
-    first_year = True
     for yr in YEARS:
-
-        if first_year:
-            ndvi = get_ndvi_series(YEARS, roi)
-            input_bands.addBands(ndvi)
-            first_year = False
-            input_bands = stack_bands(yr, roi)
-
+        stack = stack_bands(yr, roi)
+        ndvi = get_ndvi_series(YEARS, roi)
+        input_bands = stack.addBands(ndvi)
         start = '{}-01-01'.format(yr)
         d = datetime.strptime(start, '%Y-%m-%d')
         epoch = datetime.utcfromtimestamp(0)
@@ -290,21 +285,20 @@ def get_ndvi_series(years, roi):
     def mid_ndvi_temp(date):
         etc = ndvi.filterDate(ee.Date(date).advance(5, 'month'),
                               ee.Date(date).advance(8, 'month')).toBands()
-        stats = ee.Image([etc.reduce(ee.Reducer.mean()).rename('nd_mean_e_{}'.format(date[:4])),
-                          etc.reduce(ee.Reducer.minMax()).rename('nd_min_e_{}'.format(date[:4]),
-                                                                 'nd_max_e_{}'.format(date[:4]))])
+        stats = ee.Image([etc.reduce(ee.Reducer.mean()).rename('nd_mean_m_{}'.format(date[:4])),
+                          etc.reduce(ee.Reducer.minMax()).rename('nd_min_m_{}'.format(date[:4]),
+                                                                 'nd_max_m_{}'.format(date[:4]))])
         return stats
 
     def late_ndvi_temp(date):
         etc = ndvi.filterDate(ee.Date(date).advance(7, 'month'),
                               ee.Date(date).advance(10, 'month')).toBands()
-        stats = ee.Image([etc.reduce(ee.Reducer.mean()).rename('nd_mean_e_{}'.format(date[:4])),
-                          etc.reduce(ee.Reducer.minMax()).rename('nd_min_e_{}'.format(date[:4]),
-                                                                 'nd_max_e_{}'.format(date[:4]))])
+        stats = ee.Image([etc.reduce(ee.Reducer.mean()).rename('nd_mean_l_{}'.format(date[:4])),
+                          etc.reduce(ee.Reducer.minMax()).rename('nd_min_l_{}'.format(date[:4]),
+                                                                 'nd_max_l_{}'.format(date[:4]))])
         return stats
 
-    bands = None
-    first_year = True
+    bands = []
     for yr in years:
 
         d = '{}-01-01'.format(yr)
@@ -313,15 +307,12 @@ def get_ndvi_series(years, roi):
         m_bands = mid_ndvi_temp(d)
         l_bands = late_ndvi_temp(d)
 
-        year_bands = e_bands.addBands([m_bands, l_bands])
+        bands.append(e_bands)
+        bands.append(m_bands)
+        bands.append(l_bands)
 
-        if first_year:
-            bands = year_bands
-            first_year = False
-        else:
-            bands.addBands([e_bands, m_bands, l_bands])
-
-    return bands
+    i = ee.Image(bands)
+    return i
 
 
 def stack_bands(yr, roi):
