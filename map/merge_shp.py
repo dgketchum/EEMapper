@@ -91,6 +91,15 @@ def get_list(_dir):
     return l
 
 
+def count_acres(shp):
+    acres = 0.0
+    with fiona.open(shp, 'r') as s:
+        for feat in s:
+            a = feat['properties']['ACRES']
+            acres += a
+        print(acres)
+
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     # s_dir = os.path.join(home, 'IrrigationGIS', 'Montana', 'OE_Shapefiles_WGS')
