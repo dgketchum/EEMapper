@@ -31,14 +31,14 @@ from map.assets import list_assets
 ROI = 'users/dgketchum/boundaries/western_states_expanded_union'
 BOUNDARIES = 'users/dgketchum/boundaries'
 ASSET_ROOT = 'users/dgketchum/classy'
-IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
+IRRIGATION_TABLE = 'users/dgketchum/irr_attrs/MT_Irr'
 HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
 HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
 
 STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
 
 EDIT_STATES = ['KS', 'ND', 'NE', 'OK', 'SD', 'TX']
-TARGET_STATES = ['CA', 'NV']
+TARGET_STATES = ['MT']
 
 POINTS = 'ft:1Ai9IqHeW4vhZfLP_F6T9vE7N6Gcppx4-WDctiYGi'
 TABLE = 'ft:1xSWqNQ2P_Og3TwSsp1semWMu88n-I3_kc7Cu4Drq'
@@ -130,7 +130,7 @@ def attribute_irrigation():
                 description='{}_{}'.format(state, yr),
                 bucket='wudr',
                 fileNamePrefix='attr_{}_{}'.format(state, yr),
-                fileFormat='KML')
+                fileFormat='CSV')
 
             print(state, yr)
             task.start()
@@ -241,7 +241,7 @@ def filter_irrigated():
 def request_band_extract(file_prefix):
     roi = ee.FeatureCollection(ROI)
     plots = ee.FeatureCollection(POINTS)
-    for yr in YEARS:
+    for yr in TEST_YEARS:
         stack = stack_bands(yr, roi)
         ndvi = get_ndvi_series(YEARS, roi)
         input_bands = stack.addBands(ndvi)
@@ -479,12 +479,12 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    request_band_extract('bands_23JAN')
+    # request_band_extract('bands_29JAN')
     # filter_irrigated()
     # for state in STATES:
     #     bounds = os.path.join(BOUNDARIES, state)
     #     export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
-    # attribute_irrigation()
+    attribute_irrigation()
     # reduce_regions(HUC_8, operation='count')
     # reduce_regions(HUC_8, operation='mean')
 # ========================= EOF ====================================================================
