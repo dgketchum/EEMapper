@@ -209,19 +209,14 @@ def to_polygon(j):
         return nan
     except TypeError:
         return nan
+    except AssertionError:
+        return nan
 
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    huc_lev = 8
-    extracts = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_huc{}'.format(huc_lev))
-    tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'tables')
-    out_table = os.path.join(tables, 'concatenated_huc{}.csv'.format(huc_lev))
-    template = os.path.join(home, 'IrrigationGIS', 'hydrography', 'huc{}_temp_17JAN.shp'.format(huc_lev))
-    # concatenate_attrs(extracts, out_table, template_geometry=template)
-    # csv = os.path.join(extracts, 'concatenated', '')
-    shapes = os.path.join(tables, 'irrigation_timeseries_huc{}.shp'.format(huc_lev))
-    out_shapes = os.path.join(tables, 'irrigation_stats_huc{}.shp'.format(huc_lev))
-    add_stat_attrs(shp=shapes, out_shp=out_shapes)
+    extracts = os.path.join(home, 'IrrigationGIS', 'attr_irr', 'csv', 'MT_agpoly')
+    shape = os.path.join(home, 'IrrigationGIS', 'attr_irr', 'shp', 'MT_irr_attrs.shp')
+    concatenate_irrigation_attrs(extracts, out_filename=shape)
 
 # ========================= EOF ====================================================================
