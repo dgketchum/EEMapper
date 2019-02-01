@@ -80,7 +80,7 @@ YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997,
          1998, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
          2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016]
 
-TEST_YEARS = [1986, 1996, 2006, 2016]
+TEST_YEARS = [2016]
 MISSING_YEARS = [1990, 1991, 1992, 1999]
 
 
@@ -243,8 +243,10 @@ def request_band_extract(file_prefix):
     plots = ee.FeatureCollection(POINTS)
     for yr in TEST_YEARS:
         stack = stack_bands(yr, roi)
+        pprint(stack.bandNames().getInfo())
         ndvi = get_ndvi_series(YEARS, roi)
         input_bands = stack.addBands(ndvi)
+        pprint(ndvi.bandNames().getInfo())
         start = '{}-01-01'.format(yr)
         d = datetime.strptime(start, '%Y-%m-%d')
         epoch = datetime.utcfromtimestamp(0)
@@ -276,42 +278,19 @@ def get_ndvi_series(years, roi):
 
     def early_ndvi_temp(date):
         etc = ndvi.filterDate(ee.Date(date).advance(3, 'month'),
-                              ee.Date(date).advance(6, 'month')).toBands()
-        stats = ee.Image([etc.reduce(ee.Reducer.mean()).rename('nd_mean_e_{}'.format(date[:4])),
-                          etc.reduce(ee.Reducer.minMax()).rename('nd_min_e_{}'.format(date[:4]),
-                                                                 'nd_max_e_{}'.format(date[:4]))])
-        return stats
-
-    def mid_ndvi_temp(date):
-        etc = ndvi.filterDate(ee.Date(date).advance(5, 'month'),
-                              ee.Date(date).advance(8, 'month')).toBands()
-        stats = ee.Image([etc.reduce(ee.Reducer.mean()).rename('nd_mean_m_{}'.format(date[:4])),
-                          etc.reduce(ee.Reducer.minMax()).rename('nd_min_m_{}'.format(date[:4]),
-                                                                 'nd_max_m_{}'.format(date[:4]))])
-        return stats
-
-    def late_ndvi_temp(date):
-        etc = ndvi.filterDate(ee.Date(date).advance(7, 'month'),
                               ee.Date(date).advance(10, 'month')).toBands()
-        stats = ee.Image([etc.reduce(ee.Reducer.mean()).rename('nd_mean_l_{}'.format(date[:4])),
-                          etc.reduce(ee.Reducer.minMax()).rename('nd_min_l_{}'.format(date[:4]),
-                                                                 'nd_max_l_{}'.format(date[:4]))])
+        stats = ee.Image(etc.reduce(ee.Reducer.mean()).rename('nd_mean_{}'.format(date[:4])))
         return stats
 
-    bands = []
+    bands_list = []
     for yr in years:
 
         d = '{}-01-01'.format(yr)
 
-        e_bands = early_ndvi_temp(d)
-        m_bands = mid_ndvi_temp(d)
-        l_bands = late_ndvi_temp(d)
+        bands = early_ndvi_temp(d)
+        bands_list.append(bands)
 
-        bands.append(e_bands)
-        bands.append(m_bands)
-        bands.append(l_bands)
-
-    i = ee.Image(bands)
+    i = ee.Image(bands_list)
     return i
 
 
@@ -479,12 +458,12 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    # request_band_extract('bands_29JAN')
+    request_band_extract('bands_31JAN')
     # filter_irrigated()
     # for state in STATES:
     #     bounds = os.path.join(BOUNDARIES, state)
     #     export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
-    attribute_irrigation()
+    # attribute_irrigation()
     # reduce_regions(HUC_8, operation='count')
     # reduce_regions(HUC_8, operation='mean')
 # ========================= EOF ====================================================================
