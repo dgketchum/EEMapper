@@ -23,6 +23,28 @@ from numpy import arange
 from numpy.random import shuffle
 
 
+def extract_fallow_montana(in_shp, out_dir):
+    fallow = []
+    for year in [2009, 2010, 2011, 2012, 2013]:
+        with fiona.open(in_shp, 'r') as src:
+            meta = src.meta
+            meta['schema']['properties'] = OrderedDict([('FID', 'int:5')])
+            count = 0
+            for feat in src:
+                if feat['properties']['Irr_{}'.format(year)] == 0:
+                    new_feature = feat
+                    new_feature['properties'] = {}
+                    new_feature['properties']['FID'] = count
+                    new_feature['id'] = count
+                    count += 1
+                    fallow.append(new_feature)
+
+        new_shapefile = os.path.join(out_dir, 'MT_Fallow_{}.shp'.format(year))
+        with fiona.open(new_shapefile, 'w', **meta) as output:
+            for write_feat in fallow:
+                output.write(write_feat)
+
+
 def split_wetlands(in_shp, out):
     wetland = []
     wetland_parameters = ['Freshwater Emergent Wetland', 'Freshwater Forested/Shrub Wetland']
@@ -207,10 +229,8 @@ def batch_reproject_vector(ogr_path, in_dir, out_dir, name_append, t_srs, s_srs)
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    shp = ['Forest_Practices_Applications.shp']
-    rt = os.path.join(home, 'IrrigationGIS', 'training_raw', 'uncultivated', 'WA')
-    out = os.path.join(home, 'IrrigationGIS', 'training_raw', 'uncultivated', 'WA')
-    _n = 10000
-    reduce_shapefiles(rt, out, _n, shp)
+    shp = os.path.join(home, 'IrrigationGIS', 'Montana', 'OE_Shapefiles_WGS', 'OE_Sites.shp')
+    out = os.path.join(home, 'IrrigationGIS', 'training_raw', 'fallow', 'MT')
+    extract_fallow_montana(shp, out)
 
 # ========================= EOF ====================================================================
