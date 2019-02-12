@@ -17,7 +17,7 @@
 import os
 
 import fiona
-from numpy import linspace, max, ceil
+from numpy import linspace, max
 from numpy.random import shuffle, choice
 from pandas import DataFrame
 from shapely.geometry import shape, Point, mapping
@@ -30,6 +30,7 @@ WETLAND = os.path.join(training, 'wetlands_8NOV.shp')
 UNCULTIVATED = os.path.join(training, 'uncultivated_11DEC.shp')
 IRRIGATED = os.path.join(training, 'irrigated_11DEC.shp')
 UNIRRIGATED = os.path.join(training, 'unirrigated_11DEC.shp')
+FALLOW = os.path.join(training, 'fallow_11FEB.shp')
 
 
 class PointsRunspec(object):
@@ -48,7 +49,10 @@ class PointsRunspec(object):
         self.unirr_path = UNIRRIGATED
         self.uncult_path = UNCULTIVATED
         self.wetland_path = WETLAND
+        self.fallow_path = FALLOW
 
+        if 'fallowed' in kwargs.keys():
+            self.fallowed(kwargs['fallowed'])
         if 'irrigated' in kwargs.keys():
             self.irrigated(kwargs['irrigated'])
         if 'unirrigated' in kwargs.keys():
@@ -73,6 +77,10 @@ class PointsRunspec(object):
     def irrigated(self, n):
         print('irrigated: {}'.format(n))
         self.create_sample_points(n, self.irr_path, code=0, attribute='YEAR')
+
+    def fallowed(self, n):
+        print('fallow: {}'.format(n))
+        self.create_sample_points(n, self.fallow_path, code=4, attribute='YEAR')
 
     def create_sample_points(self, n, shp, code, attribute=None):
 
@@ -179,13 +187,14 @@ if __name__ == '__main__':
     extract = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'point_shp')
 
     kwargs = {
-        'irrigated': 50000,
+        'irrigated': 40000,
         'wetlands': 16000,
         'uncultivated': 16000,
         'unirrigated': 16000,
+        'fallowed': 10000,
     }
 
     prs = PointsRunspec(gis, **kwargs, buffer=-20)
-    prs.save_sample_points(os.path.join(extract, 'points_11DEC18.shp'.format()))
+    prs.save_sample_points(os.path.join(extract, 'points_12FEB.shp'.format()))
 
 # ========================= EOF ====================================================================

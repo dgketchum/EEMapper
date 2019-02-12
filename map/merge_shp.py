@@ -58,6 +58,7 @@ def fiona_merge_attribute(out_shp, file_list):
     meta['schema'] = {'type': 'Feature', 'properties': OrderedDict(
         [('YEAR', 'int:9'), ('SOURCE', 'str:80')]), 'geometry': 'Polygon'}
     with fiona.open(out_shp, 'w', **meta) as output:
+        ct = 0
         for s in file_list:
             year, source = int(s.split('.')[0][-4:]), os.path.basename(s.split('.')[0][:-5])
             if year not in years:
@@ -66,6 +67,7 @@ def fiona_merge_attribute(out_shp, file_list):
                 feat = {'type': 'Feature', 'properties': {'SOURCE': source, 'YEAR': year},
                         'geometry': feat['geometry']}
                 output.write(feat)
+                ct += 1
         print(sorted(years))
 
 
@@ -109,7 +111,7 @@ if __name__ == '__main__':
     s_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'fallow', 'shp')
     d_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'fallow')
     l = get_list(s_dir)
-    fiona_merge_no_attribute(os.path.join(d_dir, 'fallow_11FEB.shp'), l)
+    fiona_merge_attribute(os.path.join(d_dir, 'fallow_11FEB.shp'), l)
     # s_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated', 'inspected')
     # _dir = [os.path.join(s_dir, x) for x in os.listdir(s_dir) if x.endswith('.shp')]
     # o_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated', 'merged_attributed')
