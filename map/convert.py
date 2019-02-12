@@ -51,15 +51,9 @@ def rename(_dir, glob, find, replace):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    # irr = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated')
-    # _in = os.path.join(irr, 'filtered_kml')
-    # out = os.path.join(irr, 'filtered_shapefiles')
-    irr = os.path.join(home, 'IrrigationGIS', 'attr_irr')
-    _in = os.path.join(irr, 'kml', 'DRI_agpoly')
-    out = os.path.join(irr, 'shp', 'DRI_agpoly')
+    irr = os.path.join(home, 'IrrigationGIS', 'training_raw', 'fallow')
+    _in = os.path.join(irr, 'to_merge')
+    out = os.path.join(irr, 'shp')
     ogr = os.path.join(home, 'miniconda2', 'envs', 'irri', 'bin', 'ogr2ogr')
-    #
-    # rename(os.path.join(irr, 'NM'), 'Farmington', '_WGS84', '')
-    #
     convert_kml_to_shp(ogr, _in, out, '4326', '4326', skip_existing=True)
 # ========================= EOF ====================================================================

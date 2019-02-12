@@ -243,8 +243,8 @@ def request_band_extract(file_prefix):
     plots = ee.FeatureCollection(POINTS)
     for yr in TEST_YEARS:
         stack = stack_bands(yr, roi)
-        pprint(stack.bandNames().getInfo())
-        ndvi = get_ndvi_series(YEARS, roi)
+        target_years = list(range(yr - 2, yr + 3))
+        ndvi = get_ndvi_series(target_years, roi)
         input_bands = stack.addBands(ndvi)
         pprint(ndvi.bandNames().getInfo())
         start = '{}-01-01'.format(yr)
@@ -276,9 +276,9 @@ def get_ndvi_series(years, roi):
     ndvi_l5, ndvi_l7, ndvi_l8 = ndvi5(), ndvi7(), ndvi8()
     ndvi = ee.ImageCollection(ndvi_l5.merge(ndvi_l7).merge(ndvi_l8)).filterBounds(roi)
 
-    def early_ndvi_temp(date):
-        etc = ndvi.filterDate(ee.Date(date).advance(3, 'month'),
-                              ee.Date(date).advance(10, 'month')).toBands()
+    def ndvi_means(date):
+        etc = ndvi.filterDate(ee.Date(date).advance(4, 'month'),
+                              ee.Date(date).advance(9, 'month')).toBands()
         stats = ee.Image(etc.reduce(ee.Reducer.mean()).rename('nd_mean_{}'.format(date[:4])))
         return stats
 
@@ -287,7 +287,7 @@ def get_ndvi_series(years, roi):
 
         d = '{}-01-01'.format(yr)
 
-        bands = early_ndvi_temp(d)
+        bands = ndvi_means(d)
         bands_list.append(bands)
 
     i = ee.Image(bands_list)
@@ -458,7 +458,7 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    request_band_extract('bands_31JAN')
+    request_band_extract('bands_7FEB')
     # filter_irrigated()
     # for state in STATES:
     #     bounds = os.path.join(BOUNDARIES, state)
