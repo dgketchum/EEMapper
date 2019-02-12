@@ -40,7 +40,7 @@ STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
 EDIT_STATES = ['KS', 'ND', 'NE', 'OK', 'SD', 'TX']
 TARGET_STATES = ['MT']
 
-POINTS = 'ft:1Ai9IqHeW4vhZfLP_F6T9vE7N6Gcppx4-WDctiYGi'
+POINTS = 'ft:1_l-UtufY_fuyFXawh7WD_yhCGtuP49UROJ3_eJ3a'
 TABLE = 'ft:1xSWqNQ2P_Og3TwSsp1semWMu88n-I3_kc7Cu4Drq'
 
 IRR = {
@@ -161,7 +161,7 @@ def export_classification(out_name, asset, export='asset'):
         input_bands = stack_bands(yr, roi)
 
         if first_year:
-            ndvi = get_ndvi_series(yr)
+            ndvi = get_ndvi_series(yr, roi)
             input_bands.addBands(ndvi)
             first_year = False
 
@@ -238,10 +238,10 @@ def filter_irrigated():
             task.start()
 
 
-def request_band_extract(file_prefix):
+def request_band_extract(file_prefix, filter_bounds=False):
     roi = ee.FeatureCollection(ROI)
     plots = ee.FeatureCollection(POINTS)
-    for yr in TEST_YEARS:
+    for yr in YEARS:
         stack = stack_bands(yr, roi)
         target_years = list(range(yr - 2, yr + 3))
         ndvi = get_ndvi_series(target_years, roi)
@@ -251,6 +251,9 @@ def request_band_extract(file_prefix):
         d = datetime.strptime(start, '%Y-%m-%d')
         epoch = datetime.utcfromtimestamp(0)
         start_millisec = (d - epoch).total_seconds() * 1000
+
+        if filter_bounds:
+            plots = plots.filterBounds(roi)
 
         filtered = plots.filter(ee.Filter.eq('YEAR', ee.Number(start_millisec)))
 
@@ -458,11 +461,11 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    request_band_extract('bands_7FEB')
+    # request_band_extract('bands_12FEB', filter_bounds=True)
     # filter_irrigated()
-    # for state in STATES:
-    #     bounds = os.path.join(BOUNDARIES, state)
-    #     export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
+    for state in TARGET_STATES:
+        bounds = os.path.join(BOUNDARIES, state)
+        export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
     # attribute_irrigation()
     # reduce_regions(HUC_8, operation='count')
     # reduce_regions(HUC_8, operation='mean')
