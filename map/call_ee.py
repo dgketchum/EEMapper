@@ -151,23 +151,18 @@ def export_classification(out_name, asset, export='asset'):
         seed=0).setOutputMode('CLASSIFICATION')
 
     input_props = fc.first().propertyNames().remove('YEAR').remove('POINT_TYPE').remove('system:index')
-    print(input_props.getInfo())
-
     feature_bands = sorted([b for b in fc.first().getInfo()['properties']])
     feature_bands.remove('POINT_TYPE')
     feature_bands.remove('YEAR')
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
-    first_year = True
-    for yr in TEST_YEARS:
+
+    for yr in ALL_YEARS:
+
         input_bands = stack_bands(yr, roi)
-
-        if first_year:
-            target_years = list(range(yr - 2, yr + 3))
-            ndvi = get_ndvi_series(target_years, roi)
-            input_bands.addBands(ndvi)
-            first_year = False
-
+        target_years = list(range(yr - 2, yr + 3))
+        ndvi = get_ndvi_series(target_years, roi)
+        input_bands = input_bands.addBands(ndvi)
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.classify(trained_model).int()
 
@@ -249,7 +244,7 @@ def request_band_extract(file_prefix, filter_bounds=False):
         target_years = list(range(yr - 2, yr + 3))
         ndvi = get_ndvi_series(target_years, roi)
         input_bands = stack.addBands(ndvi)
-        pprint(ndvi.bandNames().getInfo())
+        pprint(input_bands.bandNames().getInfo())
         start = '{}-01-01'.format(yr)
         d = datetime.strptime(start, '%Y-%m-%d')
         epoch = datetime.utcfromtimestamp(0)
@@ -275,6 +270,7 @@ def request_band_extract(file_prefix, filter_bounds=False):
 
         task.start()
         print(yr)
+        break
 
 
 def get_ndvi_series(years, roi):
