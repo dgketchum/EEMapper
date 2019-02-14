@@ -215,8 +215,12 @@ def to_polygon(j):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    extracts = os.path.join(home, 'IrrigationGIS', 'attr_irr', 'csv', 'MT_agpoly')
-    shape = os.path.join(home, 'IrrigationGIS', 'attr_irr', 'shp', 'MT_irr_attrs.shp')
-    concatenate_irrigation_attrs(extracts, out_filename=shape)
+    # extracts = os.path.join(home, 'IrrigationGIS', 'attr_irr', 'csv', 'MT_agpoly')
+    # shape = os.path.join(home, 'IrrigationGIS', 'attr_irr', 'shp', 'MT_irr_attrs.shp')
+    # concatenate_irrigation_attrs(extracts, out_filename=shape)
+    r = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'to_concatenate')
+    g = 'bands_13FEB'
+    out_ = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated')
+    concatenate_band_extract(r, out_, g)
 
 # ========================= EOF ====================================================================

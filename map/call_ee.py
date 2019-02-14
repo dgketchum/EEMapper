@@ -30,7 +30,7 @@ from map.assets import list_assets
 
 ROI = 'users/dgketchum/boundaries/western_states_expanded_union'
 BOUNDARIES = 'users/dgketchum/boundaries'
-ASSET_ROOT = 'users/dgketchum/classy'
+ASSET_ROOT = 'users/dgketchum/classy_v2'
 IRRIGATION_TABLE = 'users/dgketchum/irr_attrs/MT_Irr'
 HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
 HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
@@ -40,8 +40,8 @@ STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
 EDIT_STATES = ['KS', 'ND', 'NE', 'OK', 'SD', 'TX']
 TARGET_STATES = ['MT']
 
-POINTS = 'ft:1_l-UtufY_fuyFXawh7WD_yhCGtuP49UROJ3_eJ3a'
-TABLE = 'ft:1xSWqNQ2P_Og3TwSsp1semWMu88n-I3_kc7Cu4Drq'
+POINTS = 'ft:1quoEOgOl5dTQtYjyHZs9BxX8CZz1Leqv5qqFYLml'
+TABLE = 'ft:1wLrSEoQie6u7wTPl1bJ7rLEq20OLvQncecM3_HeH'
 
 IRR = {
     # 'Acequias': ('ft:1j_Z6exiBQy5NlVLZUe25AsFp-jSfCHn_HAWGT06D', [1987, 2001, 2004, 2007, 2016], 0.5),
@@ -82,6 +82,7 @@ YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997,
 
 TEST_YEARS = [2016]
 MISSING_YEARS = [1990, 1991, 1992, 1999]
+ALL_YEARS = [x for x in range(1986, 2017)]
 
 
 def reduce_regions(tables, operation='mean'):
@@ -150,6 +151,7 @@ def export_classification(out_name, asset, export='asset'):
         seed=0).setOutputMode('CLASSIFICATION')
 
     input_props = fc.first().propertyNames().remove('YEAR').remove('POINT_TYPE').remove('system:index')
+    print(input_props.getInfo())
 
     feature_bands = sorted([b for b in fc.first().getInfo()['properties']])
     feature_bands.remove('POINT_TYPE')
@@ -157,11 +159,12 @@ def export_classification(out_name, asset, export='asset'):
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
     first_year = True
-    for yr in MISSING_YEARS:
+    for yr in TEST_YEARS:
         input_bands = stack_bands(yr, roi)
 
         if first_year:
-            ndvi = get_ndvi_series(yr, roi)
+            target_years = list(range(yr - 2, yr + 3))
+            ndvi = get_ndvi_series(target_years, roi)
             input_bands.addBands(ndvi)
             first_year = False
 
@@ -241,7 +244,7 @@ def filter_irrigated():
 def request_band_extract(file_prefix, filter_bounds=False):
     roi = ee.FeatureCollection(ROI)
     plots = ee.FeatureCollection(POINTS)
-    for yr in YEARS:
+    for yr in ALL_YEARS:
         stack = stack_bands(yr, roi)
         target_years = list(range(yr - 2, yr + 3))
         ndvi = get_ndvi_series(target_years, roi)
@@ -286,12 +289,10 @@ def get_ndvi_series(years, roi):
         return stats
 
     bands_list = []
-    for yr in years:
-
+    for yr, s in zip(years, [1, 2, 3, 4, 5]):
         d = '{}-01-01'.format(yr)
-
         bands = ndvi_means(d)
-        bands_list.append(bands)
+        bands_list.append(bands.rename('nd_mean_{}'.format(s)))
 
     i = ee.Image(bands_list)
     return i
@@ -367,9 +368,9 @@ def stack_bands(yr, roi):
 
 
 def get_world_climate(proj):
-    n = list(range(1, 13))
+    n = list(range(4, 10))
     months = [str(x).zfill(2) for x in n]
-    parameters = ['tavg', 'tmin', 'tmax', 'prec']
+    parameters = ['tavg', 'prec']
     combinations = [(m, p) for m in months for p in parameters]
     l = [ee.Image('WORLDCLIM/V1/MONTHLY/{}'.format(m)).select(p).resample('bilinear').reproject(crs=proj['crs'],
                                                                                                 scale=30) for m, p in
@@ -461,7 +462,7 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    # request_band_extract('bands_12FEB', filter_bounds=True)
+    # request_band_extract('bands_13FEB', filter_bounds=True)
     # filter_irrigated()
     for state in TARGET_STATES:
         bounds = os.path.join(BOUNDARIES, state)
