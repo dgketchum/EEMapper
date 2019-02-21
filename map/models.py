@@ -122,6 +122,7 @@ def pca(csv):
         print(dot(eigenvector.T, dot(cov_matrix, eigenvector)))
         print(eigenvalue)
 
+
 def find_rf_variable_importance(csv):
     first = True
     master = {}
