@@ -30,15 +30,16 @@ from map.assets import list_assets
 
 ROI = 'users/dgketchum/boundaries/western_states_expanded_union'
 BOUNDARIES = 'users/dgketchum/boundaries'
-ASSET_ROOT = 'users/dgketchum/classy_v2'
-IRRIGATION_TABLE = 'users/dgketchum/irr_attrs/MT_Irr'
+ASSET_ROOT = 'users/dgketchum/classy'
+IRRIGATION_TABLE = 'users/dgketchum/irr_attrs/harney'
 HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
 HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
+COUNTIES = 'users/dgketchum/boundaries/western_counties'
 
 STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
 
 EDIT_STATES = ['KS', 'ND', 'NE', 'OK', 'SD', 'TX']
-TARGET_STATES = ['MT']
+TARGET_STATES = ['OR']
 
 POINTS = 'ft:1quoEOgOl5dTQtYjyHZs9BxX8CZz1Leqv5qqFYLml'
 TABLE = 'ft:1wLrSEoQie6u7wTPl1bJ7rLEq20OLvQncecM3_HeH'
@@ -55,9 +56,9 @@ IRR = {
     # 'ID': ('ft:1jDB3C181w1PGVamr64-ewpJVDQkzJc4Bvd1IPAFg', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
     # 'NM_SanJuan': ('ft:1_-haRl7-ppkBYWBN-cPzItftKQC7yWI7sfgoVx1R', [1987, 2001, 2004, 2007, 2016], 0.5),
     # 'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2001, 2011)], 0.5),
-    # 'MT': ('ft:1f8TqNMwDLWlb1bgDkgF1A4H77jG8kb18tGlM7Vsu', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
+    'MT': ('ft:1wfJrtnDjBZqSzWq41veY_VrWROQ0kI-5NCko6xF3', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
     # 'OR': ('ft:1FJMi4VXUe4BrhU6u0OF2l0uFU_rGUe3rFrSSSBVD', [1994, 1997, 2011], 0.5),
-    'NW_OR': ('ft:1kXr3oMe9Ybsd3N7tyBBDCTweAxb4c8GBz6B8_ELm', [1994, 1996, 1997, 2001, 2011, 2013], 0.5),
+    # 'NW_OR': ('ft:1kXr3oMe9Ybsd3N7tyBBDCTweAxb4c8GBz6B8_ELm', [1994, 1996, 1997, 2001, 2011, 2013], 0.5),
     # 'UT': ('ft:1oA0v3UUBQj3qn9sa_pDJ8bwsAphfRZUlwwPWpFrT', [1998, 2003, 2006, 2013, 2016], 0.5),
     # 'UT_CO': ('ft:1Av2WlcPRBd7JZqYOU73VCLOJ-b5q6H5u6Bboebdv', [1998, 2003, 2006, 2013, 2016], 0.5),
     # 'WA': ('ft:1tGN7UdKijI7gZgna19wJ-cKMumSKRwsfEQQZNQjl', [1997, 1996], 0.5),
@@ -460,10 +461,10 @@ if __name__ == '__main__':
     is_authorized()
     # request_band_extract('bands_13FEB', filter_bounds=True)
     # filter_irrigated()
-    for state in TARGET_STATES:
-        bounds = os.path.join(BOUNDARIES, state)
-        export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
-    # attribute_irrigation()
+    # for state in TARGET_STATES:
+    #     bounds = os.path.join(BOUNDARIES, state)
+    #     export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
+    attribute_irrigation()
     # reduce_regions(HUC_8, operation='count')
     # reduce_regions(HUC_8, operation='mean')
 # ========================= EOF ====================================================================
