@@ -21,7 +21,9 @@ from geopandas import GeoDataFrame, read_file
 from numpy import where, sum, nan, std, array, min, max, mean
 from pandas import read_csv, concat, errors, Series, DataFrame
 from pandas.io.json import json_normalize
-from shapely import geometry
+from shapely.geometry import Polygon
+from datetime import datetime
+from pandas import to_datetime
 
 INT_COLS = ['POINT_TYPE', 'YEAR']
 
@@ -35,6 +37,25 @@ DUPLICATE_HUC8_NAMES = ['Beaver', 'Big Sandy', 'Blackfoot', 'Carrizo', 'Cedar', 
                         'Frenchman', 'Horse', 'Jordan', 'Lower Beaver', 'Lower White', 'Medicine', 'Muddy', 'Palo Duro',
                         'Pawnee', 'Redwater', 'Rock', 'Salt', 'San Francisco', 'Santa Maria', 'Silver', 'Smith',
                         'Stillwater', 'Teton', 'Upper Bear', 'Upper White', 'White', 'Willow']
+
+COLS = ['SCENE_ID',
+        'PRODUCT_ID',
+        'SPACECRAFT_ID',
+        'SENSOR_ID',
+        'DATE_ACQUIRED',
+        'COLLECTION_NUMBER',
+        'COLLECTION_CATEGORY',
+        'SENSING_TIME',
+        'DATA_TYPE',
+        'WRS_PATH',
+        'WRS_ROW',
+        'CLOUD_COVER',
+        'NORTH_LAT',
+        'SOUTH_LAT',
+        'WEST_LON',
+        'EAST_LON',
+        'TOTAL_SIZE',
+        'BASE_URL']
 
 
 def concatenate_band_extract(root, out_dir, glob='None', sample=None):
@@ -118,7 +139,7 @@ def concatenate_irrigation_attrs(_dir, out_filename):
     gpd.to_file(out_filename)
 
 
-def concatenate_attrs(_dir, out_filename, template_geometry, huc_level=8):
+def concatenate_attrs(_dir, out_csv_filename, out_shp_filename, template_geometry):
 
     _files = [os.path.join(_dir, x) for x in os.listdir(_dir) if x.endswith('.csv')]
     _files.sort()
@@ -134,10 +155,9 @@ def concatenate_attrs(_dir, out_filename, template_geometry, huc_level=8):
         _mean = [f for f in yr_files if 'mean' in f][0]
 
         if first:
-            df = read_csv(_mean)
+            df = read_csv(_mean).sort_values('huc8', axis=0)
             names = df['Name']
-            template_gpd = read_file(template_geometry)
-
+            template_gpd = read_file(template_geometry).sort_values('huc8', axis=0)
             for i, r in template_gpd.iterrows():
 
                 if r['Name'] in DUPLICATE_HUC8_NAMES:
@@ -161,22 +181,6 @@ def concatenate_attrs(_dir, out_filename, template_geometry, huc_level=8):
             mean_arr = read_csv(_mean, index_col=0)['mean'].values
             df['Ct_{}'.format(year)] = mean_arr * count_arr
 
-    df.drop(columns=['Name'], inplace=True)
-    df.drop(columns=KML_DROP, inplace=True)
-    df['Name'] = names
-    df['geometry'] = df_geo
-    df.to_csv(out_filename)
-    gpd = GeoDataFrame(df, crs={'init': 'epsg:4326'}, geometry=df_geo)
-    gpd.to_file(out_filename.replace(os.path.basename(out_filename),
-                                     'irrigation_timeseries_huc{}.shp'.format(huc_level)))
-
-
-def add_stat_attrs(shp, out_shp):
-
-    template_gpd = read_file(shp)
-    df = DataFrame(template_gpd)
-    df.drop(columns=['geometry'], inplace=True)
-    df.dropna(axis=0, how='any', inplace=True)
     year_cts = [x for x in df.columns if 'Ct_' in x]
     cts = df.drop(columns=[x for x in df.columns if x not in year_cts])
 
@@ -196,15 +200,20 @@ def add_stat_attrs(shp, out_shp):
     std_ = std(arr, axis=1).reshape(arr.shape[0], 1)
     df['std_dev'] = std_
 
-    gpd = GeoDataFrame(df, crs={'init': 'epsg:4326'}, geometry=template_gpd['geometry'])
-    gpd.to_file(out_shp)
+    df.drop(columns=['Name'], inplace=True)
+    df.drop(columns=KML_DROP, inplace=True)
+    df['Name'] = names
+    df['geometry'] = df_geo
+    df.to_csv(out_csv_filename)
+    gpd = GeoDataFrame(df, crs={'init': 'epsg:4326'}, geometry=df_geo)
+    gpd.to_file(out_shp_filename)
 
 
 def to_polygon(j):
     if not isinstance(j, list):
         return nan
     try:
-        return geometry.Polygon(j[0])
+        return Polygon(j[0])
     except ValueError:
         return nan
     except TypeError:
@@ -213,14 +222,44 @@ def to_polygon(j):
         return nan
 
 
+def count_landsat_scenes(index, shp):
+    pr_list = [str(x) for x in read_file(shp)['PR'].values]
+    first = True
+    l8, l7, l5 = 0, 0, 0
+    with open(index) as f:
+        for line in f:
+            if first:
+                first = False
+            else:
+                l = line.split(',')
+                sat = l[2]
+                pr = l[9].zfill(2) + l[10].zfill(3)
+                dt = to_datetime(l[7]).to_pydatetime()
+                if pr in pr_list and datetime(1986, 1, 1) < dt < datetime(2016, 12, 31) and 59 < int(dt.strftime('%j')) < 365:
+                    if sat == 'LANDSAT_8':
+                        l8 += 1
+                    elif sat == 'LANDSAT_7':
+                        l7 += 1
+                    elif sat == 'LANDSAT_5':
+                        l5 += 1
+        print('{} l8, {} l7, {} l5'.format(l8, l7, l5))
+
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    # extracts = os.path.join(home, 'IrrigationGIS', 'attr_irr', 'csv', 'MT_agpoly')
-    # shape = os.path.join(home, 'IrrigationGIS', 'attr_irr', 'shp', 'MT_irr_attrs.shp')
-    # concatenate_irrigation_attrs(extracts, out_filename=shape)
-    r = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'to_concatenate')
-    g = 'bands_13FEB'
-    out_ = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated')
-    concatenate_band_extract(r, out_, g)
+    huc_lev = 8
+    # attrs = os.path.join(home, 'IrrigationGIS', 'attr_irr')
+    # or_csv = os.path.join(attrs, 'csv', 'harney')
+    # out = os.path.join(attrs, 'shp', 'Harney_IrrAttrs.shp')
+    # concatenate_irrigation_attrs(or_csv, out)
+    extracts = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_huc{}'.format(huc_lev))
+    tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'tables')
+    shapes = os.path.join(home, 'IrrigationGIS', 'time_series', 'shapefiles')
+
+    out_table = os.path.join(tables, 'concatenated_huc{}.csv'.format(huc_lev))
+    out_shape = os.path.join(shapes, 'time_series_14MAR19.shp')
+    template = os.path.join(home, 'IrrigationGIS', 'hydrography', 'huc{}_semiarid_clip.shp'.format(huc_lev))
+
+    concatenate_attrs(extracts, out_table, out_shape, template_geometry=template)
 
 # ========================= EOF ====================================================================
