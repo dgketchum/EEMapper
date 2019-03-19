@@ -86,10 +86,10 @@ MISSING_YEARS = [1990, 1991, 1992, 1999]
 ALL_YEARS = [x for x in range(1986, 2017)]
 
 
-def reduce_regions(tables, operation='mean'):
+def reduce_regions(tables, operation='mean', years=None, description=None):
     image_list = list_assets('users/dgketchum/classy')
     fc = ee.FeatureCollection(tables)
-    for yr in range(1986, 2017):
+    for yr in years:
         yr_img = [x for x in image_list if x.endswith(str(yr))]
         coll = ee.ImageCollection(yr_img)
         tot = coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
@@ -106,9 +106,9 @@ def reduce_regions(tables, operation='mean'):
 
         task = ee.batch.Export.table.toCloudStorage(
             reduce,
-            description='reduceFC_{}_{}'.format(operation, yr),
+            description='{}_{}_{}'.format(description, operation, yr),
             bucket='wudr',
-            fileNamePrefix='reduceFC_{}_{}'.format(operation, yr),
+            fileNamePrefix='{}_{}_{}'.format(description, operation, yr),
             fileFormat='CSV')
 
         print(yr)
@@ -464,7 +464,9 @@ if __name__ == '__main__':
     # for state in TARGET_STATES:
     #     bounds = os.path.join(BOUNDARIES, state)
     #     export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
-    attribute_irrigation()
-    # reduce_regions(HUC_8, operation='count')
-    # reduce_regions(HUC_8, operation='mean')
+    # attribute_irrigation()
+    count_yr = [2016]
+    reduce_regions(COUNTIES, operation='count', years=count_yr, description='counties')
+    census_years = [2007, 2012]
+    reduce_regions(COUNTIES, operation='mean', years=census_years, description='counties')
 # ========================= EOF ====================================================================

@@ -15,6 +15,7 @@
 # ===============================================================================
 
 import os
+from pprint import pprint
 
 import ee
 
@@ -23,12 +24,14 @@ from map.call_ee import is_authorized
 
 ASSET_ROOT = 'users/dgketchum/classy'
 STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
+TARGET_STATES = ['OR']
 BOUNDARIES = 'users/dgketchum/boundaries'
 ASSET_ROOT = 'users/dgketchum/first_detected'
 
 
 def first_detection():
-    for state in STATES:
+    # this doesn't work, but it works in Code Editor
+    for state in TARGET_STATES:
         bounds = os.path.join(BOUNDARIES, state)
         roi = ee.FeatureCollection(bounds)
         mask = roi.geometry().bounds().getInfo()['coordinates']
@@ -37,11 +40,13 @@ def first_detection():
         for yr in range(1986, 2017):
             yr_img = [x for x in image_list if x.endswith(str(yr))]
             coll = ee.ImageCollection(yr_img)
-            classed = coll.mosaic().select('classification').remap([0, 1, 2, 3], [yr, 0, 0, 0]).rename('{}'.format(yr))
+            classed = coll.mosaic().select('classification').remap([0, 1, 2, 3],
+                                                                   [yr, 0, 0, 0]).rename('{}_min'.format(yr))
             out_images.append(classed)
 
         coll = ee.ImageCollection(out_images)
-        img = coll.reduce(ee.Reducer.min())
+        img = coll.reduce(ee.Reducer.minMax()).rename('min', 'max')
+        pprint(img.getInfo())
         task = ee.batch.Export.image.toAsset(
             image=img,
             description='{}'.format(state),

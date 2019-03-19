@@ -16,14 +16,14 @@
 
 import json
 import os
+from datetime import datetime
 
 from geopandas import GeoDataFrame, read_file
 from numpy import where, sum, nan, std, array, min, max, mean
 from pandas import read_csv, concat, errors, Series, DataFrame
+from pandas import to_datetime
 from pandas.io.json import json_normalize
 from shapely.geometry import Polygon
-from datetime import datetime
-from pandas import to_datetime
 
 INT_COLS = ['POINT_TYPE', 'YEAR']
 
@@ -56,6 +56,31 @@ COLS = ['SCENE_ID',
         'EAST_LON',
         'TOTAL_SIZE',
         'BASE_URL']
+
+
+def concatenate_county_data(folder, glob='counties'):
+    _files = [os.path.join(folder, x) for x in os.listdir(folder) if glob in x]
+    _files.sort()
+    first = True
+    for csv in _files:
+        year = os.path.basename(csv)[14:18]
+        try:
+            if first:
+                df = read_csv(csv).sort_values('COUNTYNS')
+                first = False
+            else:
+                c = read_csv(csv).sort_values('COUNTYNS')['mean']
+                c.name = 'mean_{}'.format(year)
+                df = concat([df, c], sort=False, axis=1)
+                print(c.shape, csv)
+        except errors.EmptyDataError:
+            print('{} is empty'.format(csv))
+            pass
+
+    out_file = os.path.join(folder, '{}.csv'.format(glob))
+
+    print('size: {}'.format(df.shape))
+    df.to_csv(out_file, index=False)
 
 
 def concatenate_band_extract(root, out_dir, glob='None', sample=None):
@@ -155,8 +180,9 @@ def concatenate_attrs(_dir, out_csv_filename, out_shp_filename, template_geometr
         _mean = [f for f in yr_files if 'mean' in f][0]
 
         if first:
-            df = read_csv(_mean).sort_values('huc8', axis=0)
+            df = read_csv(_mean, index_col=['huc8']).sort_values('huc8', axis=0)
             names = df['Name']
+            units = df.index
             template_gpd = read_file(template_geometry).sort_values('huc8', axis=0)
             for i, r in template_gpd.iterrows():
 
@@ -170,6 +196,7 @@ def concatenate_attrs(_dir, out_csv_filename, out_shp_filename, template_geometr
                     print('{} is in the list'.format(r['Name']))
 
             mean_arr = df['mean']
+            df.drop(columns=KML_DROP, inplace=True)
             df.drop(columns=['.geo', 'mean'], inplace=True)
             _count_csv = [f for f in yr_files if 'count' in f][0]
             count_arr = read_csv(_count_csv, index_col=0)['count'].values
@@ -178,7 +205,7 @@ def concatenate_attrs(_dir, out_csv_filename, out_shp_filename, template_geometr
             first = False
 
         else:
-            mean_arr = read_csv(_mean, index_col=0)['mean'].values
+            mean_arr = read_csv(_mean, index_col=['huc8']).sort_values('huc8', axis=0)['mean'].values
             df['Ct_{}'.format(year)] = mean_arr * count_arr
 
     year_cts = [x for x in df.columns if 'Ct_' in x]
@@ -201,12 +228,28 @@ def concatenate_attrs(_dir, out_csv_filename, out_shp_filename, template_geometr
     df['std_dev'] = std_
 
     df.drop(columns=['Name'], inplace=True)
-    df.drop(columns=KML_DROP, inplace=True)
     df['Name'] = names
     df['geometry'] = df_geo
+    df['huc8'] = units
     df.to_csv(out_csv_filename)
     gpd = GeoDataFrame(df, crs={'init': 'epsg:4326'}, geometry=df_geo)
     gpd.to_file(out_shp_filename)
+
+
+def add_stats_to_shapefile(shp, out_shp):
+    gdf = read_file(shp).sort_values('huc8', axis=0)
+    geometry = gdf['geometry']
+    gdf.drop(columns=['geometry'], inplace=True)
+    df = DataFrame(gdf)
+    new_cols = [x.replace('Ct_', '') if 'Ct_' in x else x for x in df.columns]
+    df.columns = new_cols
+    e, l = [str(x) for x in range(1986, 1991)], [str(x) for x in range(2012, 2017)]
+    early = df[e].mean(axis=1)
+    late = df[l].mean(axis=1)
+    tot_pix = df['TotalPix']
+    df['delta'] = (early - late) / tot_pix.values
+    gpd = GeoDataFrame(df, crs={'init': 'epsg:4326'}, geometry=geometry)
+    gpd.to_file(out_shp)
 
 
 def to_polygon(j):
@@ -252,14 +295,20 @@ if __name__ == '__main__':
     # or_csv = os.path.join(attrs, 'csv', 'harney')
     # out = os.path.join(attrs, 'shp', 'Harney_IrrAttrs.shp')
     # concatenate_irrigation_attrs(or_csv, out)
+
     extracts = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_huc{}'.format(huc_lev))
     tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'tables')
     shapes = os.path.join(home, 'IrrigationGIS', 'time_series', 'shapefiles')
 
     out_table = os.path.join(tables, 'concatenated_huc{}.csv'.format(huc_lev))
-    out_shape = os.path.join(shapes, 'time_series_14MAR19.shp')
+    out_shape = os.path.join(shapes, 'time_series_15MAR19.shp')
     template = os.path.join(home, 'IrrigationGIS', 'hydrography', 'huc{}_semiarid_clip.shp'.format(huc_lev))
 
-    concatenate_attrs(extracts, out_table, out_shape, template_geometry=template)
+    # concatenate_attrs(extracts, out_table, out_shape, template_geometry=template)
+    # in_shape = os.path.join(shapes, 'time_series_15MAR19.shp')
+    # out_shp = in_shape.replace('time_series_', 'add_stats_')
+    # add_stats_to_shapefile(in_shape, out_shp)
+    tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county')
+    concatenate_county_data(tables)
 
 # ========================= EOF ====================================================================

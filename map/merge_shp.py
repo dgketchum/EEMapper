@@ -142,6 +142,7 @@ def get_area(shp):
             else:
                 raise TypeError
         print(area)
+        print(area * 247.105)
 
 
 if __name__ == '__main__':
@@ -159,9 +160,10 @@ if __name__ == '__main__':
     # _dir = [os.path.join(s_dir, x) for x in os.listdir(s_dir) if x.endswith('.shp')]
     # o_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated', 'merged_attributed')
     # fiona_merge_attribute(os.path.join(o_dir, 'Irr_11DEC.shp'), _dir)
-    s_dir = os.path.join(home, 'IrrigationGIS', 'EE_sample')
-    _files = [os.path.join(s_dir, x) for x in os.listdir(s_dir) if x.endswith('.shp')]
-    for f in _files:
-        get_area(f)
+    # s_dir = os.path.join(home, 'IrrigationGIS', 'Montana', 'rdgp')
+    # _files = [os.path.join(s_dir, x) for x in os.listdir(s_dir) if x.endswith('aea.shp')]
+    # for f in _files:
+    #     get_area(f)
+    get_area('/home/dgketchum/IrrigationGIS/wetlands/wetlands_11s_aea.shp')
 
 # ========================= EOF ====================================================================

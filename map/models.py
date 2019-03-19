@@ -20,7 +20,7 @@ from pprint import pprint
 from numpy import unique, dot, mean
 from numpy.random import randint
 import tensorflow as tf
-from pandas import get_dummies, read_csv, DataFrame
+from pandas import get_dummies, read_csv
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
