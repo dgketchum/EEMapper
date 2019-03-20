@@ -14,16 +14,17 @@
 # limitations under the License.
 # ===============================================================================
 
+import json
 import os
+from copy import deepcopy
 
 import matplotlib.pyplot as plt
-from numpy import nan
-from pandas import read_table, read_csv, DataFrame, Series, concat
-from pandas.io.json import json_normalize
 from geopandas import GeoDataFrame
+from numpy import nan
+from pandas import read_table, read_csv, DataFrame, Series
+from pandas.io.json import json_normalize
+
 from map.tables import to_polygon
-import json
-from copy import deepcopy
 
 DROP = ['SOURCE_DESC', 'SECTOR_DESC', 'GROUP_DESC',
         'COMMODITY_DESC', 'CLASS_DESC', 'PRODN_PRACTICE_DESC',
@@ -77,24 +78,27 @@ def get_nass(csv, out_file):
 def merge_nass_irrmapper(nass, irrmapper, out_name):
     idf = read_csv(irrmapper)
     ndf = read_csv(nass)
-    df = DataFrame(columns=['State', 'County_Code', 'County_Name', 'IrrMap_2012_ac',
-                            'NASS_2012_ac'])
-    gdf = GeoDataFrame(columns=['State', 'County_Code', 'County_Name', 'IrrMap_2012_ac',
-                                'NASS_2012_ac', 'geometry'])
+    cols = ['VALUE_2002', 'VALUE_2007', 'VALUE_2012']
+    ndf[cols] = ndf[cols].applymap(lambda x: x if not isinstance(x, str) else nan)
+    df = DataFrame(columns=['State', 'State_Code', 'County_Name', 'County_Code', 'IrrMap_2002_ac', 'NASS_2002_ac',
+                            'IrrMap_2007_ac', 'NASS_2007_ac', 'IrrMap_2012_ac', 'NASS_2012_ac'])
+    gdf = GeoDataFrame(columns=['State', 'State_Code', 'County_Name', 'County_Code', 'IrrMap_2002_ac', 'NASS_2002_ac',
+                                'IrrMap_2007_ac', 'NASS_2007_ac', 'IrrMap_2012_ac', 'NASS_2012_ac',
+                                'geometry'])
     idx = 0
     for i, r in idf.iterrows():
         for j, e in ndf.iterrows():
             if r['STATEFP'] == e['STATE_FIPS_CODE'] and r['COUNTYFP'] == int(e['COUNTY_ANSI']):
-                irr_area = r['count'] * r['mean_2012'] * 900.0 / 4046.86
+                irr_area = (r['count'] * r['mean_2002'] * 900.0 / 4046.86,
+                            r['count'] * r['mean_2007'] * 900.0 / 4046.86,
+                            r['count'] * r['mean_2012'] * 900.0 / 4046.86)
 
-                try:
-                    nass_area = int(e['VALUE'].replace(',', ''))
-                except ValueError:
-                    nass_area = nan
+                nass_area = (e['VALUE_2002'], e['VALUE_2007'], e['VALUE_2012'])
 
-                data = {'State': r['STATEFP'], 'County_Code': r['COUNTYFP'],
-                        'County_Name': r['NAME'], 'IrrMap_2012_ac': irr_area,
-                        'NASS_2012_ac': nass_area}
+                data = {'State': e['STATE_ALPHA'], 'State_Code': r['STATEFP'], 'County_Code': r['COUNTYFP'],
+                        'County_Name': r['NAME'], 'IrrMap_2002_ac': irr_area[0], 'NASS_2002_ac': nass_area[0],
+                        'IrrMap_2007_ac': irr_area[1], 'NASS_2007_ac': nass_area[1],
+                        'IrrMap_2012_ac': irr_area[2], 'NASS_2012_ac': nass_area[2]}
 
                 s = Series(name=idx, data=data)
                 df.loc[idx] = s
@@ -127,15 +131,15 @@ def compare_nass_irrmapper(csv):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county')
-    _files = [os.path.join(tables, x) for x in ['qs.census2002.txt',
-                                                'qs.census2007.txt',
-                                                'qs.census2012.txt']]
-    merged = os.path.join(tables, 'nass_merged.csv')
-    get_nass(_files, merged)
+    # _files = [os.path.join(tables, x) for x in ['qs.census2002.txt',
+    #                                             'qs.census2007.txt',
+    #                                             'qs.census2012.txt']]
+    # merged = os.path.join(tables, 'nass_merged.csv')
+    # get_nass(_files, merged)
 
-    # irr = os.path.join(tables, 'county_irrmap.csv')
-    # nass = os.path.join(tables, 'nass_2012.csv')
-    # o = os.path.join(tables, 'nass_irrrmap_comp.csv')
-    # merge_nass_irrmapper(nass, irr, o)
+    irr = os.path.join(tables, 'counties_irrmap.csv')
+    nass = os.path.join(tables, 'nass_merged.csv')
+    o = os.path.join(tables, 'nass_irrrmap_comp.csv')
+    merge_nass_irrmapper(nass, irr, o)
 
 # ========================= EOF ====================================================================
