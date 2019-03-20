@@ -1,0 +1,208 @@
+var lists = require('users/dgketchum/source_data:image_lists_v2');
+var image_list_1986 = lists.classified_states_1986;
+var image_list_1987 = lists.classified_states_1987;
+var image_list_1988 = lists.classified_states_1988;
+var image_list_1989 = lists.classified_states_1989;
+var image_list_1990 = lists.classified_states_1990;
+var image_list_1991 = lists.classified_states_1991;
+var image_list_1992 = lists.classified_states_1992;
+var image_list_1993 = lists.classified_states_1993;
+var image_list_1994 = lists.classified_states_1994;
+var image_list_1995 = lists.classified_states_1995;
+var image_list_1996 = lists.classified_states_1996;
+var image_list_1997 = lists.classified_states_1997;
+var image_list_1998 = lists.classified_states_1998;
+var image_list_1999 = lists.classified_states_1999;
+var image_list_2000 = lists.classified_states_2000;
+var image_list_2001 = lists.classified_states_2001;
+var image_list_2002 = lists.classified_states_2002;
+var image_list_2003 = lists.classified_states_2003;
+var image_list_2004 = lists.classified_states_2004;
+var image_list_2005 = lists.classified_states_2005;
+var image_list_2006 = lists.classified_states_2006;
+var image_list_2007 = lists.classified_states_2007;
+var image_list_2008 = lists.classified_states_2008;
+var image_list_2009 = lists.classified_states_2009;
+var image_list_2010 = lists.classified_states_2010;
+var image_list_2011 = lists.classified_states_2011;
+var image_list_2012 = lists.classified_states_2012;
+var image_list_2013 = lists.classified_states_2013;
+var image_list_2014 = lists.classified_states_2014;
+var image_list_2015 = lists.classified_states_2015;
+var image_list_2016 = lists.classified_states_2016;
+
+var collection_1986 = ee.ImageCollection(image_list_1986).mosaic().select('classification');
+var collection_1987 = ee.ImageCollection(image_list_1987).mosaic().select('classification');
+var collection_1988 = ee.ImageCollection(image_list_1988).mosaic().select('classification');
+var collection_1989 = ee.ImageCollection(image_list_1989).mosaic().select('classification');
+var collection_1990 = ee.ImageCollection(image_list_1990).mosaic().select('classification');
+var collection_1991 = ee.ImageCollection(image_list_1991).mosaic().select('classification');
+var collection_1992 = ee.ImageCollection(image_list_1992).mosaic().select('classification');
+var collection_1993 = ee.ImageCollection(image_list_1993).mosaic().select('classification');
+var collection_1994 = ee.ImageCollection(image_list_1994).mosaic().select('classification');
+var collection_1995 = ee.ImageCollection(image_list_1995).mosaic().select('classification');
+var collection_1996 = ee.ImageCollection(image_list_1996).mosaic().select('classification');
+var collection_1997 = ee.ImageCollection(image_list_1997).mosaic().select('classification');
+var collection_1998 = ee.ImageCollection(image_list_1998).mosaic().select('classification');
+var collection_1999 = ee.ImageCollection(image_list_1999).mosaic().select('classification');
+var collection_2000 = ee.ImageCollection(image_list_2000).mosaic().select('classification');
+var collection_2001 = ee.ImageCollection(image_list_2001).mosaic().select('classification');
+var collection_2002 = ee.ImageCollection(image_list_2002).mosaic().select('classification');
+var collection_2003 = ee.ImageCollection(image_list_2003).mosaic().select('classification');
+var collection_2004 = ee.ImageCollection(image_list_2004).mosaic().select('classification');
+var collection_2005 = ee.ImageCollection(image_list_2005).mosaic().select('classification');
+var collection_2006 = ee.ImageCollection(image_list_2006).mosaic().select('classification');
+var collection_2007 = ee.ImageCollection(image_list_2007).mosaic().select('classification');
+var collection_2008 = ee.ImageCollection(image_list_2008).mosaic().select('classification');
+var collection_2009 = ee.ImageCollection(image_list_2009).mosaic().select('classification');
+var collection_2010 = ee.ImageCollection(image_list_2010).mosaic().select('classification');
+var collection_2011 = ee.ImageCollection(image_list_2011).mosaic().select('classification');
+var collection_2012 = ee.ImageCollection(image_list_2012).mosaic().select('classification');
+var collection_2013 = ee.ImageCollection(image_list_2013).mosaic().select('classification');
+var collection_2014 = ee.ImageCollection(image_list_2014).mosaic().select('classification');
+var collection_2015 = ee.ImageCollection(image_list_2015).mosaic().select('classification');
+var collection_2016 = ee.ImageCollection(image_list_2016).mosaic().select('classification');
+
+
+var class_palette = ['blue', 'yellow', 'pink', 'pink', 'red'];
+var class_palette2 = ['orange', 'yellow', 'green', 'blue'];
+
+var collection_1986_rm = collection_1986.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_1987_rm = collection_1987.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_1988_rm = collection_1988.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_1989_rm = collection_1989.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_1990_rm = collection_1990.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_1991_rm = collection_1991.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_1992_rm = collection_1992.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_1993_rm = collection_1993.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_1994_rm = collection_1994.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_1995_rm = collection_1995.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_1996_rm = collection_1996.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_1997_rm = collection_1997.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_1998_rm = collection_1998.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_1999_rm = collection_1999.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_2000_rm = collection_2000.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_2001_rm = collection_2001.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_2002_rm = collection_2002.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_2003_rm = collection_2003.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_2004_rm = collection_2004.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_2005_rm = collection_2005.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_2006_rm = collection_2006.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_2007_rm = collection_2007.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_2008_rm = collection_2008.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_2009_rm = collection_2009.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_2010_rm = collection_2010.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_2011_rm = collection_2011.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_2012_rm = collection_2012.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_2013_rm = collection_2013.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_2014_rm = collection_2014.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_2015_rm = collection_2015.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+var collection_2016_rm = collection_2016.remap([0, 1, 2, 3, 4], [1, 0, 0, 0, 0]).rename('classification');
+
+
+var cummulative_v2 = collection_1986_rm
+.add(collection_1987_rm)
+.add(collection_1988_rm)
+.add(collection_1989_rm)
+.add(collection_1990_rm)
+.add(collection_1991_rm)
+.add(collection_1992_rm)
+.add(collection_1993_rm)
+.add(collection_1994_rm)
+.add(collection_1995_rm)
+.add(collection_1996_rm)
+.add(collection_1997_rm)
+.add(collection_1998_rm)
+.add(collection_1999_rm)
+.add(collection_2000_rm)
+.add(collection_2001_rm)
+.add(collection_2002_rm)
+.add(collection_2003_rm)
+.add(collection_2004_rm)
+.add(collection_2005_rm)
+.add(collection_2006_rm)
+.add(collection_2007_rm)
+.add(collection_2008_rm)
+.add(collection_2009_rm)
+.add(collection_2010_rm)
+.add(collection_2011_rm)
+.add(collection_2012_rm)
+.add(collection_2013_rm)
+.add(collection_2014_rm)
+.add(collection_2015_rm)
+.add(collection_2016_rm);
+var mask = cummulative_v2.gt(0);
+cummulative_v2 = cummulative_v2.mask(mask);
+
+Map.addLayer(collection_1986,  {min: 0, max: 3, palette: class_palette, opacity: 0.5}, '1986');
+Map.addLayer(collection_1996,  {min: 0, max: 3, palette: class_palette, opacity: 0.5}, '1996');
+Map.addLayer(collection_2006,  {min: 0, max: 3, palette: class_palette, opacity: 0.5}, '2006');
+Map.addLayer(collection_2013,  {min: 0, max: 3, palette: class_palette, opacity: 0.5}, '2013');
+Map.addLayer(cummulative_v2,  {min: 1, max: 30, palette: class_palette2, opacity: 0.9}, 'sum_irr_v2');
+
++++++++++++++++++++++++++++++++++
+var collection_1986_rm_max = collection_1986.remap([0, 1, 2, 3], [1986, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_1987_rm_max = collection_1987.remap([0, 1, 2, 3], [1987, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_1988_rm_max = collection_1988.remap([0, 1, 2, 3], [1988, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_1989_rm_max = collection_1989.remap([0, 1, 2, 3], [1989, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_1990_rm_max = collection_1990.remap([0, 1, 2, 3], [1990, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_1991_rm_max = collection_1991.remap([0, 1, 2, 3], [1991, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_1992_rm_max = collection_1992.remap([0, 1, 2, 3], [1992, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_1993_rm_max = collection_1993.remap([0, 1, 2, 3], [1993, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_1994_rm_max = collection_1994.remap([0, 1, 2, 3], [1994, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_1995_rm_max = collection_1995.remap([0, 1, 2, 3], [1995, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_1996_rm_max = collection_1996.remap([0, 1, 2, 3], [1996, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_1997_rm_max = collection_1997.remap([0, 1, 2, 3], [1997, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_1998_rm_max = collection_1998.remap([0, 1, 2, 3], [1998, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_1999_rm_max = collection_1999.remap([0, 1, 2, 3], [1999, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_2000_rm_max = collection_2000.remap([0, 1, 2, 3], [2000, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_2001_rm_max = collection_2001.remap([0, 1, 2, 3], [2001, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_2002_rm_max = collection_2002.remap([0, 1, 2, 3], [2002, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_2003_rm_max = collection_2003.remap([0, 1, 2, 3], [2003, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_2004_rm_max = collection_2004.remap([0, 1, 2, 3], [2004, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_2005_rm_max = collection_2005.remap([0, 1, 2, 3], [2005, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_2006_rm_max = collection_2006.remap([0, 1, 2, 3], [2006, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_2007_rm_max = collection_2007.remap([0, 1, 2, 3], [2007, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_2008_rm_max = collection_2008.remap([0, 1, 2, 3], [2008, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_2009_rm_max = collection_2009.remap([0, 1, 2, 3], [2009, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_2010_rm_max = collection_2010.remap([0, 1, 2, 3], [2010, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_2011_rm_max = collection_2011.remap([0, 1, 2, 3], [2011, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_2012_rm_max = collection_2012.remap([0, 1, 2, 3], [2012, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_2013_rm_max = collection_2013.remap([0, 1, 2, 3], [2013, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_2014_rm_max = collection_2014.remap([0, 1, 2, 3], [2014, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_2015_rm_max = collection_2015.remap([0, 1, 2, 3], [2015, 9999, 9999, 9999]).rename('classification').toInt();
+var collection_2016_rm_max = collection_2016.remap([0, 1, 2, 3], [2016, 9999, 9999, 9999]).rename('classification').toInt();
+
+var rm_stack_max = ee.ImageCollection([collection_1986_rm_max,
+                                    collection_1987_rm_max,
+                                    collection_1988_rm_max,
+                                    collection_1989_rm_max,
+                                    collection_1990_rm_max,
+                                    collection_1991_rm_max,
+                                    collection_1992_rm_max,
+                                    collection_1993_rm_max,
+                                    collection_1994_rm_max,
+                                    collection_1995_rm_max,
+                                    collection_1996_rm_max,
+                                    collection_1997_rm_max,
+                                    collection_1998_rm_max,
+                                    collection_1999_rm_max,
+                                    collection_2000_rm_max,
+                                    collection_2001_rm_max,
+                                    collection_2002_rm_max,
+                                    collection_2003_rm_max,
+                                    collection_2004_rm_max,
+                                    collection_2005_rm_max,
+                                    collection_2006_rm_max,
+                                    collection_2007_rm_max,
+                                    collection_2008_rm_max,
+                                    collection_2009_rm_max,
+                                    collection_2010_rm_max,
+                                    collection_2011_rm_max,
+                                    collection_2012_rm_max,
+                                    collection_2013_rm_max,
+                                    collection_2014_rm_max,
+                                    collection_2015_rm_max,
+                                    collection_2016_rm_max]);
+
+['SOURCE_DESC'] == 'CENSUS' & ['SECTOR_DESC'] == 'ECONOMICS' & ['GROUP_DESC']  == 'FARMS & LAND & ASSETS' & ['COMMODITY_DESC'] == 'AG LAND' & ['CLASS_DESC'] == 'ALL CLASSES' & ['PRODN_PRACTICE_DESC'] == 'IRRIGATED' & ['UTIL_PRACTICE_DESC'] == 'ALL UTILIZATION PRACTICES' & ['STATISTICCAT_DESC'] == 'AREA' & ['UNIT_DESC'] == 'ACRES' & ['SHORT_DESC'] == 'AG LAND, IRRIGATED - ACRES' & ['DOMAIN_DESC'] == 'TOTAL' &
