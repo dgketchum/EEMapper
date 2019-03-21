@@ -86,13 +86,23 @@ MISSING_YEARS = [1990, 1991, 1992, 1999]
 ALL_YEARS = [x for x in range(1986, 2017)]
 
 
-def reduce_regions(tables, operation='mean', years=None, description=None):
+def reduce_regions(tables, operation='mean', years=None, description=None, cdl_mask=False):
     image_list = list_assets('users/dgketchum/classy')
     fc = ee.FeatureCollection(tables)
     for yr in years:
         yr_img = [x for x in image_list if x.endswith(str(yr))]
         coll = ee.ImageCollection(yr_img)
         tot = coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
+
+        if cdl_mask:
+            if yr < 1997:
+                raise NotImplementedError('CDL mask only available 1997 to present')
+            else:
+                cdl = ee.ImageCollection('USDA/NASS/CDL').filterDate('{}-01-01'.format(yr - 1),
+                                                                     '{}-12-31'.format(yr)).first()
+                cultivated = cdl.select('cultivated').eq(2)
+                tot = tot.mask(cultivated)
+
         if operation == 'mean':
             reduce = tot.reduceRegions(collection=fc,
                                        reducer=ee.Reducer.mean(),
@@ -465,8 +475,8 @@ if __name__ == '__main__':
     #     bounds = os.path.join(BOUNDARIES, state)
     #     export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
     # attribute_irrigation()
-    count_yr = [2016]
-    reduce_regions(COUNTIES, operation='count', years=count_yr, description='counties')
-    census_years = [2007, 2012]
-    reduce_regions(COUNTIES, operation='mean', years=census_years, description='counties')
+    # count_yr = [2016]
+    # reduce_regions(COUNTIES, operation='count', years=count_yr, description='counties')
+    census_years = [2002, 2007, 2012]
+    reduce_regions(COUNTIES, operation='mean', years=census_years, description='counties_cdlmsk')
 # ========================= EOF ====================================================================
