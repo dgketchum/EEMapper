@@ -95,13 +95,10 @@ def reduce_regions(tables, operation='mean', years=None, description=None, cdl_m
         tot = coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
 
         if cdl_mask:
-            if yr < 1997:
-                raise NotImplementedError('CDL mask only available 1997 to present')
-            else:
-                cdl = ee.ImageCollection('USDA/NASS/CDL').filterDate('{}-01-01'.format(yr - 1),
-                                                                     '{}-12-31'.format(yr)).first()
-                cultivated = cdl.select('cultivated').eq(2)
-                tot = tot.mask(cultivated)
+            # cultivated/uncultivated band only available 2013 to 2017
+            cdl = ee.Image('USDA/NASS/CDL/2013')
+            cultivated = cdl.select('cultivated')
+            tot = tot.mask(cultivated)
 
         if operation == 'mean':
             reduce = tot.reduceRegions(collection=fc,
@@ -478,5 +475,6 @@ if __name__ == '__main__':
     # count_yr = [2016]
     # reduce_regions(COUNTIES, operation='count', years=count_yr, description='counties')
     census_years = [2002, 2007, 2012]
-    reduce_regions(COUNTIES, operation='mean', years=census_years, description='counties_cdlmsk')
+    reduce_regions(COUNTIES, operation='mean', years=census_years,
+                   description='counties_cdlmsk', cdl_mask=True)
 # ========================= EOF ====================================================================
