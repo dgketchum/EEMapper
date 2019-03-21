@@ -75,16 +75,34 @@ def get_nass(csv, out_file):
     master.to_csv(out_file)
 
 
+def strip_null(row):
+    if isinstance(row, str):
+        if ',' in row:
+            val = float(row.replace(',', ''))
+        elif 'D' in row:
+            val = nan
+        else:
+            val = float(row)
+    elif isinstance(row, float):
+        val = row
+    elif isinstance(row, int):
+        val = float(row)
+    else:
+        print(row)
+
+    return val
+
+
 def merge_nass_irrmapper(nass, irrmapper, out_name):
     idf = read_csv(irrmapper)
     ndf = read_csv(nass)
     cols = ['VALUE_2002', 'VALUE_2007', 'VALUE_2012']
-    ndf[cols] = ndf[cols].applymap(lambda x: x if not isinstance(x, str) else nan)
-    df = DataFrame(columns=['State', 'State_Code', 'County_Name', 'County_Code', 'IrrMap_2002_ac', 'NASS_2002_ac',
-                            'IrrMap_2007_ac', 'NASS_2007_ac', 'IrrMap_2012_ac', 'NASS_2012_ac'])
-    gdf = GeoDataFrame(columns=['State', 'State_Code', 'County_Name', 'County_Code', 'IrrMap_2002_ac', 'NASS_2002_ac',
-                                'IrrMap_2007_ac', 'NASS_2007_ac', 'IrrMap_2012_ac', 'NASS_2012_ac',
-                                'geometry'])
+    ndf[cols] = ndf[cols].applymap(lambda x: strip_null(x))
+    df = DataFrame(columns=['State', 'State_Code', 'Cty_Name', 'Cty_Code', 'IM2002_ac', 'NASS_2002_ac',
+                            'IM2007_ac', 'NASS_2007_ac', 'IM2012_ac', 'NASS_2012_ac'])
+    gdf = GeoDataFrame(columns=['State', 'State_Code', 'Cty_Name', 'Cty_Code', 'IM2002_ac', 'NASS_2002_ac',
+                                'IM2007_ac', 'NASS_2007_ac', 'IM2012_ac', 'NASS_2012_ac',
+                                'geometry'], crs={'init': 'epsg:4326'})
     idx = 0
     for i, r in idf.iterrows():
         for j, e in ndf.iterrows():
@@ -95,10 +113,10 @@ def merge_nass_irrmapper(nass, irrmapper, out_name):
 
                 nass_area = (e['VALUE_2002'], e['VALUE_2007'], e['VALUE_2012'])
 
-                data = {'State': e['STATE_ALPHA'], 'State_Code': r['STATEFP'], 'County_Code': r['COUNTYFP'],
-                        'County_Name': r['NAME'], 'IrrMap_2002_ac': irr_area[0], 'NASS_2002_ac': nass_area[0],
-                        'IrrMap_2007_ac': irr_area[1], 'NASS_2007_ac': nass_area[1],
-                        'IrrMap_2012_ac': irr_area[2], 'NASS_2012_ac': nass_area[2]}
+                data = {'State': e['STATE_ALPHA'], 'State_Code': r['STATEFP'], 'Cty_Code': r['COUNTYFP'],
+                        'Cty_Name': r['NAME'], 'IM2002_ac': irr_area[0], 'NASS_2002_ac': nass_area[0],
+                        'IM2007_ac': irr_area[1], 'NASS_2007_ac': nass_area[1],
+                        'IM2012_ac': irr_area[2], 'NASS_2012_ac': nass_area[2]}
 
                 s = Series(name=idx, data=data)
                 df.loc[idx] = s
@@ -106,13 +124,18 @@ def merge_nass_irrmapper(nass, irrmapper, out_name):
                 gdf.loc[idx] = data
                 idx += 1
 
+    df.to_csv(out_name)
+
+    gdf['dif_2002'], gdf['dif_2007'], gdf['dif_2012'] = (gdf['NASS_2002_ac'] - gdf['IM2002_ac']) / gdf[
+        'NASS_2002_ac'], (gdf['NASS_2007_ac'] - gdf['IM2007_ac']) / gdf[
+        'NASS_2007_ac'], (gdf['NASS_2012_ac'] - gdf['IM2012_ac']) / gdf['NASS_2012_ac']
+
     coords = Series(json_normalize(gdf['geometry'].apply(json.loads))['coordinates'].values,
                     index=df.index)
     gdf['geometry'] = coords.apply(to_polygon)
-    df.dropna(axis=1)
-    df.to_csv(out_name)
-    gdf.dropna(axis=1)
-    gdf.to_file(out_name.replace('.csv', '.shp'))
+    gdf.dropna(subset=['geometry'], inplace=True)
+    out_shp = out_name.replace('.csv', '.shp')
+    gdf.to_file(out_shp)
 
 
 def compare_nass_irrmapper(csv):
@@ -123,7 +146,11 @@ def compare_nass_irrmapper(csv):
     s.interpolate(axis=0, inplace=True)
     s.index = s.values
     s.plot(x=s.values, ax=ax, kind='line', loglog=True)
-    df.plot(x='NASS_2012_ac', y='IrrMap_2012_ac', kind='scatter',
+    df.plot(x='NASS_2002_ac', y='IM2002_ac', kind='scatter',
+            xlim=(1e2, 1e6), ylim=(1e2, 1e6), ax=ax, loglog=True)
+    df.plot(x='NASS_2007_ac', y='IM2007_ac', kind='scatter',
+            xlim=(1e2, 1e6), ylim=(1e2, 1e6), ax=ax, loglog=True)
+    df.plot(x='NASS_2012_ac', y='IM2012_ac', kind='scatter',
             xlim=(1e2, 1e6), ylim=(1e2, 1e6), ax=ax, loglog=True)
     plt.show()
 
@@ -137,9 +164,9 @@ if __name__ == '__main__':
     # merged = os.path.join(tables, 'nass_merged.csv')
     # get_nass(_files, merged)
 
-    irr = os.path.join(tables, 'counties_irrmap.csv')
+    irr = os.path.join(tables, 'counties_cdlmsk.csv')
     nass = os.path.join(tables, 'nass_merged.csv')
-    o = os.path.join(tables, 'nass_irrrmap_comp.csv')
+    o = os.path.join(tables, 'nass_irrrmapCDL_comp.csv')
     merge_nass_irrmapper(nass, irr, o)
 
 # ========================= EOF ====================================================================
