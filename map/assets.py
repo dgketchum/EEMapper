@@ -25,16 +25,38 @@ home = os.path.expanduser('~')
 EXEC = os.path.join(home, 'miniconda2', 'envs', 'ee', 'bin', 'earthengine')
 
 
-def delete_assets(ee_asset_path):
+def delete_assets(ee_asset_path, years_=None):
     reader = None
-    for year in range(2008, 2014):
-        _dir = os.path.join(ee_asset_path, str(year))
-        reader = list_assets(_dir)
+
+    if years_:
+        for year in range(2008, 2014):
+            _dir = os.path.join(ee_asset_path, str(year))
+            reader = list_assets(_dir)
+    else:
+        reader = list_assets(ee_asset_path)
 
     for r in reader:
         command = 'rm'
         cmd = ['{}'.format(EXEC), '{}'.format(command), '{}'.format(r['name'])]
         check_call(cmd)
+
+
+def rename_assets(ee_asset_path, new_path, years_=None):
+    reader = None
+
+    if years_:
+        for year in range(1986, 2014):
+            _dir = os.path.join(ee_asset_path, str(year))
+            reader = list_assets(_dir)
+    else:
+        reader = list_assets(ee_asset_path)
+
+    for old_name in reader:
+        command = 'mv'
+        new_name = os.path.join(new_path, os.path.basename(old_name))
+        cmd = ['{}'.format(EXEC), '{}'.format(command), old_name, new_name]
+        check_call(cmd)
+        print(old_name, new_name)
 
 
 def list_assets(location):
@@ -50,20 +72,8 @@ def list_assets(location):
 
 
 if __name__ == '__main__':
-    loc = os.path.join('users', 'dgketchum', 'classy')
-    _list = list_assets(loc)
-    years = [x for x in range(1986, 2017)]
-    dct = {}
-    for l in _list:
-        e = l[-4:]
-        s = l[-7:-5]
-        if s in EDIT_STATES:
-            pass
-        elif e not in dct.keys():
-            dct[e] = [l]
-        else:
-            dct[e].append(l)
+    loc = os.path.join('users', 'dgketchum', 'classy_v2')
+    new_loc = os.path.join('users', 'dgketchum', 'classy_mtFallow')
+    rename_assets(loc, new_loc)
 
-    for key, val in dct.items():
-        print(val)
 # ========================= EOF ====================================================================
