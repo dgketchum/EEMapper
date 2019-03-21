@@ -42,6 +42,7 @@ EDIT_STATES = ['KS', 'ND', 'NE', 'OK', 'SD', 'TX']
 TARGET_STATES = ['OR']
 
 POINTS = 'ft:1quoEOgOl5dTQtYjyHZs9BxX8CZz1Leqv5qqFYLml'
+VALIDATION_POINTS = 'ft:1F6qGFzg1M1WRPIJ8rnNsQLCk932pGpqL2-MRcOYd'
 TABLE = 'ft:1wLrSEoQie6u7wTPl1bJ7rLEq20OLvQncecM3_HeH'
 
 IRR = {
@@ -244,6 +245,41 @@ def filter_irrigated():
             task.start()
 
 
+def request_validation_extract(file_prefix='validation'):
+
+    roi = ee.FeatureCollection(ROI)
+    plots = ee.FeatureCollection(VALIDATION_POINTS).filterBounds(roi)
+    image_list = list_assets('users/dgketchum/classy')
+
+    for yr in YEARS:
+        yr_img = [x for x in image_list if x.endswith(str(yr))]
+        coll = ee.ImageCollection(yr_img)
+        classified = coll.mosaic().select('classification')
+
+        start = '{}-01-01'.format(yr)
+        d = datetime.strptime(start, '%Y-%m-%d')
+        epoch = datetime.utcfromtimestamp(0)
+        start_millisec = (d - epoch).total_seconds() * 1000
+        filtered = plots.filter(ee.Filter.eq('YEAR', ee.Number(start_millisec)))
+
+        plot_sample_regions = classified.sampleRegions(
+            collection=filtered,
+            properties=['POINT_TYPE', 'YEAR'],
+            scale=30,
+            tileScale=16)
+
+        task = ee.batch.Export.table.toCloudStorage(
+            plot_sample_regions,
+            description='{}_{}'.format(file_prefix, yr),
+            bucket='wudr',
+            fileNamePrefix='{}_{}'.format(file_prefix, yr),
+            fileFormat='CSV')
+
+        task.start()
+        print(yr)
+        break
+
+
 def request_band_extract(file_prefix, filter_bounds=False):
     roi = ee.FeatureCollection(ROI)
     plots = ee.FeatureCollection(POINTS)
@@ -278,7 +314,6 @@ def request_band_extract(file_prefix, filter_bounds=False):
 
         task.start()
         print(yr)
-        break
 
 
 def get_ndvi_series(years, roi):
@@ -303,11 +338,14 @@ def get_ndvi_series(years, roi):
 
 
 def stack_bands(yr, roi):
+
     start = '{}-01-01'.format(yr)
     end_date = '{}-01-01'.format(yr + 1)
-    spring_s = '{}-03-01'.format(yr)
-    summer_s = '{}-06-01'.format(yr)
-    fall_s = '{}-09-01'.format(yr)
+
+    spring_s, spring_e = '{}-03-01'.format(yr), '{}-05-01'.format(yr),
+    late_spring_s, late_spring_e = '{}-05-01'.format(yr), '{}-07-01'.format(yr)
+    summer_s, summer_e = '{}-07-01'.format(yr), '{}-09-01'.format(yr)
+    fall_s, fall_e = '{}-09-01'.format(yr), '{}-11-01'.format(yr)
 
     l5_coll = ee.ImageCollection('LANDSAT/LT05/C01/T1_SR').filterBounds(
         roi).filterDate(start, end_date).map(ls5_edge_removal).map(ls57mask)
@@ -315,10 +353,12 @@ def stack_bands(yr, roi):
         roi).filterDate(start, end_date).map(ls57mask)
     l8_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_SR').filterBounds(
         roi).filterDate(start, end_date).map(ls8mask)
+
     lsSR_masked = ee.ImageCollection(l7_coll.merge(l8_coll).merge(l5_coll))
-    lsSR_spr_mn = ee.Image(lsSR_masked.filterDate(spring_s, summer_s).mean())
-    lsSR_sum_mn = ee.Image(lsSR_masked.filterDate(summer_s, fall_s).mean())
-    lsSR_fal_mn = ee.Image(lsSR_masked.filterDate(fall_s, end_date).mean())
+    lsSR_spr_mn = ee.Image(lsSR_masked.filterDate(spring_s, summer_s).median())
+    lsSR_lspr_mn = ee.Image(lsSR_masked.filterDate(late_spring_s, late_spring_e).median())
+    lsSR_sum_mn = ee.Image(lsSR_masked.filterDate(summer_s, fall_s).median())
+    lsSR_fal_mn = ee.Image(lsSR_masked.filterDate(fall_s, end_date).median())
 
     proj = lsSR_fal_mn.select('B2').projection().getInfo()
 
@@ -335,7 +375,8 @@ def stack_bands(yr, roi):
         'precip_total_cy', 'pet_total_cy').resample('bilinear').reproject(crs=proj['crs'], scale=30)
     wd_estimate = precip_sum.select('precip_total_cy').subtract(precip_sum.select(
         'pet_total_cy')).rename('wd_est_cy')
-    input_bands = lsSR_spr_mn.addBands([lsSR_sum_mn, lsSR_fal_mn, temp_perc, precip_sum, wd_estimate])
+
+    input_bands = lsSR_spr_mn.addBands([lsSR_lspr_mn, lsSR_sum_mn, lsSR_fal_mn, temp_perc, precip_sum, wd_estimate])
     coords = ee.Image.pixelLonLat().rename(['Lon_GCS', 'LAT_GCS']).resample('bilinear').reproject(crs=proj['crs'],
                                                                                                   scale=30)
 
@@ -474,7 +515,8 @@ if __name__ == '__main__':
     # attribute_irrigation()
     # count_yr = [2016]
     # reduce_regions(COUNTIES, operation='count', years=count_yr, description='counties')
-    census_years = [2002, 2007, 2012]
-    reduce_regions(COUNTIES, operation='mean', years=census_years,
-                   description='counties_cdlmsk', cdl_mask=True)
+    # census_years = [2002, 2007, 2012]
+    # reduce_regions(COUNTIES, operation='mean', years=census_years,
+    #                description='counties_cdlmsk', cdl_mask=True)
+    request_validation_extract()
 # ========================= EOF ====================================================================
