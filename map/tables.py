@@ -24,6 +24,8 @@ from pandas import read_csv, concat, errors, Series, DataFrame
 from pandas import to_datetime
 from pandas.io.json import json_normalize
 from shapely.geometry import Polygon
+from sklearn.metrics import confusion_matrix
+from map.models import producer, consumer
 
 INT_COLS = ['POINT_TYPE', 'YEAR']
 
@@ -59,25 +61,34 @@ COLS = ['SCENE_ID',
 
 
 def concatenate_county_data(folder, glob='counties'):
-    _files = [os.path.join(folder, x) for x in os.listdir(folder) if glob in x]
-    _files.sort()
+    df = None
+    base_names = [x for x in os.listdir(folder)]
+    _files = [os.path.join(folder, x) for x in base_names if x.startswith(glob) and not 'total_area' in x]
+    totals_file = [os.path.join(folder, x) for x in base_names if 'total_area' in x][0]
     first = True
-    for csv in _files:
-        year = os.path.basename(csv)[14:18]
-        try:
-            if first:
-                df = read_csv(csv).sort_values('COUNTYNS')
-                first = False
-            else:
-                c = read_csv(csv).sort_values('COUNTYNS')['mean']
-                c.name = 'mean_{}'.format(year)
-                df = concat([df, c], sort=False, axis=1)
-                print(c.shape, csv)
-        except errors.EmptyDataError:
-            print('{} is empty'.format(csv))
-            pass
 
-    out_file = os.path.join(folder, '{}.csv'.format(glob))
+    for csv in _files:
+
+        print(csv)
+        if first:
+            df = read_csv(totals_file).sort_values('COUNTYNS')
+            df['total_area'] = df['sum']
+            df.drop(columns=['sum'], inplace=True)
+            first = False
+
+        comps = os.path.basename(csv).split('_')
+        for c in comps:
+            try:
+                year = int(c)
+            except ValueError:
+                pass
+
+        c = read_csv(csv).sort_values('COUNTYNS')['sum']
+        c.name = '{}_{}'.format(comps[1], year)
+        df = concat([df, c], sort=False, axis=1)
+        print(c.shape, csv)
+
+    out_file = os.path.join(folder, 'irr_merged.csv'.format(glob))
 
     print('size: {}'.format(df.shape))
     df.to_csv(out_file, index=False)
@@ -91,9 +102,22 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None):
         try:
             if first:
                 df = read_csv(csv)
+                cols = list(df.columns)
+                names = [x for x in list(df.columns) if 'nd_max' in x]
+                idx = [list(df.columns).index(x) for x in names]
+                new_names = ['nd_max_{}'.format(x) for x in ['m2', 'm1', 'cy', 'p1', 'p2']]
+                cols[idx[0]: idx[-1] + 1] = new_names
+                df.columns = cols
+                print(df.shape, csv)
                 first = False
             else:
                 c = read_csv(csv)
+                cols = list(c.columns)
+                names = [x for x in list(c.columns) if 'nd_max' in x]
+                idx = [list(c.columns).index(x) for x in names]
+                new_names = ['nd_max_{}'.format(x) for x in ['m2', 'm1', 'cy', 'p1', 'p2']]
+                cols[idx[0]: idx[-1] + 1] = new_names
+                c.columns = cols
                 df = concat([df, c], sort=False)
                 print(c.shape, csv)
         except errors.EmptyDataError:
@@ -272,13 +296,16 @@ def count_landsat_scenes(index, shp):
     with open(index) as f:
         for line in f:
             if first:
+                # skip header line
                 first = False
             else:
                 l = line.split(',')
                 sat = l[2]
                 pr = l[9].zfill(2) + l[10].zfill(3)
                 dt = to_datetime(l[7]).to_pydatetime()
-                if pr in pr_list and datetime(1986, 1, 1) < dt < datetime(2016, 12, 31) and 59 < int(dt.strftime('%j')) < 365:
+                doy = int(dt.strftime('%j'))
+                start, end = datetime(1986, 1, 1), datetime(2016, 12, 31)
+                if pr in pr_list and start < dt < end and 59 < doy < 365:
                     if sat == 'LANDSAT_8':
                         l8 += 1
                     elif sat == 'LANDSAT_7':
@@ -286,6 +313,31 @@ def count_landsat_scenes(index, shp):
                     elif sat == 'LANDSAT_5':
                         l5 += 1
         print('{} l8, {} l7, {} l5'.format(l8, l7, l5))
+
+
+def get_confusion(_dir):
+    _list = [os.path.join(_dir, x) for x in os.listdir(_dir)]
+    _list.sort()
+    first = True
+    for csv in _list:
+        try:
+            if first:
+                df = read_csv(csv)
+                first = False
+            else:
+                c = read_csv(csv)
+                df = concat([df, c], sort=False)
+        except errors.EmptyDataError:
+            print('{} is empty'.format(csv))
+            pass
+
+    df.drop(columns=['system:index', '.geo'], inplace=True)
+
+    y_true, y_pred = df['POINT_TYPE'].values, df['classification'].values
+    cf = confusion_matrix(y_true, y_pred)
+    print(cf)
+    consumer(cf)
+    producer(cf)
 
 
 if __name__ == '__main__':
@@ -296,6 +348,9 @@ if __name__ == '__main__':
     # out = os.path.join(attrs, 'shp', 'Harney_IrrAttrs.shp')
     # concatenate_irrigation_attrs(or_csv, out)
 
+    # val = os.path.join(home, 'IrrigationGIS', 'validation_tables')
+    # get_confusion(val)
+
     extracts = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_huc{}'.format(huc_lev))
     tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'tables')
     shapes = os.path.join(home, 'IrrigationGIS', 'time_series', 'shapefiles')
@@ -303,12 +358,16 @@ if __name__ == '__main__':
     out_table = os.path.join(tables, 'concatenated_huc{}.csv'.format(huc_lev))
     out_shape = os.path.join(shapes, 'time_series_15MAR19.shp')
     template = os.path.join(home, 'IrrigationGIS', 'hydrography', 'huc{}_semiarid_clip.shp'.format(huc_lev))
-
+    #
     # concatenate_attrs(extracts, out_table, out_shape, template_geometry=template)
     # in_shape = os.path.join(shapes, 'time_series_15MAR19.shp')
     # out_shp = in_shape.replace('time_series_', 'add_stats_')
     # add_stats_to_shapefile(in_shape, out_shp)
     tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county')
-    concatenate_county_data(tables)
+    concatenate_county_data(tables, glob='counties_')
 
+    # d = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'to_concatenate')
+    # r = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated')
+
+    # concatenate_band_extract(d, r, glob='bands_26MAR_')
 # ========================= EOF ====================================================================
