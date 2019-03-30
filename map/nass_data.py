@@ -138,6 +138,25 @@ def merge_nass_irrmapper(nass, irrmapper, out_name):
     gdf.to_file(out_shp)
 
 
+def state_sum(csv):
+    df = read_csv(csv)
+    df = df.groupby(['State', 'State_Code'])[['IM2002_ac', 'NASS_2002_ac', 'IM2007_ac',
+                                              'NASS_2007_ac', 'IM2012_ac', 'NASS_2012_ac']].sum()
+    fig, ax = plt.subplots(1, 1)
+    s = Series(index=df.index)
+    s.loc[0], s.loc[df.shape[0]] = 0, 1e6
+    s.interpolate(axis=0, inplace=True)
+    s.index = s.values
+    s.plot(x=s.values, ax=ax, kind='line', loglog=True)
+    df.plot(x='NASS_2002_ac', y='IM2002_ac', kind='scatter',
+            xlim=(1e5, 1e8), ylim=(1e5, 1e8), ax=ax, loglog=True)
+    df.plot(x='NASS_2007_ac', y='IM2007_ac', kind='scatter',
+            xlim=(1e5, 1e8), ylim=(1e5, 1e8), ax=ax, loglog=True)
+    df.plot(x='NASS_2012_ac', y='IM2012_ac', kind='scatter',
+            xlim=(1e5, 1e8), ylim=(1e5, 1e8), ax=ax, loglog=True)
+    plt.show()
+
+
 def compare_nass_irrmapper(csv):
     df = read_csv(csv)
     fig, ax = plt.subplots(1, 1)
@@ -164,9 +183,13 @@ if __name__ == '__main__':
     # merged = os.path.join(tables, 'nass_merged.csv')
     # get_nass(_files, merged)
 
-    irr = os.path.join(tables, 'counties_cdlmsk.csv')
-    nass = os.path.join(tables, 'nass_merged.csv')
-    o = os.path.join(tables, 'nass_irrrmapCDL_comp.csv')
-    merge_nass_irrmapper(nass, irr, o)
+    # irr = os.path.join(tables, 'counties_cdlMinMask.csv')
+    # nass = os.path.join(tables, 'nass_merged.csv')
+    # o = os.path.join(tables, 'nass_irrMap_cdlMinMask.csv')
+    # merge_nass_irrmapper(nass, irr, o)
+    # compare_nass_irrmapper(o)
+    # state_sum(o)
+    # compare_nass_irrmapper(o)
+    # 7,552  km
 
 # ========================= EOF ====================================================================
