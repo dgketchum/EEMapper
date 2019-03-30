@@ -93,6 +93,11 @@ def strip_null(row):
     return val
 
 
+# ['system:index', 'AFFGEOID', 'ALAND', 'AWATER', 'COUNTYFP', 'COUNTYNS', 'GEOID', 'LSAD', 'NAME', 'STATEFP', '.geo',
+#  'total_area', 'MinMask_2012', 'NoMask_2007', 'cdlMinMask_2002', 'cdlMask_2002', 'MinMask_2007', 'cdlMask_2012',
+#  'NoMask_2012', 'cdlMask_2007', 'cdlMinMask_2007', 'MinMask_2002', 'cdlMinMask_2012', 'NoMask_2002']
+
+
 def merge_nass_irrmapper(nass, irrmapper, out_name):
     idf = read_csv(irrmapper)
     ndf = read_csv(nass)
@@ -107,9 +112,9 @@ def merge_nass_irrmapper(nass, irrmapper, out_name):
     for i, r in idf.iterrows():
         for j, e in ndf.iterrows():
             if r['STATEFP'] == e['STATE_FIPS_CODE'] and r['COUNTYFP'] == int(e['COUNTY_ANSI']):
-                irr_area = (r['count'] * r['mean_2002'] * 900.0 / 4046.86,
-                            r['count'] * r['mean_2007'] * 900.0 / 4046.86,
-                            r['count'] * r['mean_2012'] * 900.0 / 4046.86)
+                irr_area = (r['cdlMinMask_2002'] / 4046.86,
+                            r['cdlMinMask_2007'] / 4046.86,
+                            r['cdlMinMask_2012'] / 4046.86)
 
                 nass_area = (e['VALUE_2002'], e['VALUE_2007'], e['VALUE_2012'])
 
@@ -176,20 +181,21 @@ def compare_nass_irrmapper(csv):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county')
+    nass_tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county')
+    irr_tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county', 'using_lt')
     # _files = [os.path.join(tables, x) for x in ['qs.census2002.txt',
     #                                             'qs.census2007.txt',
     #                                             'qs.census2012.txt']]
     # merged = os.path.join(tables, 'nass_merged.csv')
     # get_nass(_files, merged)
 
-    # irr = os.path.join(tables, 'counties_cdlMinMask.csv')
-    # nass = os.path.join(tables, 'nass_merged.csv')
-    # o = os.path.join(tables, 'nass_irrMap_cdlMinMask.csv')
-    # merge_nass_irrmapper(nass, irr, o)
-    # compare_nass_irrmapper(o)
-    # state_sum(o)
-    # compare_nass_irrmapper(o)
+    irr = os.path.join(irr_tables, 'irr_merged.csv')
+    nass = os.path.join(nass_tables, 'nass_merged.csv')
+    o = os.path.join(nass_tables, 'nass_irrMap_30MAR.csv')
+    merge_nass_irrmapper(nass, irr, o)
+    compare_nass_irrmapper(o)
+    state_sum(o)
+    compare_nass_irrmapper(o)
     # 7,552  km
 
 # ========================= EOF ====================================================================
