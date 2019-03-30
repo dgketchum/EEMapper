@@ -25,6 +25,7 @@ from pandas import to_datetime
 from pandas.io.json import json_normalize
 from shapely.geometry import Polygon
 from sklearn.metrics import confusion_matrix
+
 from map.models import producer, consumer
 
 INT_COLS = ['POINT_TYPE', 'YEAR']
@@ -83,12 +84,12 @@ def concatenate_county_data(folder, glob='counties'):
             except ValueError:
                 pass
 
-        c = read_csv(csv).sort_values('COUNTYNS')['sum']
+        c = read_csv(csv).sort_values('COUNTYNS')['sum']  # / 4046.86
         c.name = '{}_{}'.format(comps[1], year)
         df = concat([df, c], sort=False, axis=1)
         print(c.shape, csv)
 
-    out_file = os.path.join(folder, 'irr_merged.csv'.format(glob))
+    out_file = os.path.join(folder, 'irr_merged_acres.csv'.format(glob))
 
     print('size: {}'.format(df.shape))
     df.to_csv(out_file, index=False)
@@ -363,7 +364,7 @@ if __name__ == '__main__':
     # in_shape = os.path.join(shapes, 'time_series_15MAR19.shp')
     # out_shp = in_shape.replace('time_series_', 'add_stats_')
     # add_stats_to_shapefile(in_shape, out_shp)
-    tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county')
+    tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county', 'using_lt')
     concatenate_county_data(tables, glob='counties_')
 
     # d = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'to_concatenate')
