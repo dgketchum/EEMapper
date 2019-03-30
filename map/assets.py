@@ -72,8 +72,8 @@ def list_assets(location):
 
 
 if __name__ == '__main__':
-    loc = os.path.join('users', 'dgketchum', 'classy_v2')
-    new_loc = os.path.join('users', 'dgketchum', 'classy_mtFallow')
+    loc = os.path.join('users', 'dgketchum', 'counties')
+    new_loc = os.path.join('users', 'dgketchum', 'mt_irrshp_by_county')
     rename_assets(loc, new_loc)
 
 # ========================= EOF ====================================================================
