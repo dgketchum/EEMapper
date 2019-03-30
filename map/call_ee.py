@@ -22,7 +22,6 @@
 
 import os
 from datetime import datetime
-from pprint import pprint
 
 import ee
 
@@ -88,7 +87,7 @@ TEST_YEARS = [2014, 2015, 2016]
 ALL_YEARS = [x for x in range(1986, 2017)]
 
 
-def reduce_regions(tables, operation='mean', years=None, description=None, cdl_mask=False, min_years=0):
+def reduce_regions(tables, years=None, description=None, cdl_mask=False, min_years=0):
     sum_mask = None
     image_list = list_assets('users/dgketchum/classy')
     fc = ee.FeatureCollection(tables)
@@ -96,42 +95,58 @@ def reduce_regions(tables, operation='mean', years=None, description=None, cdl_m
     if min_years > 0:
         coll = ee.ImageCollection(image_list)
         sum = ee.ImageCollection(coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum()
-        sum_mask = sum.gt(min_years)
+        sum_mask = sum.lt(min_years)
 
+    first = True
     for yr in years:
         yr_img = [x for x in image_list if x.endswith(str(yr))]
         coll = ee.ImageCollection(yr_img)
         tot = coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
 
-        if cdl_mask:
+        if cdl_mask and min_years > 0:
             # cultivated/uncultivated band only available 2013 to 2017
             cdl = ee.Image('USDA/NASS/CDL/2013')
-            cultivated = cdl.select('cultivated').eq(2)
-            tot = tot.mask(cultivated)
+            cultivated = cdl.select('cultivated')
+            cdl_crop_mask = cultivated.eq(2)
+            tot = tot.mask(cdl_crop_mask).mask(sum_mask)
 
-        if min_years > 0:
+        elif min_years > 0:
             tot = tot.mask(sum_mask)
 
-        if operation == 'mean':
-            reduce = tot.reduceRegions(collection=fc,
-                                       reducer=ee.Reducer.mean(),
-                                       scale=30)
-        elif operation == 'count':
-            reduce = tot.reduceRegions(collection=fc,
-                                       reducer=ee.Reducer.count(),
-                                       scale=30)
-        else:
-            raise NotImplementedError
+        elif cdl_mask:
+            cdl = ee.Image('USDA/NASS/CDL/2013')
+            cultivated = cdl.select('cultivated')
+            cdl_crop_mask = cultivated.eq(2)
+            tot = tot.mask(cdl_crop_mask)
 
+        tot = tot.multiply(ee.Image.pixelArea())
+        reduce = tot.reduceRegions(collection=fc,
+                                   reducer=ee.Reducer.sum(),
+                                   scale=30)
         task = ee.batch.Export.table.toCloudStorage(
             reduce,
-            description='{}_{}_{}'.format(description, operation, yr),
+            description='{}_area_{}_'.format(description, yr),
             bucket='wudr',
-            fileNamePrefix='{}_{}_{}'.format(description, operation, yr),
+            fileNamePrefix='{}_area_{}_'.format(description, yr),
             fileFormat='CSV')
+        task.start()
+
+        if first:
+            tot = coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 1, 1, 1])
+            tot = tot.multiply(ee.Image.pixelArea())
+            reduce = tot.reduceRegions(collection=fc,
+                                       reducer=ee.Reducer.sum(),
+                                       scale=30)
+            task = ee.batch.Export.table.toCloudStorage(
+                reduce,
+                description='{}_total_area_'.format(description),
+                bucket='wudr',
+                fileNamePrefix='{}_total_area_'.format(description),
+                fileFormat='CSV')
+            task.start()
+            first = False
 
         print(yr)
-        task.start()
 
 
 def attribute_irrigation():
@@ -559,8 +574,20 @@ if __name__ == '__main__':
     # attribute_irrigation()
     # count_yr = [2016]
     # reduce_regions(COUNTIES, operation='count', years=count_yr, description='counties')
+
     census_years = [2002, 2007, 2012]
-    reduce_regions(COUNTIES, operation='mean', years=census_years,
+
+    reduce_regions(COUNTIES, years=census_years,
                    description='counties_cdlMinMask', cdl_mask=True, min_years=5)
+    #
+    # reduce_regions(COUNTIES, years=census_years,
+    #                description='counties_cdlMask', cdl_mask=True)
+
+    reduce_regions(COUNTIES, years=census_years,
+                   description='counties_MinMask', min_years=5)
+
+    # reduce_regions(COUNTIES, years=census_years,
+    #                description='counties_NoMask')
+
     # request_validation_extract()
 # ========================= EOF ====================================================================
