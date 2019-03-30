@@ -16,20 +16,34 @@
 
 import os
 import sys
-from pprint import pprint
-from numpy import unique, dot, mean
-from numpy.random import randint
-import tensorflow as tf
-from pandas import get_dummies, read_csv
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
-
-from sklearn.ensemble import RandomForestClassifier
 from datetime import datetime
+from pprint import pprint
+from time import time
+from scipy.stats import randint as sp_randint
+
+import tensorflow as tf
+from numpy import unique, dot, mean, flatnonzero
+from numpy.random import randint
+from pandas import get_dummies, read_csv
+from sklearn.decomposition import PCA
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import confusion_matrix
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import RandomizedSearchCV, GridSearchCV, train_test_split, KFold
+
 
 abspath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(abspath)
+
+
+def consumer(arr):
+    c = [(arr[x, x] / sum(arr[x, :])) for x in range(0, arr.shape[1])]
+    print('consumer accuracy: {}'.format(c))
+
+
+def producer(arr):
+    c = [(arr[x, x] / sum(arr[:, x])) for x in range(0, arr.shape[0])]
+    print('producer accuracy: {}'.format(c))
 
 
 def mlp(csv):
@@ -127,6 +141,7 @@ def find_rf_variable_importance(csv):
     first = True
     master = {}
     for x in range(10):
+        print('model iteration {}'.format(x))
         imp = random_forest(csv)
         if first:
             for (k, v) in imp:
@@ -143,20 +158,30 @@ def random_forest(csv):
     df = read_csv(csv, engine='python')
     labels = df['POINT_TYPE'].values
     df.drop(columns=['YEAR', 'POINT_TYPE'], inplace=True)
+    df.dropna(axis=1, inplace=True)
     data = df.values
     names = df.columns
+    labels = labels.reshape((labels.shape[0],))
+    kf = KFold(n_splits=2, shuffle=True)
 
-    x = data
-    y = labels.reshape((labels.shape[0],))
+    for train_idx, test_idx in kf.split(data[:-1, :], y=labels[:-1]):
+        x, x_test = data[train_idx], data[test_idx]
+        y, y_test = labels[train_idx], labels[test_idx]
 
-    x, x_test, y, y_test = train_test_split(x, y, test_size=0.33,
-                                            random_state=None)
+        rf = RandomForestClassifier(n_estimators=100,
+                                    n_jobs=-1,
+                                    bootstrap=False)
 
-    rf = RandomForestClassifier(n_estimators=100)
-    rf.fit(x, y)
-    _list = [(f, v) for f, v in zip(names, rf.feature_importances_)]
-    important = sorted(_list, key=lambda x: x[1], reverse=True)
-    print(rf.score(x_test, y_test))
+        rf.fit(x, y)
+        _list = [(f, v) for f, v in zip(names, rf.feature_importances_)]
+        important = sorted(_list, key=lambda x: x[1], reverse=True)
+        pprint(rf.score(x_test, y_test))
+        y_pred = rf.predict(x_test)
+        cf = confusion_matrix(y_test, y_pred)
+        pprint(cf)
+        producer(cf)
+        consumer(cf)
+
     return important
 
 
@@ -187,11 +212,71 @@ def get_size(start_path='.'):
     return total_size
 
 
+def grid_search(csv):
+
+    df = read_csv(csv, engine='python')
+    labels = df['POINT_TYPE'].values
+    df.drop(columns=['YEAR', 'POINT_TYPE'], inplace=True)
+    df.dropna(axis=1, inplace=True)
+    x = df.values
+    y = labels.reshape((labels.shape[0],))
+    # x, x_test, y, y_test = train_test_split(x, y, test_size=0.33,
+    #                                         random_state=None)
+    clf = RandomForestClassifier(n_estimators=100)
+
+    def report(results, n_top=3):
+        for i in range(1, n_top + 1):
+            candidates = flatnonzero(results['rank_test_score'] == i)
+            for candidate in candidates:
+                print("Model with rank: {0}".format(i))
+                print("Mean validation score: {0:.3f} (std: {1:.3f})".format(
+                    results['mean_test_score'][candidate],
+                    results['std_test_score'][candidate]))
+                print("Parameters: {0}".format(results['params'][candidate]))
+                print("")
+
+    # specify parameters and distributions to sample from
+    param_dist = {"max_depth": [3, None],
+                  "max_features": sp_randint(1, 11),
+                  "min_samples_split": sp_randint(2, 11),
+                  "bootstrap": [True, False],
+                  "criterion": ["gini", "entropy"]}
+
+    # run randomized search
+    n_iter_search = 20
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist,
+                                       n_iter=n_iter_search, cv=5)
+
+    start = time()
+    random_search.fit(x, y)
+    print("RandomizedSearchCV took %.2f seconds for %d candidates"
+          " parameter settings." % ((time() - start), n_iter_search))
+    report(random_search.cv_results_)
+
+    # use a full grid over all parameters
+    param_grid = {"max_depth": [3, None],
+                  "max_features": [1, 3, 10],
+                  "min_samples_split": [2, 3, 10],
+                  "bootstrap": [True, False],
+                  "criterion": ["gini", "entropy"]}
+
+    # run grid search
+    grid_search = GridSearchCV(clf, param_grid=param_grid, cv=5)
+    start = time()
+    grid_search.fit(x, y)
+
+    print("GridSearchCV took %.2f seconds for %d candidate parameter settings."
+          % (time() - start, len(grid_search.cv_results_['params'])))
+    report(grid_search.cv_results_)
+
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     csv_loaction = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated')
-    csv = os.path.join(csv_loaction, 'bands_40k_14NOV.csv')
-    pca(csv)
-    # random_forest(csv)
+    csv = os.path.join(csv_loaction, 'bands_11DEC.csv')
+    random_forest(csv)
+    csv = os.path.join(csv_loaction, 'bands_26MAR.csv')
+    # find_rf_variable_importance(csv)
+    random_forest(csv)
     # mlp(csv)
 # ========================= EOF ====================================================================
