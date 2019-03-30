@@ -95,7 +95,7 @@ def reduce_regions(tables, years=None, description=None, cdl_mask=False, min_yea
     if min_years > 0:
         coll = ee.ImageCollection(image_list)
         sum = ee.ImageCollection(coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum()
-        sum_mask = sum.lt(min_years)
+        sum_mask = sum.gt(min_years)
 
     first = True
     for yr in years:
@@ -578,16 +578,16 @@ if __name__ == '__main__':
     census_years = [2002, 2007, 2012]
 
     reduce_regions(COUNTIES, years=census_years,
-                   description='counties_cdlMinMask', cdl_mask=True, min_years=5)
+                   description='counties_cdlMinMask_gt', cdl_mask=True, min_years=5)
     #
-    # reduce_regions(COUNTIES, years=census_years,
-    #                description='counties_cdlMask', cdl_mask=True)
+    reduce_regions(COUNTIES, years=census_years,
+                   description='counties_cdlMask_gt', cdl_mask=True)
 
     reduce_regions(COUNTIES, years=census_years,
-                   description='counties_MinMask', min_years=5)
+                   description='counties_MinMask_gt', min_years=5)
 
-    # reduce_regions(COUNTIES, years=census_years,
-    #                description='counties_NoMask')
+    reduce_regions(COUNTIES, years=census_years,
+                   description='counties_NoMask_gt')
 
     # request_validation_extract()
 # ========================= EOF ====================================================================
