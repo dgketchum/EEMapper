@@ -95,7 +95,7 @@ def reduce_regions(tables, years=None, description=None, cdl_mask=False, min_yea
     if min_years > 0:
         coll = ee.ImageCollection(image_list)
         sum = ee.ImageCollection(coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum()
-        sum_mask = sum.gt(min_years)
+        sum_mask = sum.lt(min_years)
 
     first = True
     for yr in years:
