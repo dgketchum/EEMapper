@@ -89,7 +89,7 @@ def concatenate_county_data(folder, glob='counties'):
         df = concat([df, c], sort=False, axis=1)
         print(c.shape, csv)
 
-    out_file = os.path.join(folder, 'irr_merged_acres.csv'.format(glob))
+    out_file = os.path.join(folder, 'irr_merged_gt.csv'.format(glob))
 
     print('size: {}'.format(df.shape))
     df.to_csv(out_file, index=False)

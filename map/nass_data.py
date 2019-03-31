@@ -182,7 +182,7 @@ def compare_nass_irrmapper(csv):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     nass_tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county')
-    irr_tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county', 'using_lt')
+    irr_tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county')
     # _files = [os.path.join(tables, x) for x in ['qs.census2002.txt',
     #                                             'qs.census2007.txt',
     #                                             'qs.census2012.txt']]
@@ -192,10 +192,9 @@ if __name__ == '__main__':
     irr = os.path.join(irr_tables, 'irr_merged.csv')
     nass = os.path.join(nass_tables, 'nass_merged.csv')
     o = os.path.join(nass_tables, 'nass_irrMap_30MAR.csv')
-    merge_nass_irrmapper(nass, irr, o)
-    compare_nass_irrmapper(o)
+    # merge_nass_irrmapper(nass, irr, o)
+    # compare_nass_irrmapper(o)
     state_sum(o)
-    compare_nass_irrmapper(o)
     # 7,552  km
 
 # ========================= EOF ====================================================================
