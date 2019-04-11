@@ -37,7 +37,7 @@ def delete_assets(ee_asset_path, years_=None):
 
     for r in reader:
         command = 'rm'
-        cmd = ['{}'.format(EXEC), '{}'.format(command), '{}'.format(r['name'])]
+        cmd = ['{}'.format(EXEC), '{}'.format(command), '{}'.format(r)]
         check_call(cmd)
 
 
@@ -72,8 +72,7 @@ def list_assets(location):
 
 
 if __name__ == '__main__':
-    loc = os.path.join('users', 'dgketchum', 'counties')
-    new_loc = os.path.join('users', 'dgketchum', 'mt_irrshp_by_county')
-    rename_assets(loc, new_loc)
+    loc = os.path.join('users', 'dgketchum', 'classy_v2')
+    delete_assets(loc)
 
 # ========================= EOF ====================================================================

@@ -24,7 +24,7 @@ import os
 from datetime import datetime
 
 import ee
-
+# from pprint import pprint
 from map.assets import list_assets
 
 ROI = 'users/dgketchum/boundaries/western_states_expanded_union'
@@ -50,15 +50,15 @@ IRR = {
     # 'Acequias': ('ft:1j_Z6exiBQy5NlVLZUe25AsFp-jSfCHn_HAWGT06D', [1987, 2001, 2004, 2007, 2016], 0.5),
     # 'AZ': ('ft:1ZwRYaGmMc7oJuDTrKbrZm3oL7yBYdeKjEa05n5oX', [2001, 2003, 2004, 2007, 2016], 0.5),
     # 'CO_DIV1': ('ft:1wRNUsKChMUb9rUWDbxOeGeTaNWNZUA0YHXSLXPv2', [1998, 2003, 2006, 2013, 2016], 0.5),
-    # 'CO_SanLuis': ('ft:1mcBXyFw1PoVOoAGibDpZjCgb001jA_Mj_hyd-h92', [1998, 2003, 2006, 2013, 2016], 0.5),
-    # 'CA': ('ft:1oadWhheDKaonOPhIJ9lJVCwnOt5g0G644p3FC9oy', [2014], 0.5),
+    # 'CO_SanLuis_test': ('ft:1mcBXyFw1PoVOoAGibDpZjCgb001jA_Mj_hyd-h92', [2016], 0.5),
+    # 'CA_v2': ('ft:1LRHed3EWaa1UNKTU1e3jIHqwldMP-MGN6_xB_YjK', [2014], 0.5),
     # 'EastStates': ('ft:1AZUak3iuAtah1SHpkLfw0IRk_U5ei23VsPzBWxpD', [1987, 2001, 2004, 2007, 2016], 0.5),
     # 'OK': ('ft:1EjuYeilOTU3el9GsYZZXCi6sNC7z_jJ6mGa2wHIe', [2006, 2007, 2011, 2013, 2015], 0.5),
     # 'NE': ('ft:1789J-j1dq8_Ez6wfObJxGSJaxRkuJsZMFLeeiwPo', [2003, 2006, 2009, 2013, 2016], 0.5),
-    # 'ID': ('ft:1jDB3C181w1PGVamr64-ewpJVDQkzJc4Bvd1IPAFg', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
+    'ID_Bonner': ('ft:1kkaQomLStq-zf8Dpg2eTIrRdn_2Aw5g6lagZrdiK', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
     # 'NM_SanJuan': ('ft:1_-haRl7-ppkBYWBN-cPzItftKQC7yWI7sfgoVx1R', [1987, 2001, 2004, 2007, 2016], 0.5),
     # 'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2001, 2011)], 0.5),
-    'MT': ('ft:1wfJrtnDjBZqSzWq41veY_VrWROQ0kI-5NCko6xF3', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
+    # 'MT_Turner': ('ft:1PpvhFdLDG4oCh7OsVcjJX6vg8FNB0FWUIFqRKYxO', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
     # 'OR': ('ft:1FJMi4VXUe4BrhU6u0OF2l0uFU_rGUe3rFrSSSBVD', [1994, 1997, 2011], 0.5),
     # 'NW_OR': ('ft:1kXr3oMe9Ybsd3N7tyBBDCTweAxb4c8GBz6B8_ELm', [1994, 1996, 1997, 2001, 2011, 2013], 0.5),
     # 'UT': ('ft:1oA0v3UUBQj3qn9sa_pDJ8bwsAphfRZUlwwPWpFrT', [1998, 2003, 2006, 2013, 2016], 0.5),
@@ -77,6 +77,16 @@ ID_IRR = {
     'ID_2009': ('ft:1RtW_lu3hFcpzZ_UUT_xPUsHarAZoenV4AibeFeBz', [2009], 0.5),
     'ID_2010': ('ft:1BSxEsy_oDUnWsWsQYJFRPaEvKsF-H_bDNE_gpBS7', [2010], 0.5),
     'ID_2011': ('ft:1NxN6aOViiJBklaUEEeGJJo6Kpy-QB10f_yGWOUyC', [2011], 0.5),
+}
+
+CO_IRR = {
+    'CO_Div2': ('ft:1wRNCuexIGBwIH7gc6ZTx3Ia68aNYolgVfsxKeDuh', [1998, 2003, 2006, 2013, 2016], 0.5),
+    'CO_Div3': ('ft:1Tv8Nei94QP1421iD-CkkZNoOXG9G8rgyh6zrW0JN', [1998, 2003, 2006, 2013, 2016], 0.5),
+    'CO_Div4': ('ft:1W5zQHQR6oiiK556LuEONO2fPRKnrA9fySoWwD_fz', [1998, 2003, 2006, 2013, 2016], 0.5),
+    'CO_Div5': ('ft:1Sj6gJOfwjfCV9sYyninX-fXdzzwE4yNC-Qxb3t-n', [1998, 2003, 2006, 2013, 2016], 0.5),
+    'CO_Div6': ('ft:1BnJJuow6rgOOTZOimCeu4PbHaraY7fEjfvv-BzgP', [1998, 2003, 2006, 2013, 2016], 0.5),
+    'CO_Div7': ('ft:1E1mD5M6gnpMMvEtUF4wtiG4EeeeAeqw9rmZTaMn4', [1998, 2003, 2006, 2013, 2016], 0.5),
+    'CO_Repu': ('ft:133QsXytF1R6k3SDwGwTPcv3KBz6Eb9r-dB3EoxwI', [1998, 2003, 2006, 2013, 2016], 0.5),
 }
 
 YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997,
@@ -223,7 +233,7 @@ def filter_irrigated():
         plots = ee.FeatureCollection(v[0])
 
         for year in v[1]:
-            print(k, year, plots.first().getInfo())
+            # pprint(plots.first().getInfo())
             start = '{}-01-01'.format(year)
 
             early_summer_s = ee.Date(start).advance(5, 'month')
@@ -231,7 +241,7 @@ def filter_irrigated():
             late_summer_s = ee.Date(start).advance(7, 'month')
             late_summer_e = ee.Date(start).advance(10, 'month')
 
-            if year < 2013:
+            if year <= 2011:
                 collection = ndvi5()
             elif year == 2012:
                 collection = ndvi7()
@@ -566,28 +576,11 @@ def is_authorized():
 if __name__ == '__main__':
     is_authorized()
     # request_band_extract('bands_26MAR', filter_bounds=False)
-    # filter_irrigated()
+    filter_irrigated()
     # for state in TARGET_STATES:
     #     print(state)
     #     bounds = os.path.join(BOUNDARIES, state)
     #     export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
     # attribute_irrigation()
-    # count_yr = [2016]
-    # reduce_regions(COUNTIES, operation='count', years=count_yr, description='counties')
-
-    census_years = [2002, 2007, 2012]
-
-    reduce_regions(COUNTIES, years=census_years,
-                   description='counties_cdlMinMask_gt', cdl_mask=True, min_years=5)
-    #
-    reduce_regions(COUNTIES, years=census_years,
-                   description='counties_cdlMask_gt', cdl_mask=True)
-
-    reduce_regions(COUNTIES, years=census_years,
-                   description='counties_MinMask_gt', min_years=5)
-
-    reduce_regions(COUNTIES, years=census_years,
-                   description='counties_NoMask_gt')
-
     # request_validation_extract()
 # ========================= EOF ====================================================================

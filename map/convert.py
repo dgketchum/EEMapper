@@ -37,9 +37,9 @@ def convert_kml_to_shp(ogr_path, in_dir, out_dir, t_srs, s_srs, skip_existing=Fa
                        '-skipfailures', '-nlt', 'geometry']
                 check_call(cmd)
             else:
-                print('skipping {}'.format(out_shp))
+                pass
         except:
-            pass
+            print(s, 'failed')
 
 
 def rename(_dir, glob, find, replace):
@@ -51,9 +51,9 @@ def rename(_dir, glob, find, replace):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    irr = os.path.join(home, 'IrrigationGIS', 'training_raw', 'fallow')
-    _in = os.path.join(irr, 'to_merge')
-    out = os.path.join(irr, 'shp')
+    irr = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated')
+    _in = os.path.join(irr, 'filtered_kml')
+    out = os.path.join(irr, 'filtered_shapefiles')
     ogr = os.path.join(home, 'miniconda2', 'envs', 'irri', 'bin', 'ogr2ogr')
     convert_kml_to_shp(ogr, _in, out, '4326', '4326', skip_existing=True)
 # ========================= EOF ====================================================================

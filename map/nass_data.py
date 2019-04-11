@@ -144,8 +144,8 @@ def merge_nass_irrmapper(nass, irrmapper, out_name):
 
 
 def state_sum(csv):
-    df = read_csv(csv)
-    df = df.groupby(['State', 'State_Code'])[['IM2002_ac', 'NASS_2002_ac', 'IM2007_ac',
+    cdf = read_csv(csv)
+    df = cdf.groupby(['State', 'State_Code'])[['IM2002_ac', 'NASS_2002_ac', 'IM2007_ac',
                                               'NASS_2007_ac', 'IM2012_ac', 'NASS_2012_ac']].sum()
     fig, ax = plt.subplots(1, 1)
     s = Series(index=df.index)
@@ -154,11 +154,11 @@ def state_sum(csv):
     s.index = s.values
     s.plot(x=s.values, ax=ax, kind='line', loglog=True)
     df.plot(x='NASS_2002_ac', y='IM2002_ac', kind='scatter',
-            xlim=(1e5, 1e8), ylim=(1e5, 1e8), ax=ax, loglog=True)
+            xlim=(1e5, 1e8), ylim=(1e5, 1e8), ax=ax, loglog=True, color='b')
     df.plot(x='NASS_2007_ac', y='IM2007_ac', kind='scatter',
-            xlim=(1e5, 1e8), ylim=(1e5, 1e8), ax=ax, loglog=True)
+            xlim=(1e5, 1e8), ylim=(1e5, 1e8), ax=ax, loglog=True, color='r')
     df.plot(x='NASS_2012_ac', y='IM2012_ac', kind='scatter',
-            xlim=(1e5, 1e8), ylim=(1e5, 1e8), ax=ax, loglog=True)
+            xlim=(1e5, 1e8), ylim=(1e5, 1e8), ax=ax, loglog=True, color='k')
     plt.show()
 
 
@@ -170,12 +170,12 @@ def compare_nass_irrmapper(csv):
     s.interpolate(axis=0, inplace=True)
     s.index = s.values
     s.plot(x=s.values, ax=ax, kind='line', loglog=True)
-    df.plot(x='NASS_2002_ac', y='IM2002_ac', kind='scatter',
-            xlim=(1e2, 1e6), ylim=(1e2, 1e6), ax=ax, loglog=True)
-    df.plot(x='NASS_2007_ac', y='IM2007_ac', kind='scatter',
-            xlim=(1e2, 1e6), ylim=(1e2, 1e6), ax=ax, loglog=True)
+    # df.plot(x='NASS_2002_ac', y='IM2002_ac', kind='scatter',
+    #         xlim=(1e2, 1e6), ylim=(1e2, 1e6), ax=ax, loglog=True, color='b')
+    # df.plot(x='NASS_2007_ac', y='IM2007_ac', kind='scatter',
+    #         xlim=(1e2, 1e6), ylim=(1e2, 1e6), ax=ax, loglog=True, color='r')
     df.plot(x='NASS_2012_ac', y='IM2012_ac', kind='scatter',
-            xlim=(1e2, 1e6), ylim=(1e2, 1e6), ax=ax, loglog=True)
+            xlim=(1e2, 1e6), ylim=(1e2, 1e6), ax=ax, loglog=True, color='k')
     plt.show()
 
 
@@ -195,6 +195,5 @@ if __name__ == '__main__':
     # merge_nass_irrmapper(nass, irr, o)
     # compare_nass_irrmapper(o)
     state_sum(o)
-    # 7,552  km
 
 # ========================= EOF ====================================================================

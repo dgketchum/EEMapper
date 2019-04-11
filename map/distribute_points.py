@@ -27,9 +27,9 @@ from map.call_ee import YEARS
 training = os.path.join(os.path.expanduser('~'), 'IrrigationGIS', 'EE_sample')
 
 WETLAND = os.path.join(training, 'wetlands_8NOV.shp')
-UNCULTIVATED = os.path.join(training, 'uncultivated_11DEC.shp')
-IRRIGATED = os.path.join(training, 'irrigated_11DEC.shp')
-UNIRRIGATED = os.path.join(training, 'unirrigated_11DEC.shp')
+UNCULTIVATED = os.path.join(training, 'uncultivated_4APR.shp')
+IRRIGATED = os.path.join(training, 'irrigated_4APR.shp')
+UNIRRIGATED = os.path.join(training, 'unirrigated_4APR.shp')
 FALLOW = os.path.join(training, 'fallow_11FEB.shp')
 
 
@@ -187,14 +187,13 @@ if __name__ == '__main__':
     extract = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'point_shp')
 
     kwargs = {
-        'irrigated': 40000,
-        'wetlands': 16000,
-        'uncultivated': 16000,
-        'unirrigated': 16000,
-        'fallowed': 10000,
+        'irrigated': 20000,
+        'wetlands': 20000,
+        'uncultivated': 20000,
+        'unirrigated': 20000,
     }
 
     prs = PointsRunspec(gis, **kwargs, buffer=-20)
-    prs.save_sample_points(os.path.join(extract, 'points_12FEB.shp'.format()))
+    prs.save_sample_points(os.path.join(extract, 'points_4APR.shp'.format()))
 
 # ========================= EOF ====================================================================

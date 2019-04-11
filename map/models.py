@@ -19,18 +19,17 @@ import sys
 from datetime import datetime
 from pprint import pprint
 from time import time
-from scipy.stats import randint as sp_randint
 
 import tensorflow as tf
 from numpy import unique, dot, mean, flatnonzero
 from numpy.random import randint
 from pandas import get_dummies, read_csv
+from scipy.stats import randint as sp_randint
 from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import confusion_matrix
-from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import RandomizedSearchCV, GridSearchCV, train_test_split, KFold
-
+from sklearn.preprocessing import StandardScaler
 
 abspath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(abspath)
@@ -140,9 +139,22 @@ def pca(csv):
 def find_rf_variable_importance(csv):
     first = True
     master = {}
+    df = read_csv(csv, engine='python')
+    df.drop(columns=['YEAR', 'POINT_TYPE'], inplace=True)
+    df.dropna(axis=1, inplace=True)
+    data = df.values
+    names = df.columns
+
     for x in range(10):
         print('model iteration {}'.format(x))
-        imp = random_forest(csv)
+        rf = RandomForestClassifier(n_estimators=100,
+                                    n_jobs=-1,
+                                    bootstrap=False)
+
+        rf.fit(data, names)
+        _list = [(f, v) for f, v in zip(names, rf.feature_importances_)]
+        imp = sorted(_list, key=lambda x: x[1], reverse=True)
+
         if first:
             for (k, v) in imp:
                 master[k] = v
@@ -154,7 +166,7 @@ def find_rf_variable_importance(csv):
     pprint(master)
 
 
-def random_forest(csv):
+def random_forest_k_fold(csv):
     df = read_csv(csv, engine='python')
     labels = df['POINT_TYPE'].values
     df.drop(columns=['YEAR', 'POINT_TYPE'], inplace=True)
@@ -212,7 +224,7 @@ def get_size(start_path='.'):
     return total_size
 
 
-def grid_search(csv):
+def random_hyperparameter_search(csv):
 
     df = read_csv(csv, engine='python')
     labels = df['POINT_TYPE'].values
@@ -274,9 +286,9 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     csv_loaction = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated')
     csv = os.path.join(csv_loaction, 'bands_11DEC.csv')
-    random_forest(csv)
+    random_forest_k_fold(csv)
     csv = os.path.join(csv_loaction, 'bands_26MAR.csv')
     # find_rf_variable_importance(csv)
-    random_forest(csv)
+    random_forest_k_fold(csv)
     # mlp(csv)
 # ========================= EOF ====================================================================

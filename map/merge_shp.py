@@ -145,25 +145,30 @@ def get_area(shp):
         print(area * 247.105)
 
 
+def clean_geometry(in_shp, out_shp):
+    out_list = []
+    ct = 0
+    meta = fiona.open(in_shp).meta
+    for feat in fiona.open(in_shp, 'r'):
+        if feat['geometry']['type'] == 'Polygon':
+            ct += 1
+            out_list.append(feat)
+        if feat['geometry']['type'] == 'Multipoint':
+            print(feat)
+    with fiona.open(out_shp, 'w', **meta) as output:
+        for feat in out_list:
+            output.write(feat)
+    return None
+
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    # s_dir = os.path.join(home, 'IrrigationGIS', 'Montana', 'OE_Shapefiles_WGS')
-    # d_dir = os.path.join(home, 'IrrigationGIS', 'Montana', 'OE_Shapefiles_WGS')
-    # l = get_list(s_dir)
-    # fiona_merge_MT(os.path.join(d_dir, 'OE_Sites.shp'), l)
-    # s_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'fallow', 'shp')
-    # d_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'fallow')
-    # fallow_shape = os.path.join(d_dir, 'fallow_11FEB.shp')
-    # l = get_list(s_dir)
-    # fiona_merge_attribute(fallow_shape, l)
-    # s_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated', 'inspected')
-    # _dir = [os.path.join(s_dir, x) for x in os.listdir(s_dir) if x.endswith('.shp')]
-    # o_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated', 'merged_attributed')
-    # fiona_merge_attribute(os.path.join(o_dir, 'Irr_11DEC.shp'), _dir)
-    # s_dir = os.path.join(home, 'IrrigationGIS', 'Montana', 'rdgp')
-    # _files = [os.path.join(s_dir, x) for x in os.listdir(s_dir) if x.endswith('aea.shp')]
-    # for f in _files:
-    #     get_area(f)
-    get_area('/home/dgketchum/IrrigationGIS/wetlands/wetlands_11s_aea.shp')
 
+    s_shp = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated', 'CA', 'CA_v2.shp')
+    o_shp = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated', 'CA', 'CA_v2_gt50ac_crops_clean.shp')
+    clean_geometry(s_shp, o_shp)
+
+    s_shp = os.path.join(home, 'IrrigationGIS', 'training_raw', 'CO', 'Div1_Irrig_2015.shp')
+    o_shp = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated', 'CA', 'CA_v2_gt50ac_crops_clean.shp')
+    clean_geometry(s_shp, o_shp)
 # ========================= EOF ====================================================================
