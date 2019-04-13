@@ -161,14 +161,72 @@ def clean_geometry(in_shp, out_shp):
     return None
 
 
+def compile_shapes(in_shapes, out_shape):
+    out_features = None
+    first = True
+    err_count = 0
+    for _file in in_shapes:
+        print(_file)
+        if first:
+            with fiona.open(_file) as src:
+                meta = src.meta
+                meta['schema'] = {'type': 'Feature', 'properties': OrderedDict(
+                    [('DIV', 'int:9')]), 'geometry': 'Polygon'}
+                out_features = [x for x in src]
+            first = False
+        else:
+            f_count = 0
+            for feat in fiona.open(_file):
+                inter = False
+                f_count += 1
+
+                try:
+                    poly = Polygon(feat['geometry']['coordinates'][0])
+                except ValueError:
+                    err_count += 1
+                    break
+
+                for out_geo in out_features:
+                    try:
+                        out_poly = Polygon(out_geo['geometry']['coordinates'][0])
+                    except ValueError:
+                        err_count += 1
+                        break
+                    if poly.intersects(out_poly):
+                        inter = True
+                        break
+
+                if not inter:
+                    out_features.append(poly)
+
+                if f_count % 500 == 0:
+                    if f_count == 0:
+                        pass
+                    else:
+                        print(f_count, '{} features'.format(len(out_features)))
+                if f_count == 1000:
+                    break
+
+    with fiona.open(out_shape, 'w', **meta) as output:
+        for feat in out_features:
+            div = feat['properties']['DIV']
+            feat = {'type': 'Feature', 'properties': {'DIV': div},
+                    'geometry': feat['geometry']}
+            output.write(feat)
+    print('errors: {}'.format(err_count))
+
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-
-    s_shp = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated', 'CA', 'CA_v2.shp')
-    o_shp = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated', 'CA', 'CA_v2_gt50ac_crops_clean.shp')
-    clean_geometry(s_shp, o_shp)
-
-    s_shp = os.path.join(home, 'IrrigationGIS', 'training_raw', 'CO', 'Div1_Irrig_2015.shp')
-    o_shp = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated', 'CA', 'CA_v2_gt50ac_crops_clean.shp')
-    clean_geometry(s_shp, o_shp)
+    glob = 'Repub_Irrig'
+    in_dir = os.path.join(home, 'IrrigationGIS', 'raw_field_polygons', 'CO')
+    _list = [os.path.join(in_dir, x) for x in os.listdir(in_dir) if glob in x and x.endswith('.shp')]
+    out_shapefile = os.path.join(in_dir, '{}_comb.shp'.format(glob))
+    compile_shapes(_list[-2:], out_shapefile)
+    for i in range(1, 8):
+        glob = 'Div{}'.format(i)
+        in_dir = os.path.join(home, 'IrrigationGIS', 'raw_field_polygons', 'CO')
+        _list = [os.path.join(in_dir, x) for x in os.listdir(in_dir) if glob in x and x.endswith('.shp')]
+        out_shapefile = os.path.join(in_dir, '{}_comb.shp'.format(glob))
+        compile_shapes(_list[-2:], out_shapefile)
 # ========================= EOF ====================================================================
