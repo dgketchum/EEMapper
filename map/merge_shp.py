@@ -218,17 +218,73 @@ def compile_shapes(in_shapes, out_shape):
     print('errors: {}'.format(err_count))
 
 
+def compile_shapes_nm_wrri(in_shapes, out_shape):
+    out_features = []
+    err = False
+    first = True
+    err_count = 0
+    for _file in in_shapes:
+        print(_file)
+        if first:
+            with fiona.open(_file) as src:
+                meta = src.meta
+                meta['schema'] = {'type': 'Feature', 'properties': OrderedDict(
+                    [('OBJECTID', 'int:9')]), 'geometry': 'Polygon'}
+                for feat in src:
+                    if feat['properties']['LC_L1'] == 'Irrigated Agriculture':
+                        out_features.append(feat)
+            first = False
+        else:
+            f_count = 0
+            for feat in fiona.open(_file):
+                f_count += 1
+                inter = False
+                if feat['properties']['LC_L1'] == 'Irrigated Agriculture':
+                    try:
+                        poly = Polygon(feat['geometry']['coordinates'][0])
+                    except:
+                        err_count += 1
+                        err = True
+                        break
+
+                    for out_geo in out_features:
+                        try:
+                            out_poly = Polygon(out_geo['geometry']['coordinates'][0])
+                        except:
+                            err_count += 1
+                            err = True
+                            break
+                        if poly.intersects(out_poly):
+                            inter = True
+                            break
+
+                    if not inter and not err:
+                        out_features.append(feat)
+
+                    if f_count % 500 == 0:
+                        if f_count == 0:
+                            pass
+                        else:
+                            print(f_count, '{} features'.format(len(out_features)))
+
+    with fiona.open(out_shape, 'w', **meta) as output:
+        ct = 0
+        for feat in out_features:
+            feat = {'type': 'Feature', 'properties': {'OBJECTID': ct},
+                    'geometry': feat['geometry']}
+            output.write(feat)
+            ct += 1
+    print('errors: {}'.format(err_count))
+
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    glob = 'Repub_Irrig'
-    in_dir = os.path.join(home, 'IrrigationGIS', 'raw_field_polygons', 'CO', 'irrigation')
-    out_dir = os.path.join(home, 'IrrigationGIS', 'raw_field_polygons', 'CO', 'out')
-    # _list = [os.path.join(in_dir, x) for x in os.listdir(in_dir) if glob in x and x.endswith('.shp')]
-    # out_shapefile = os.path.join(out_dir, '{}_comb.shp'.format(glob))
-    # compile_shapes(_list, out_shapefile)
-    for i in range(1, 8):
-        glob = 'Div{}_Irrig'.format(i)
+    for glob in ['Alcalde', 'El_Rito', 'Hondo']:
+        in_dir = os.path.join(home, 'IrrigationGIS', 'raw_field_polygons', 'NM', 'WRRI_LULC')
+        out_dir = os.path.join(home, 'IrrigationGIS', 'raw_field_polygons', 'NM')
         _list = [os.path.join(in_dir, x) for x in os.listdir(in_dir) if glob in x and x.endswith('.shp')]
+        print(_list)
         out_shapefile = os.path.join(out_dir, '{}_comb.shp'.format(glob))
-        compile_shapes(_list, out_shapefile)
+        compile_shapes_nm_wrri(_list, out_shapefile)
+
 # ========================= EOF ====================================================================
