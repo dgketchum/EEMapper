@@ -17,7 +17,13 @@ import os
 from collections import OrderedDict
 
 import fiona
+from rasterstats import zonal_stats
 from shapely.geometry import Polygon
+
+
+CLU_UNNEEDED = ['ca', 'nv', 'ut', 'wa']
+CLU_USEFUL = ['az', 'co', 'id', 'mt', 'nm', 'or']
+CLU_ONLY = ['ks', 'nd', 'ne', 'ok', 'sd', 'tx']
 
 
 def fiona_merge_MT(out_shp, file_list):
@@ -277,14 +283,162 @@ def compile_shapes_nm_wrri(in_shapes, out_shape):
     print('errors: {}'.format(err_count))
 
 
+def zonal_cdl(in_shp, in_raster, out_shp):
+    ct = 1
+    crops = crop_map()
+    geo = []
+    with fiona.open(in_shp) as src:
+        meta = src.meta
+        for feat in src:
+            geo.append(feat)
+
+    meta['schema'] = {'type': 'Feature', 'properties': OrderedDict(
+        [('FID', 'int:9'), ('CDL', 'int:9')]), 'geometry': 'Polygon'}
+    stats = zonal_stats(in_shp, in_raster, stats=['majority'], nodata=0.0)
+    with fiona.open(out_shp, mode='w', **meta) as out:
+        for attr, g in zip(stats, geo):
+            if attr['majority'] in crops.keys():
+                feat = {'type': 'Feature', 'properties': {'FID': ct,
+                                                          'CDL': int(attr['majority'])},
+                        'geometry': g['geometry']}
+                out.write(feat)
+                ct += 1
+
+
+def clean_clu(in_shp, out_shp):
+    geo = []
+    with fiona.open(in_shp) as src:
+        meta = src.meta
+        for feat in src:
+            geo.append(feat)
+
+    with fiona.open(out_shp, mode='w', **meta) as out:
+        for f in geo:
+            if f['geometry'] is None:
+                print(feat['id'])
+            else:
+                out.write(f)
+
+
+def crop_map():
+    return {1: 'Corn',
+            2: 'Cotton',
+            3: 'Rice',
+            4: 'Sorghum',
+            5: 'Soybeans',
+            6: 'Sunflower',
+            10: 'Peanuts',
+            11: 'Tobacco',
+            12: 'Sweet Corn',
+            13: 'Pop or Orn Corn',
+            14: 'Mint',
+            21: 'Barley',
+            22: 'Durum Wheat',
+            23: 'Spring Wheat',
+            24: 'Winter Wheat',
+            25: 'Other Small Grains',
+            26: 'Dbl Crop WinWht / Soybeans',
+            27: 'Rye',
+            28: 'Oats',
+            29: 'Millet',
+            30: 'Speltz',
+            31: 'Canola',
+            32: 'Flaxseed',
+            33: 'Safflower',
+            34: 'Rape Seed',
+            35: 'Mustard',
+            36: 'Alfalfa',
+            37: 'Other Hay / NonAlfalfa',
+            38: 'Camelina',
+            39: 'Buckwheat',
+            41: 'Sugarbeets',
+            42: 'Dry Beans',
+            43: 'Potatoes',
+            44: 'Other Crops',
+            45: 'Sugarcane',
+            46: 'Sweet Potatoes',
+            47: 'Misc Vegs & Fruits',
+            48: 'Watermelons',
+            49: 'Onions',
+            50: 'Cucumbers',
+            51: 'Chick Peas',
+            52: 'Lentils',
+            53: 'Peas',
+            54: 'Tomatoes',
+            55: 'Caneberries',
+            56: 'Hops',
+            57: 'Herbs',
+            58: 'Clover/Wildflowers',
+            61: 'Fallow/Idle Cropland',
+            66: 'Cherries',
+            67: 'Peaches',
+            68: 'Apples',
+            69: 'Grapes',
+            70: 'Christmas Trees',
+            71: 'Other Tree Crops',
+            72: 'Citrus',
+            74: 'Pecans',
+            75: 'Almonds',
+            76: 'Walnuts',
+            77: 'Pears',
+            204: 'Pistachios',
+            205: 'Triticale',
+            206: 'Carrots',
+            207: 'Asparagus',
+            208: 'Garlic',
+            209: 'Cantaloupes',
+            210: 'Prunes',
+            211: 'Olives',
+            212: 'Oranges',
+            213: 'Honeydew Melons',
+            214: 'Broccoli',
+            216: 'Peppers',
+            217: 'Pomegranates',
+            218: 'Nectarines',
+            219: 'Greens',
+            220: 'Plums',
+            221: 'Strawberries',
+            222: 'Squash',
+            223: 'Apricots',
+            224: 'Vetch',
+            225: 'Dbl Crop WinWht/Corn',
+            226: 'Dbl Crop Oats/Corn',
+            227: 'Lettuce',
+            229: 'Pumpkins',
+            230: 'Dbl Crop Lettuce/Durum Wht',
+            231: 'Dbl Crop Lettuce/Cantaloupe',
+            232: 'Dbl Crop Lettuce/Cotton',
+            233: 'Dbl Crop Lettuce/Barley',
+            234: 'Dbl Crop Durum Wht/Sorghum',
+            235: 'Dbl Crop Barley/Sorghum',
+            236: 'Dbl Crop WinWht/Sorghum',
+            237: 'Dbl Crop Barley/Corn',
+            238: 'Dbl Crop WinWht/Cotton',
+            239: 'Dbl Crop Soybeans/Cotton',
+            240: 'Dbl Crop Soybeans/Oats',
+            241: 'Dbl Crop Corn/Soybeans',
+            242: 'Blueberries',
+            243: 'Cabbage',
+            244: 'Cauliflower',
+            245: 'Celery',
+            246: 'Radishes',
+            247: 'Turnips',
+            248: 'Eggplants',
+            249: 'Gourds',
+            250: 'Cranberries',
+            254: 'Dbl Crop Barley/Soybeans'}
+
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    for glob in ['Alcalde', 'El_Rito', 'Hondo']:
-        in_dir = os.path.join(home, 'IrrigationGIS', 'raw_field_polygons', 'NM', 'WRRI_LULC')
-        out_dir = os.path.join(home, 'IrrigationGIS', 'raw_field_polygons', 'NM')
-        _list = [os.path.join(in_dir, x) for x in os.listdir(in_dir) if glob in x and x.endswith('.shp')]
-        print(_list)
-        out_shapefile = os.path.join(out_dir, '{}_comb.shp'.format(glob))
-        compile_shapes_nm_wrri(_list, out_shapefile)
-
+    cdl = os.path.join(home, 'IrrigationGIS', 'cdl')
+    tif = [os.path.join(cdl, x) for x in os.listdir(cdl) if x.endswith('.tif')]
+    states = [x.split('.')[0][-2:].lower() for x in os.listdir(cdl) if x.endswith('.tif')]
+    clu = os.path.join(home, 'IrrigationGIS', 'clu')
+    for t, s in zip(tif, states):
+        shp = os.path.join(clu, 'cleaned', '{}_clu_public.shp'.format(s))
+        out_ = os.path.join(clu, 'crop_vector', '{}_cropped.shp'.format(s))
+        print(s)
+        if not os.path.isfile(out_):
+            zonal_cdl(shp, t, out_)
 # ========================= EOF ====================================================================
