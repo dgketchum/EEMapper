@@ -22,7 +22,6 @@
 
 import os
 from datetime import datetime
-from pprint import pprint
 
 import ee
 
@@ -30,18 +29,22 @@ from map.assets import list_assets
 
 ROI = 'users/dgketchum/boundaries/western_states_expanded_union'
 BOUNDARIES = 'users/dgketchum/boundaries'
-ASSET_ROOT = 'users/dgketchum/classy'
-IRRIGATION_TABLE = 'users/dgketchum/irr_attrs/MT_Irr'
+ASSET_ROOT = 'users/dgketchum/classy_v2'
+IRRIGATION_TABLE = 'users/dgketchum/irr_attrs/harney'
 HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
 HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
+COUNTIES = 'users/dgketchum/boundaries/western_counties'
 
 STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
 
 EDIT_STATES = ['KS', 'ND', 'NE', 'OK', 'SD', 'TX']
-TARGET_STATES = ['MT']
+TARGET_STATES = ['MT', 'CO']
 
-POINTS = 'ft:1Ai9IqHeW4vhZfLP_F6T9vE7N6Gcppx4-WDctiYGi'
-TABLE = 'ft:1xSWqNQ2P_Og3TwSsp1semWMu88n-I3_kc7Cu4Drq'
+POINTS_MT = 'ft:1quoEOgOl5dTQtYjyHZs9BxX8CZz1Leqv5qqFYLml'
+POINTS = 'ft:11GT2ikIkgqzYLb0R9tICu8PW7-lo7d-0GFutcywX'
+VALIDATION_POINTS = 'ft:1F6qGFzg1M1WRPIJ8rnNsQLCk932pGpqL2-MRcOYd'
+TABLE = 'ft:1wLrSEoQie6u7wTPl1bJ7rLEq20OLvQncecM3_HeH'
+TABLE_V2 = 'ft:1UYtOA4d8_WFy_wq2ahyfdokuC1q9BMPLoaa1H94Z'
 
 IRR = {
     # 'Acequias': ('ft:1j_Z6exiBQy5NlVLZUe25AsFp-jSfCHn_HAWGT06D', [1987, 2001, 2004, 2007, 2016], 0.5),
@@ -55,9 +58,9 @@ IRR = {
     # 'ID': ('ft:1jDB3C181w1PGVamr64-ewpJVDQkzJc4Bvd1IPAFg', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
     # 'NM_SanJuan': ('ft:1_-haRl7-ppkBYWBN-cPzItftKQC7yWI7sfgoVx1R', [1987, 2001, 2004, 2007, 2016], 0.5),
     # 'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2001, 2011)], 0.5),
-    # 'MT': ('ft:1f8TqNMwDLWlb1bgDkgF1A4H77jG8kb18tGlM7Vsu', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
+    'MT': ('ft:1wfJrtnDjBZqSzWq41veY_VrWROQ0kI-5NCko6xF3', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
     # 'OR': ('ft:1FJMi4VXUe4BrhU6u0OF2l0uFU_rGUe3rFrSSSBVD', [1994, 1997, 2011], 0.5),
-    'NW_OR': ('ft:1kXr3oMe9Ybsd3N7tyBBDCTweAxb4c8GBz6B8_ELm', [1994, 1996, 1997, 2001, 2011, 2013], 0.5),
+    # 'NW_OR': ('ft:1kXr3oMe9Ybsd3N7tyBBDCTweAxb4c8GBz6B8_ELm', [1994, 1996, 1997, 2001, 2011, 2013], 0.5),
     # 'UT': ('ft:1oA0v3UUBQj3qn9sa_pDJ8bwsAphfRZUlwwPWpFrT', [1998, 2003, 2006, 2013, 2016], 0.5),
     # 'UT_CO': ('ft:1Av2WlcPRBd7JZqYOU73VCLOJ-b5q6H5u6Bboebdv', [1998, 2003, 2006, 2013, 2016], 0.5),
     # 'WA': ('ft:1tGN7UdKijI7gZgna19wJ-cKMumSKRwsfEQQZNQjl', [1997, 1996], 0.5),
@@ -80,37 +83,70 @@ YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997,
          1998, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
          2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016]
 
-TEST_YEARS = [2016]
-MISSING_YEARS = [1990, 1991, 1992, 1999]
+TEST_YEARS = [2014, 2015, 2016]
+ALL_YEARS = [x for x in range(1986, 2017)]
 
 
-def reduce_regions(tables, operation='mean'):
+def reduce_regions(tables, years=None, description=None, cdl_mask=False, min_years=0):
+    sum_mask = None
     image_list = list_assets('users/dgketchum/classy')
     fc = ee.FeatureCollection(tables)
-    for yr in range(1986, 2017):
+
+    if min_years > 0:
+        coll = ee.ImageCollection(image_list)
+        sum = ee.ImageCollection(coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum()
+        sum_mask = sum.gt(min_years)
+
+    first = True
+    for yr in years:
         yr_img = [x for x in image_list if x.endswith(str(yr))]
         coll = ee.ImageCollection(yr_img)
         tot = coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
-        if operation == 'mean':
-            reduce = tot.reduceRegions(collection=fc,
-                                       reducer=ee.Reducer.mean(),
-                                       scale=30)
-        elif operation == 'count':
-            reduce = tot.reduceRegions(collection=fc,
-                                       reducer=ee.Reducer.count(),
-                                       scale=30)
-        else:
-            raise NotImplementedError
 
+        if cdl_mask and min_years > 0:
+            # cultivated/uncultivated band only available 2013 to 2017
+            cdl = ee.Image('USDA/NASS/CDL/2013')
+            cultivated = cdl.select('cultivated')
+            cdl_crop_mask = cultivated.eq(2)
+            tot = tot.mask(cdl_crop_mask).mask(sum_mask)
+
+        elif min_years > 0:
+            tot = tot.mask(sum_mask)
+
+        elif cdl_mask:
+            cdl = ee.Image('USDA/NASS/CDL/2013')
+            cultivated = cdl.select('cultivated')
+            cdl_crop_mask = cultivated.eq(2)
+            tot = tot.mask(cdl_crop_mask)
+
+        tot = tot.multiply(ee.Image.pixelArea())
+        reduce = tot.reduceRegions(collection=fc,
+                                   reducer=ee.Reducer.sum(),
+                                   scale=30)
         task = ee.batch.Export.table.toCloudStorage(
             reduce,
-            description='reduceFC_{}_{}'.format(operation, yr),
+            description='{}_area_{}_'.format(description, yr),
             bucket='wudr',
-            fileNamePrefix='reduceFC_{}_{}'.format(operation, yr),
+            fileNamePrefix='{}_area_{}_'.format(description, yr),
             fileFormat='CSV')
+        task.start()
+
+        if first:
+            tot = coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 1, 1, 1])
+            tot = tot.multiply(ee.Image.pixelArea())
+            reduce = tot.reduceRegions(collection=fc,
+                                       reducer=ee.Reducer.sum(),
+                                       scale=30)
+            task = ee.batch.Export.table.toCloudStorage(
+                reduce,
+                description='{}_total_area_'.format(description),
+                bucket='wudr',
+                fileNamePrefix='{}_total_area_'.format(description),
+                fileFormat='CSV')
+            task.start()
+            first = False
 
         print(yr)
-        task.start()
 
 
 def attribute_irrigation():
@@ -137,34 +173,23 @@ def attribute_irrigation():
 
 
 def export_classification(out_name, asset, export='asset'):
-    fc = ee.FeatureCollection(TABLE)
+    fc = ee.FeatureCollection(TABLE_V2)
     roi = ee.FeatureCollection(asset)
     mask = roi.geometry().bounds().getInfo()['coordinates']
 
     classifier = ee.Classifier.randomForest(
-        numberOfTrees=70,
-        variablesPerSplit=0,
-        minLeafPopulation=1,
-        bagFraction=0.3,
-        outOfBagMode=False,
-        seed=0).setOutputMode('CLASSIFICATION')
+        outOfBagMode=False).setOutputMode('CLASSIFICATION')
 
     input_props = fc.first().propertyNames().remove('YEAR').remove('POINT_TYPE').remove('system:index')
-
     feature_bands = sorted([b for b in fc.first().getInfo()['properties']])
     feature_bands.remove('POINT_TYPE')
     feature_bands.remove('YEAR')
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
-    first_year = True
-    for yr in MISSING_YEARS:
+
+    for yr in TEST_YEARS:
+
         input_bands = stack_bands(yr, roi)
-
-        if first_year:
-            ndvi = get_ndvi_series(yr)
-            input_bands.addBands(ndvi)
-            first_year = False
-
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.classify(trained_model).int()
 
@@ -238,27 +263,62 @@ def filter_irrigated():
             task.start()
 
 
-def request_band_extract(file_prefix):
+def request_validation_extract(file_prefix='validation'):
+
+    roi = ee.FeatureCollection(ROI)
+    plots = ee.FeatureCollection(VALIDATION_POINTS).filterBounds(roi)
+    image_list = list_assets('users/dgketchum/classy')
+
+    for yr in YEARS:
+        yr_img = [x for x in image_list if x.endswith(str(yr))]
+        coll = ee.ImageCollection(yr_img)
+        classified = coll.mosaic().select('classification')
+
+        start = '{}-01-01'.format(yr)
+        d = datetime.strptime(start, '%Y-%m-%d')
+        epoch = datetime.utcfromtimestamp(0)
+        start_millisec = (d - epoch).total_seconds() * 1000
+        filtered = plots.filter(ee.Filter.eq('YEAR', ee.Number(start_millisec)))
+
+        plot_sample_regions = classified.sampleRegions(
+            collection=filtered,
+            properties=['POINT_TYPE', 'YEAR'],
+            scale=30,
+            tileScale=16)
+
+        task = ee.batch.Export.table.toCloudStorage(
+            plot_sample_regions,
+            description='{}_{}'.format(file_prefix, yr),
+            bucket='wudr',
+            fileNamePrefix='{}_{}'.format(file_prefix, yr),
+            fileFormat='CSV')
+
+        task.start()
+        print(yr)
+
+
+def request_band_extract(file_prefix, filter_bounds=False):
     roi = ee.FeatureCollection(ROI)
     plots = ee.FeatureCollection(POINTS)
     for yr in TEST_YEARS:
         stack = stack_bands(yr, roi)
-        target_years = list(range(yr - 2, yr + 3))
-        ndvi = get_ndvi_series(target_years, roi)
-        input_bands = stack.addBands(ndvi)
-        pprint(ndvi.bandNames().getInfo())
         start = '{}-01-01'.format(yr)
         d = datetime.strptime(start, '%Y-%m-%d')
         epoch = datetime.utcfromtimestamp(0)
         start_millisec = (d - epoch).total_seconds() * 1000
 
+        if filter_bounds:
+            plots = plots.filterBounds(roi)
+
         filtered = plots.filter(ee.Filter.eq('YEAR', ee.Number(start_millisec)))
 
-        plot_sample_regions = input_bands.sampleRegions(
+        proj = stack.select('B2').projection().getInfo()['crs']
+
+        plot_sample_regions = stack.sampleRegions(
             collection=filtered,
             properties=['POINT_TYPE', 'YEAR'],
             scale=30,
-            tileScale=16)
+            tileScale=2)
 
         task = ee.batch.Export.table.toCloudStorage(
             plot_sample_regions,
@@ -283,23 +343,32 @@ def get_ndvi_series(years, roi):
         return stats
 
     bands_list = []
-    for yr in years:
-
+    for yr, s in zip(years, [1, 2, 3, 4, 5]):
         d = '{}-01-01'.format(yr)
-
         bands = ndvi_means(d)
-        bands_list.append(bands)
+        bands_list.append(bands.rename('nd_mean_{}'.format(s)))
 
     i = ee.Image(bands_list)
     return i
 
 
+def add_doy(image):
+    mask = ee.Date(image.get('system:time_start'))
+    day = ee.Image.constant(image.date().getRelative('day', 'year')).clip(image.geometry())
+    i = image.addBands(day.rename('DOY')).int().updateMask(mask)
+    return i
+
+
 def stack_bands(yr, roi):
+
     start = '{}-01-01'.format(yr)
     end_date = '{}-01-01'.format(yr + 1)
-    spring_s = '{}-03-01'.format(yr)
-    summer_s = '{}-06-01'.format(yr)
-    fall_s = '{}-09-01'.format(yr)
+    water_year_start = '{}-10-01'.format(yr - 1)
+
+    spring_s, spring_e = '{}-03-01'.format(yr), '{}-05-01'.format(yr),
+    late_spring_s, late_spring_e = '{}-05-01'.format(yr), '{}-07-01'.format(yr)
+    summer_s, summer_e = '{}-07-01'.format(yr), '{}-09-01'.format(yr)
+    fall_s, fall_e = '{}-09-01'.format(yr), '{}-11-01'.format(yr)
 
     l5_coll = ee.ImageCollection('LANDSAT/LT05/C01/T1_SR').filterBounds(
         roi).filterDate(start, end_date).map(ls5_edge_removal).map(ls57mask)
@@ -307,66 +376,104 @@ def stack_bands(yr, roi):
         roi).filterDate(start, end_date).map(ls57mask)
     l8_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_SR').filterBounds(
         roi).filterDate(start, end_date).map(ls8mask)
+
     lsSR_masked = ee.ImageCollection(l7_coll.merge(l8_coll).merge(l5_coll))
     lsSR_spr_mn = ee.Image(lsSR_masked.filterDate(spring_s, summer_s).mean())
+    lsSR_lspr_mn = ee.Image(lsSR_masked.filterDate(late_spring_s, late_spring_e).mean())
     lsSR_sum_mn = ee.Image(lsSR_masked.filterDate(summer_s, fall_s).mean())
     lsSR_fal_mn = ee.Image(lsSR_masked.filterDate(fall_s, end_date).mean())
 
-    proj = lsSR_fal_mn.select('B2').projection().getInfo()
+    proj = lsSR_sum_mn.select('B2').projection().getInfo()
+    input_bands = lsSR_spr_mn.addBands([lsSR_lspr_mn, lsSR_sum_mn, lsSR_fal_mn])
 
-    gridmet = ee.ImageCollection("IDAHO_EPSCOR/GRIDMET").filterBounds(
-        roi).filterDate(start, end_date).select('pr', 'eto', 'tmmn', 'tmmx')
+    nd_list_ = []
+    for pos, year in zip(['m2', 'm1', 'cy', 'p1', 'p2'], range(yr - 2, yr + 3)):
+        if year <= 2011:
+            collection = ndvi5()
+        elif year == 2012:
+            collection = ndvi7()
+        else:
+            collection = ndvi8()
 
-    temp_reducer = ee.Reducer.percentile([10, 50, 90])
-    t_names = ['tmmn_p10_cy', 'tmmn_p50_cy', 'tmmn_p90_cy', 'tmmx_p10_cy', 'tmmx_p50_cy', 'tmmx_p90_cy']
-    temp_perc = gridmet.select('tmmn', 'tmmx').reduce(temp_reducer).rename(t_names).resample(
-        'bilinear').reproject(crs=proj['crs'], scale=30)
+        nd_collection = period_stat(collection, spring_s.replace('{}'.format(yr), '{}'.format(year)),
+                                    fall_e.replace('{}'.format(yr), '{}'.format(year)))
+        s_nd_max = nd_collection.select('nd_max').rename('nd_max_{}'.format(pos))
+        nd_list_.append(s_nd_max)
 
-    precip_reducer = ee.Reducer.sum()
-    precip_sum = gridmet.select('pr', 'eto').reduce(precip_reducer).rename(
-        'precip_total_cy', 'pet_total_cy').resample('bilinear').reproject(crs=proj['crs'], scale=30)
-    wd_estimate = precip_sum.select('precip_total_cy').subtract(precip_sum.select(
-        'pet_total_cy')).rename('wd_est_cy')
-    input_bands = lsSR_spr_mn.addBands([lsSR_sum_mn, lsSR_fal_mn, temp_perc, precip_sum, wd_estimate])
+    input_bands = input_bands.addBands(nd_list_)
+
+    for s, e, n in [(spring_s, spring_e, 'espr'),
+                    (late_spring_s, late_spring_e, 'lspr'),
+                    (summer_s, summer_e, 'smr'),
+                    (fall_s, fall_e, 'fl'),
+                    (water_year_start, spring_e, 'wy_espr'),
+                    (water_year_start, late_spring_e, 'wy_espr'),
+                    (water_year_start, summer_e, 'wy_smr'),
+                    (water_year_start, fall_e, 'wy')]:
+        gridmet = ee.ImageCollection("IDAHO_EPSCOR/GRIDMET").filterBounds(
+            roi).filterDate(s, e).select('pr', 'eto', 'tmmn', 'tmmx')
+        temp_reducer = ee.Reducer.mean()
+        t_names = ['tmax'.format(n), 'tmin'.format(n)]
+        temp_perc = gridmet.select('tmmn', 'tmmx').reduce(temp_reducer).rename(t_names).resample(
+            'bilinear').reproject(crs=proj['crs'], scale=30)
+
+        precip_reducer = ee.Reducer.sum()
+        precip_sum = gridmet.select('pr', 'eto').reduce(precip_reducer).rename(
+            'precip_total_{}'.format(n), 'pet_total_{}'.format(n)).resample('bilinear').reproject(crs=proj['crs'],
+                                                                                                  scale=30)
+        wd_estimate = precip_sum.select('precip_total_{}'.format(n)).subtract(precip_sum.select(
+            'pet_total_{}'.format(n))).rename('wd_est_{}'.format(n))
+        input_bands = input_bands.addBands([temp_perc, precip_sum, wd_estimate])
+
     coords = ee.Image.pixelLonLat().rename(['Lon_GCS', 'LAT_GCS']).resample('bilinear').reproject(crs=proj['crs'],
                                                                                                   scale=30)
-
-    static_input_bands = coords
     ned = ee.Image('USGS/NED')
     terrain = ee.Terrain.products(ned).select('elevation', 'slope', 'aspect').reduceResolution(
         ee.Reducer.mean()).reproject(crs=proj['crs'], scale=30)
-    static_input_bands = static_input_bands.addBands(terrain)
 
-    # Extended Fetures/ eF
     world_climate = get_world_climate(proj=proj)
     elev = terrain.select('elevation')
     tpi_1250 = elev.subtract(elev.focal_mean(1250, 'circle', 'meters')).add(0.5).rename('tpi_1250')
     tpi_250 = elev.subtract(elev.focal_mean(250, 'circle', 'meters')).add(0.5).rename('tpi_250')
     tpi_150 = elev.subtract(elev.focal_mean(150, 'circle', 'meters')).add(0.5).rename('tpi_150')
-    static_input_bands = static_input_bands.addBands([tpi_1250, tpi_250, tpi_150, world_climate])
+    static_input_bands = coords.addBands([terrain, tpi_1250, tpi_250, tpi_150, world_climate])
 
-    nlcd = ee.Image('USGS/NLCD/NLCD2011').select('landcover').reproject(crs=proj['crs'], scale=30)
-    cdl = ee.Image('USDA/NASS/CDL/2017').select('cultivated').remap([1, 2], [0, 1]).reproject(crs=proj['crs'], scale=30)
+    nlcd = ee.Image('USGS/NLCD/NLCD2011').select('landcover').reproject(crs=proj['crs'], scale=30).rename('nlcd')
+    cdl = ee.Image('USDA/NASS/CDL/2017').select('cultivated').remap([1, 2], [0, 1]).reproject(crs=proj['crs'],
+                                                                                              scale=30).rename('cdl')
     static_input_bands = static_input_bands.addBands([nlcd, cdl])
 
     input_bands = input_bands.addBands(static_input_bands).clip(roi)
 
     # standardize names to match EE javascript output
     standard_names = []
-    for name in input_bands.bandNames().getInfo():
-        if '_1_1' in name:
+    temp_ct = 1
+    prec_ct = 1
+    names = input_bands.bandNames().getInfo()
+    for name in names:
+        if 'B' in name and '_1_1' in name:
             replace_ = name.replace('_1_1', '_2')
             standard_names.append(replace_)
+        elif 'B' in name and '_2' in name:
+            replace_ = name.replace('_2', '_3')
+            standard_names.append(replace_)
+        elif 'tavg' in name and 'tavg' in standard_names:
+            standard_names.append('tavg_{}'.format(temp_ct))
+            temp_ct += 1
+        elif 'prec' in name and 'prec' in standard_names:
+            standard_names.append('prec_{}'.format(prec_ct))
+            prec_ct += 1
         else:
             standard_names.append(name)
+
     input_bands = input_bands.rename(standard_names)
     return input_bands
 
 
 def get_world_climate(proj):
-    n = list(range(1, 13))
+    n = list(range(4, 10))
     months = [str(x).zfill(2) for x in n]
-    parameters = ['tavg', 'tmin', 'tmax', 'prec']
+    parameters = ['tavg', 'prec']
     combinations = [(m, p) for m in months for p in parameters]
     l = [ee.Image('WORLDCLIM/V1/MONTHLY/{}'.format(m)).select(p).resample('bilinear').reproject(crs=proj['crs'],
                                                                                                 scale=30) for m, p in
@@ -458,12 +565,29 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    request_band_extract('bands_7FEB')
+    # request_band_extract('bands_26MAR', filter_bounds=False)
     # filter_irrigated()
-    # for state in STATES:
+    # for state in TARGET_STATES:
+    #     print(state)
     #     bounds = os.path.join(BOUNDARIES, state)
     #     export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
     # attribute_irrigation()
-    # reduce_regions(HUC_8, operation='count')
-    # reduce_regions(HUC_8, operation='mean')
+    # count_yr = [2016]
+    # reduce_regions(COUNTIES, operation='count', years=count_yr, description='counties')
+
+    census_years = [2002, 2007, 2012]
+
+    reduce_regions(COUNTIES, years=census_years,
+                   description='counties_cdlMinMask_gt', cdl_mask=True, min_years=5)
+    #
+    reduce_regions(COUNTIES, years=census_years,
+                   description='counties_cdlMask_gt', cdl_mask=True)
+
+    reduce_regions(COUNTIES, years=census_years,
+                   description='counties_MinMask_gt', min_years=5)
+
+    reduce_regions(COUNTIES, years=census_years,
+                   description='counties_NoMask_gt')
+
+    # request_validation_extract()
 # ========================= EOF ====================================================================

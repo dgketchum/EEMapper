@@ -17,6 +17,7 @@ import os
 from collections import OrderedDict
 
 import fiona
+from shapely.geometry import Polygon
 
 
 def fiona_merge_MT(out_shp, file_list):
@@ -102,19 +103,67 @@ def count_acres(shp):
         print(acres)
 
 
+def get_area(shp):
+    """use AEA conical for sq km result"""
+
+    print(shp)
+    area = 0.0
+    geos = []
+    dupes = 0
+    unq = 0
+    with fiona.open(shp, 'r') as s:
+        for feat in s:
+
+            if feat['geometry']['type'] == 'Polygon':
+                coords = feat['geometry']['coordinates'][0]
+
+                if 'irrigated' in shp and coords not in geos or 'irrigated' not in shp:
+                    geos.append(coords)
+                    a = Polygon(coords).area / 1e6
+                    area += a
+                    unq += 1
+                elif 'irrigated' in shp and coords in geos:
+                    dupes += 1
+                else:
+                    raise TypeError
+
+            elif feat['geometry']['type'] == 'MultiPolygon':
+                for l_ring in feat['geometry']['coordinates']:
+                    coords = l_ring[0]
+                    if 'irrigated' in shp and coords not in geos or 'irrigated' not in shp:
+                        geos.append(coords)
+                        a = Polygon(coords).area / 1e6
+                        area += a
+                        unq += 1
+                    elif 'irrigated' in shp and coords in geos:
+                        dupes += 1
+                    else:
+                        raise TypeError
+            else:
+                raise TypeError
+        print(area)
+        print(area * 247.105)
+
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     # s_dir = os.path.join(home, 'IrrigationGIS', 'Montana', 'OE_Shapefiles_WGS')
     # d_dir = os.path.join(home, 'IrrigationGIS', 'Montana', 'OE_Shapefiles_WGS')
     # l = get_list(s_dir)
     # fiona_merge_MT(os.path.join(d_dir, 'OE_Sites.shp'), l)
-    s_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'fallow', 'shp')
-    d_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'fallow')
-    l = get_list(s_dir)
-    fiona_merge_attribute(os.path.join(d_dir, 'fallow_11FEB.shp'), l)
+    # s_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'fallow', 'shp')
+    # d_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'fallow')
+    # fallow_shape = os.path.join(d_dir, 'fallow_11FEB.shp')
+    # l = get_list(s_dir)
+    # fiona_merge_attribute(fallow_shape, l)
     # s_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated', 'inspected')
     # _dir = [os.path.join(s_dir, x) for x in os.listdir(s_dir) if x.endswith('.shp')]
     # o_dir = os.path.join(home, 'IrrigationGIS', 'training_raw', 'irrigated', 'merged_attributed')
     # fiona_merge_attribute(os.path.join(o_dir, 'Irr_11DEC.shp'), _dir)
+    # s_dir = os.path.join(home, 'IrrigationGIS', 'Montana', 'rdgp')
+    # _files = [os.path.join(s_dir, x) for x in os.listdir(s_dir) if x.endswith('aea.shp')]
+    # for f in _files:
+    #     get_area(f)
+    get_area('/home/dgketchum/IrrigationGIS/wetlands/wetlands_11s_aea.shp')
 
 # ========================= EOF ====================================================================
