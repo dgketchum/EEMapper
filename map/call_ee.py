@@ -46,19 +46,20 @@ VALIDATION_POINTS = 'ft:1F6qGFzg1M1WRPIJ8rnNsQLCk932pGpqL2-MRcOYd'
 TABLE = 'ft:1wLrSEoQie6u7wTPl1bJ7rLEq20OLvQncecM3_HeH'
 TABLE_V2 = 'ft:1UYtOA4d8_WFy_wq2ahyfdokuC1q9BMPLoaa1H94Z'
 
+# this dict is where we keep Fusion Table IDs from kml files waiting to be filtered
 IRR = {
     # 'Acequias': ('ft:1j_Z6exiBQy5NlVLZUe25AsFp-jSfCHn_HAWGT06D', [1987, 2001, 2004, 2007, 2016], 0.5),
     # 'AZ': ('ft:1ZwRYaGmMc7oJuDTrKbrZm3oL7yBYdeKjEa05n5oX', [2001, 2003, 2004, 2007, 2016], 0.5),
     # 'CO_DIV1': ('ft:1wRNUsKChMUb9rUWDbxOeGeTaNWNZUA0YHXSLXPv2', [1998, 2003, 2006, 2013, 2016], 0.5),
-    # 'CO_SanLuis_test': ('ft:1mcBXyFw1PoVOoAGibDpZjCgb001jA_Mj_hyd-h92', [2016], 0.5),
-    # 'CA_v2': ('ft:1LRHed3EWaa1UNKTU1e3jIHqwldMP-MGN6_xB_YjK', [2014], 0.5),
+    # 'CO_SanLuis': ('ft:1mcBXyFw1PoVOoAGibDpZjCgb001jA_Mj_hyd-h92', [1998, 2003, 2006, 2013, 2016], 0.5),
+    # 'CA': ('ft:1oadWhheDKaonOPhIJ9lJVCwnOt5g0G644p3FC9oy', [2014], 0.5),
     # 'EastStates': ('ft:1AZUak3iuAtah1SHpkLfw0IRk_U5ei23VsPzBWxpD', [1987, 2001, 2004, 2007, 2016], 0.5),
     # 'OK': ('ft:1EjuYeilOTU3el9GsYZZXCi6sNC7z_jJ6mGa2wHIe', [2006, 2007, 2011, 2013, 2015], 0.5),
     # 'NE': ('ft:1789J-j1dq8_Ez6wfObJxGSJaxRkuJsZMFLeeiwPo', [2003, 2006, 2009, 2013, 2016], 0.5),
-    'ID_Bonner': ('ft:1kkaQomLStq-zf8Dpg2eTIrRdn_2Aw5g6lagZrdiK', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
+    # 'ID': ('ft:1jDB3C181w1PGVamr64-ewpJVDQkzJc4Bvd1IPAFg', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
     # 'NM_SanJuan': ('ft:1_-haRl7-ppkBYWBN-cPzItftKQC7yWI7sfgoVx1R', [1987, 2001, 2004, 2007, 2016], 0.5),
     # 'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2001, 2011)], 0.5),
-    # 'MT_Turner': ('ft:1PpvhFdLDG4oCh7OsVcjJX6vg8FNB0FWUIFqRKYxO', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
+    'MT': ('ft:1wfJrtnDjBZqSzWq41veY_VrWROQ0kI-5NCko6xF3', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
     # 'OR': ('ft:1FJMi4VXUe4BrhU6u0OF2l0uFU_rGUe3rFrSSSBVD', [1994, 1997, 2011], 0.5),
     # 'NW_OR': ('ft:1kXr3oMe9Ybsd3N7tyBBDCTweAxb4c8GBz6B8_ELm', [1994, 1996, 1997, 2001, 2011, 2013], 0.5),
     # 'UT': ('ft:1oA0v3UUBQj3qn9sa_pDJ8bwsAphfRZUlwwPWpFrT', [1998, 2003, 2006, 2013, 2016], 0.5),
@@ -89,6 +90,7 @@ CO_IRR = {
     'CO_Repu': ('ft:133QsXytF1R6k3SDwGwTPcv3KBz6Eb9r-dB3EoxwI', [1998, 2003, 2006, 2013, 2016], 0.5),
 }
 
+# list of years we have verified irrigated fields
 YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997,
          1998, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
          2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016]
@@ -98,6 +100,18 @@ ALL_YEARS = [x for x in range(1986, 2017)]
 
 
 def reduce_regions(tables, years=None, description=None, cdl_mask=False, min_years=0):
+    """
+    Reduce Regions, i.e. zonal stats: takes a statistic from a raster within the bounds of a vector.
+    Use this to get e.g. irrigated area within a county, HUC, or state. This can mask based on Crop Data Layer,
+    and can mask data where the sum of irrigated years is less than min_years. This will output a .csv to
+    GCS wudr bucket.
+    :param tables: vector data over which to take raster statistics
+    :param years: years over which to run the stats
+    :param description: export name append str
+    :param cdl_mask:
+    :param min_years:
+    :return:
+    """
     sum_mask = None
     image_list = list_assets('users/dgketchum/classy')
     fc = ee.FeatureCollection(tables)
@@ -160,7 +174,11 @@ def reduce_regions(tables, years=None, description=None, cdl_mask=False, min_yea
 
 
 def attribute_irrigation():
-
+    """
+    Extracts fraction of vector classified as irrigated. Been using this to attribute irrigation to
+    field polygon coverages.
+    :return:
+    """
     fc = ee.FeatureCollection(IRRIGATION_TABLE)
     for state in TARGET_STATES:
         for yr in range(1986, 2017):
@@ -183,6 +201,15 @@ def attribute_irrigation():
 
 
 def export_classification(out_name, asset, export='asset'):
+
+    """
+    Trains a Random Forest classifier using a training table input, creates a stack of raster images of the same
+    features, and classifies it.  I run this over a for-loop iterating state by state.
+    :param out_name:
+    :param asset:
+    :param export:
+    :return:
+    """
     fc = ee.FeatureCollection(TABLE_V2)
     roi = ee.FeatureCollection(asset)
     mask = roi.geometry().bounds().getInfo()['coordinates']
@@ -229,6 +256,11 @@ def export_classification(out_name, asset, export='asset'):
 
 
 def filter_irrigated():
+    """
+    Takes a field polygon vector and filters it based on NDVI rules. At present, the function keeps features
+    where the lower 15 percentile reach NDVI greater than 0.5 in either early or late summer.
+    :return:
+    """
     for k, v in IRR.items():
         plots = ee.FeatureCollection(v[0])
 
@@ -274,7 +306,16 @@ def filter_irrigated():
 
 
 def request_validation_extract(file_prefix='validation'):
-
+    """
+    This takes a sample points set and extracts the classification result.  This is a roundabout cross-validation.
+    Rather than using holdouts in the Random Forest classifier, we just run all the training data to train the
+    classifier, and come back later with this function and a seperate set of points (with known classes) to
+    independently test classifier accuracy.
+    Other options to achieve this is to use out-of-bag cross validation, or set up a sckikit-learn RF classifier and
+    use k-folds cross validation.
+    :param file_prefix:
+    :return:
+    """
     roi = ee.FeatureCollection(ROI)
     plots = ee.FeatureCollection(VALIDATION_POINTS).filterBounds(roi)
     image_list = list_assets('users/dgketchum/classy')
@@ -308,6 +349,13 @@ def request_validation_extract(file_prefix='validation'):
 
 
 def request_band_extract(file_prefix, filter_bounds=False):
+    """
+    Extract raster values from a points kml file in Fusion Tables. Send annual extracts .csv to GCS wudr bucket.
+    Concatenate them using map.tables.concatenate_band_extract().
+    :param file_prefix:
+    :param filter_bounds: Restrict extract to within a geographic extent.
+    :return:
+    """
     roi = ee.FeatureCollection(ROI)
     plots = ee.FeatureCollection(POINTS)
     for yr in TEST_YEARS:
@@ -342,7 +390,7 @@ def request_band_extract(file_prefix, filter_bounds=False):
 
 
 def get_ndvi_series(years, roi):
-
+    """ Stack NDVI bands """
     ndvi_l5, ndvi_l7, ndvi_l8 = ndvi5(), ndvi7(), ndvi8()
     ndvi = ee.ImageCollection(ndvi_l5.merge(ndvi_l7).merge(ndvi_l8)).filterBounds(roi)
 
@@ -363,6 +411,7 @@ def get_ndvi_series(years, roi):
 
 
 def add_doy(image):
+    """ Add day-of-year image """
     mask = ee.Date(image.get('system:time_start'))
     day = ee.Image.constant(image.date().getRelative('day', 'year')).clip(image.geometry())
     i = image.addBands(day.rename('DOY')).int().updateMask(mask)
@@ -370,7 +419,12 @@ def add_doy(image):
 
 
 def stack_bands(yr, roi):
-
+    """
+    Create a stack of bands for the year and region of interest specified.
+    :param yr:
+    :param roi:
+    :return:
+    """
     start = '{}-01-01'.format(yr)
     end_date = '{}-01-01'.format(yr + 1)
     water_year_start = '{}-10-01'.format(yr - 1)
