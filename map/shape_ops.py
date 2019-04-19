@@ -60,6 +60,7 @@ def fiona_merge(out_shp, file_list):
 
 
 def fiona_merge_attribute(out_shp, file_list):
+    """ Use to merge and keep the year attribute """
     years = []
     meta = fiona.open(file_list[0]).meta
     meta['schema'] = {'type': 'Feature', 'properties': OrderedDict(
