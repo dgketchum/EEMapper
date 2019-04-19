@@ -46,6 +46,7 @@ VALIDATION_POINTS = 'ft:1F6qGFzg1M1WRPIJ8rnNsQLCk932pGpqL2-MRcOYd'
 TABLE = 'ft:1wLrSEoQie6u7wTPl1bJ7rLEq20OLvQncecM3_HeH'
 TABLE_V2 = 'ft:1UYtOA4d8_WFy_wq2ahyfdokuC1q9BMPLoaa1H94Z'
 
+# this dict is where we keep Fusion Table IDs from kml files waiting to be filtered
 IRR = {
     # 'Acequias': ('ft:1j_Z6exiBQy5NlVLZUe25AsFp-jSfCHn_HAWGT06D', [1987, 2001, 2004, 2007, 2016], 0.5),
     # 'AZ': ('ft:1ZwRYaGmMc7oJuDTrKbrZm3oL7yBYdeKjEa05n5oX', [2001, 2003, 2004, 2007, 2016], 0.5),
@@ -67,18 +68,7 @@ IRR = {
     # 'WY': ('ft:1nB1Tg_CcmuhXtbnCE3wKVan0ERqV0jann4P2rvDh', [1998, 2003, 2006, 2013, 2016], 0.5),
 }
 
-ID_IRR = {
-
-    'ID_1986': ('ft:1rAO90xDcSyR1GTKjAN4Z12vf2mVy8iKRr7vorhLr', [1986], 0.5),
-    'ID_1996': ('ft:1Injcz-Q3HgQ_gip9ZEMqUAmihqbjTOEYHThuoGmL', [1996], 0.5),
-    'ID_2002': ('ft:14pePO5Wr7Hcbz_VHuUYd_f5ReblXtvUFS3BrCpI2', [2002], 0.5),
-    'ID_2006': ('ft:1NM9NsQJfdNAEwmZXyo5o78ha4PhgsErWzfttfZM1', [2006], 0.5),
-    'ID_2008': ('ft:1VK5sWEgD35fz4pNNbg9sy6nlBD_lIl_t-ELyWbC9', [2008], 0.5),
-    'ID_2009': ('ft:1RtW_lu3hFcpzZ_UUT_xPUsHarAZoenV4AibeFeBz', [2009], 0.5),
-    'ID_2010': ('ft:1BSxEsy_oDUnWsWsQYJFRPaEvKsF-H_bDNE_gpBS7', [2010], 0.5),
-    'ID_2011': ('ft:1NxN6aOViiJBklaUEEeGJJo6Kpy-QB10f_yGWOUyC', [2011], 0.5),
-}
-
+# list of years we have verified irrigated fields
 YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997,
          1998, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
          2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016]
@@ -88,6 +78,18 @@ ALL_YEARS = [x for x in range(1986, 2017)]
 
 
 def reduce_regions(tables, years=None, description=None, cdl_mask=False, min_years=0):
+    """
+    Reduce Regions, i.e. zonal stats: takes a statistic from a raster within the bounds of a vector.
+    Use this to get e.g. irrigated area within a county, HUC, or state. This can mask based on Crop Data Layer,
+    and can mask data where the sum of irrigated years is less than min_years. This will output a .csv to
+    GCS wudr bucket.
+    :param tables: vector data over which to take raster statistics
+    :param years: years over which to run the stats
+    :param description: export name append str
+    :param cdl_mask:
+    :param min_years:
+    :return:
+    """
     sum_mask = None
     image_list = list_assets('users/dgketchum/classy')
     fc = ee.FeatureCollection(tables)
@@ -150,7 +152,11 @@ def reduce_regions(tables, years=None, description=None, cdl_mask=False, min_yea
 
 
 def attribute_irrigation():
-
+    """
+    Extracts fraction of vector classified as irrigated. Been using this to attribute irrigation to
+    field polygon coverages.
+    :return:
+    """
     fc = ee.FeatureCollection(IRRIGATION_TABLE)
     for state in TARGET_STATES:
         for yr in range(1986, 2017):
@@ -173,6 +179,15 @@ def attribute_irrigation():
 
 
 def export_classification(out_name, asset, export='asset'):
+
+    """
+    Trains a Random Forest classifier using a training table input, creates a stack of raster images of the same
+    features, and classifies it.  I run this over a for-loop iterating state by state.
+    :param out_name:
+    :param asset:
+    :param export:
+    :return:
+    """
     fc = ee.FeatureCollection(TABLE_V2)
     roi = ee.FeatureCollection(asset)
     mask = roi.geometry().bounds().getInfo()['coordinates']
@@ -219,6 +234,11 @@ def export_classification(out_name, asset, export='asset'):
 
 
 def filter_irrigated():
+    """
+    Takes a field polygon vector and filters it based on NDVI rules. At present, the function keeps features
+    where the lower 15 percentile reach NDVI greater than 0.5 in either early or late summer.
+    :return:
+    """
     for k, v in IRR.items():
         plots = ee.FeatureCollection(v[0])
 
@@ -264,7 +284,16 @@ def filter_irrigated():
 
 
 def request_validation_extract(file_prefix='validation'):
-
+    """
+    This takes a sample points set and extracts the classification result.  This is a roundabout cross-validation.
+    Rather than using holdouts in the Random Forest classifier, we just run all the training data to train the
+    classifier, and come back later with this function and a seperate set of points (with known classes) to
+    independently test classifier accuracy.
+    Other options to achieve this is to use out-of-bag cross validation, or set up a sckikit-learn RF classifier and
+    use k-folds cross validation.
+    :param file_prefix:
+    :return:
+    """
     roi = ee.FeatureCollection(ROI)
     plots = ee.FeatureCollection(VALIDATION_POINTS).filterBounds(roi)
     image_list = list_assets('users/dgketchum/classy')
@@ -298,6 +327,13 @@ def request_validation_extract(file_prefix='validation'):
 
 
 def request_band_extract(file_prefix, filter_bounds=False):
+    """
+    Extract raster values from a points kml file in Fusion Tables. Send annual extracts .csv to GCS wudr bucket.
+    Concatenate them using map.tables.concatenate_band_extract().
+    :param file_prefix:
+    :param filter_bounds: Restrict extract to within a geographic extent.
+    :return:
+    """
     roi = ee.FeatureCollection(ROI)
     plots = ee.FeatureCollection(POINTS)
     for yr in TEST_YEARS:
@@ -332,7 +368,7 @@ def request_band_extract(file_prefix, filter_bounds=False):
 
 
 def get_ndvi_series(years, roi):
-
+    """ Stack NDVI bands """
     ndvi_l5, ndvi_l7, ndvi_l8 = ndvi5(), ndvi7(), ndvi8()
     ndvi = ee.ImageCollection(ndvi_l5.merge(ndvi_l7).merge(ndvi_l8)).filterBounds(roi)
 
@@ -353,6 +389,7 @@ def get_ndvi_series(years, roi):
 
 
 def add_doy(image):
+    """ Add day-of-year image """
     mask = ee.Date(image.get('system:time_start'))
     day = ee.Image.constant(image.date().getRelative('day', 'year')).clip(image.geometry())
     i = image.addBands(day.rename('DOY')).int().updateMask(mask)
@@ -360,7 +397,12 @@ def add_doy(image):
 
 
 def stack_bands(yr, roi):
-
+    """
+    Create a stack of bands for the year and region of interest specified.
+    :param yr:
+    :param roi:
+    :return:
+    """
     start = '{}-01-01'.format(yr)
     end_date = '{}-01-01'.format(yr + 1)
     water_year_start = '{}-10-01'.format(yr - 1)
