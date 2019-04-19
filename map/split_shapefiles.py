@@ -216,21 +216,22 @@ def reduce_shapefiles(root, outdir, n, shapefiles):
                     dst.write(feat)
 
 
-def batch_reproject_vector(ogr_path, in_dir, out_dir, name_append, t_srs, s_srs):
+def batch_reproject_vector(ogr_path, in_dir, out_dir, name_append, t_srs):
     l = [os.path.join(in_dir, x) for x in os.listdir(in_dir) if x.endswith('.shp')]
     for s in l:
         name_in = os.path.basename(s)
         name_out = name_in.replace('.shp', '_{}.shp'.format(name_append))
         out_shp = os.path.join(out_dir, name_out)
-        cmd = ['{}'.format(ogr_path), '{}'.format(out_shp), '{}'.format(s),
-               '-t_srs', 'EPSG:{}'.format(t_srs), '-s_srs', 'EPSG:{}'.format(s_srs)]
-        check_call(cmd)
+        if not os.path.isfile(out_shp):
+            cmd = ['{}'.format(ogr_path), '{}'.format(out_shp), '{}'.format(s),
+                   '-t_srs', 'EPSG:{}'.format(t_srs)]
+            check_call(cmd)
 
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    shp = os.path.join(home, 'IrrigationGIS', 'Montana', 'OE_Shapefiles_WGS', 'OE_Sites.shp')
-    out = os.path.join(home, 'IrrigationGIS', 'training_raw', 'fallow', 'MT')
-    extract_fallow_montana(shp, out)
-
+    in_ = os.path.join(home, 'IrrigationGIS', 'clu', 'crop_vector')
+    out_ = os.path.join(home, 'IrrigationGIS', 'clu', 'crop_vector_wgs')
+    ogr = os.path.join(home, 'miniconda2', 'envs', 'irri', 'bin', 'ogr2ogr')
+    batch_reproject_vector(ogr, in_, out_, 'wgs', t_srs=4326)
 # ========================= EOF ====================================================================

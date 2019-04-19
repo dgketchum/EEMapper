@@ -24,7 +24,7 @@ import os
 from datetime import datetime
 
 import ee
-# from pprint import pprint
+from pprint import pprint
 from map.assets import list_assets
 
 ROI = 'users/dgketchum/boundaries/western_states_expanded_union'
@@ -53,12 +53,17 @@ IRR = {
     # 'CO_DIV1': ('ft:1wRNUsKChMUb9rUWDbxOeGeTaNWNZUA0YHXSLXPv2', [1998, 2003, 2006, 2013, 2016], 0.5),
     # 'CO_SanLuis': ('ft:1mcBXyFw1PoVOoAGibDpZjCgb001jA_Mj_hyd-h92', [1998, 2003, 2006, 2013, 2016], 0.5),
     # 'CA': ('ft:1oadWhheDKaonOPhIJ9lJVCwnOt5g0G644p3FC9oy', [2014], 0.5),
+    # 'CO_SanLuis_test': ('ft:1mcBXyFw1PoVOoAGibDpZjCgb001jA_Mj_hyd-h92', [2016], 0.5),
+    # 'CA_v2': ('ft:1LRHed3EWaa1UNKTU1e3jIHqwldMP-MGN6_xB_YjK', [2014], 0.5),
+    'CA_Sonoma': ('ft:10Faop_14Dthnpa-qAHSScpjv5SkEZJ6RnVfVDy-L', [1998, 2000, 2007, 2014, 2016], 0.5),
     # 'EastStates': ('ft:1AZUak3iuAtah1SHpkLfw0IRk_U5ei23VsPzBWxpD', [1987, 2001, 2004, 2007, 2016], 0.5),
     # 'OK': ('ft:1EjuYeilOTU3el9GsYZZXCi6sNC7z_jJ6mGa2wHIe', [2006, 2007, 2011, 2013, 2015], 0.5),
     # 'NE': ('ft:1789J-j1dq8_Ez6wfObJxGSJaxRkuJsZMFLeeiwPo', [2003, 2006, 2009, 2013, 2016], 0.5),
     # 'ID': ('ft:1jDB3C181w1PGVamr64-ewpJVDQkzJc4Bvd1IPAFg', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
+    # 'ID_Bonner': ('ft:1kkaQomLStq-zf8Dpg2eTIrRdn_2Aw5g6lagZrdiK', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
     # 'NM_SanJuan': ('ft:1_-haRl7-ppkBYWBN-cPzItftKQC7yWI7sfgoVx1R', [1987, 2001, 2004, 2007, 2016], 0.5),
     # 'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2001, 2011)], 0.5),
+    # 'MT_Turner': ('ft:1PpvhFdLDG4oCh7OsVcjJX6vg8FNB0FWUIFqRKYxO', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
     'MT': ('ft:1wfJrtnDjBZqSzWq41veY_VrWROQ0kI-5NCko6xF3', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
     # 'OR': ('ft:1FJMi4VXUe4BrhU6u0OF2l0uFU_rGUe3rFrSSSBVD', [1994, 1997, 2011], 0.5),
     # 'NW_OR': ('ft:1kXr3oMe9Ybsd3N7tyBBDCTweAxb4c8GBz6B8_ELm', [1994, 1996, 1997, 2001, 2011, 2013], 0.5),

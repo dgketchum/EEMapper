@@ -149,17 +149,20 @@ def state_sum(csv):
                                               'NASS_2007_ac', 'IM2012_ac', 'NASS_2012_ac']].sum()
     fig, ax = plt.subplots(1, 1)
     s = Series(index=df.index)
-    s.loc[0], s.loc[df.shape[0]] = 0, 1e6
+    s.loc[0], s.loc[df.shape[0]] = 0, 1e8
     s.interpolate(axis=0, inplace=True)
     s.index = s.values
     s.plot(x=s.values, ax=ax, kind='line', loglog=True)
-    df.plot(x='NASS_2002_ac', y='IM2002_ac', kind='scatter',
-            xlim=(1e5, 1e8), ylim=(1e5, 1e8), ax=ax, loglog=True, color='b')
-    df.plot(x='NASS_2007_ac', y='IM2007_ac', kind='scatter',
-            xlim=(1e5, 1e8), ylim=(1e5, 1e8), ax=ax, loglog=True, color='r')
+    # df.plot(x='NASS_2002_ac', y='IM2002_ac', kind='scatter',
+    #         xlim=(1e5, 1e8), ylim=(1e5, 1e8), ax=ax, loglog=True, color='b')
+    # df.plot(x='NASS_2007_ac', y='IM2007_ac', kind='scatter',
+    #         xlim=(1e5, 1e8), ylim=(1e5, 1e8), ax=ax, loglog=True, color='r')
     df.plot(x='NASS_2012_ac', y='IM2012_ac', kind='scatter',
             xlim=(1e5, 1e8), ylim=(1e5, 1e8), ax=ax, loglog=True, color='k')
+    plt.xlabel('NASS FRIS Total Irrigated Acres, 2012')
+    plt.ylabel('IrrMapper Total Irrigated Acres, 2012')
     plt.show()
+    plt.savefig('figs/state_sum_2012.png')
 
 
 def compare_nass_irrmapper(csv):
@@ -176,7 +179,10 @@ def compare_nass_irrmapper(csv):
     #         xlim=(1e2, 1e6), ylim=(1e2, 1e6), ax=ax, loglog=True, color='r')
     df.plot(x='NASS_2012_ac', y='IM2012_ac', kind='scatter',
             xlim=(1e2, 1e6), ylim=(1e2, 1e6), ax=ax, loglog=True, color='k')
+    plt.xlabel('NASS FRIS Total Irrigated Acres, 2012')
+    plt.ylabel('IrrMapper Total Irrigated Acres, 2012')
     plt.show()
+    plt.savefig('figs/county_comparison_2012.png')
 
 
 if __name__ == '__main__':
@@ -193,7 +199,7 @@ if __name__ == '__main__':
     nass = os.path.join(nass_tables, 'nass_merged.csv')
     o = os.path.join(nass_tables, 'nass_irrMap_30MAR.csv')
     # merge_nass_irrmapper(nass, irr, o)
-    # compare_nass_irrmapper(o)
+    compare_nass_irrmapper(o)
     state_sum(o)
 
 # ========================= EOF ====================================================================
