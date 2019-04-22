@@ -201,7 +201,7 @@ def compile_shapes(in_shapes, out_shape):
 
                 try:
                     poly = Polygon(feat['geometry']['coordinates'][0])
-                except ValueError:
+                except:
                     add_err_count += 1
                     err = True
                     break
@@ -439,9 +439,15 @@ def crop_map():
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     for s in CLU_USEFUL:
-        clu = os.path.join(home, 'IrrigationGIS', 'clu', 'crop_vector_wgs', '{}_cropped_wgs.shp'.format(s))
-        state_source = os.path.join(home, 'IrrigationGIS', 'openET', '{}'.format(s.upper()), '{}.shp'.format(s))
-        out_ = os.path.join(home, 'IrrigationGIS', 'openET', '{}'.format(s.upper()), '{}_addCLU.shp'.format(s))
-        if not os.path.isfile(out_):
+        clu = os.path.join(home, 'IrrigationGIS', 'openET', 'test', '{}_cropped_wgs.shp'.format(s))
+
+        state_source = os.path.join(home, 'IrrigationGIS', 'openET', 'test',
+                                    '{}'.format(s.upper()), '{}.shp'.format(s))
+
+        out_ = os.path.join(home, 'IrrigationGIS', 'openET', 'test',
+                            '{}'.format(s.upper()), '{}_addCLU.shp'.format(s))
+
+        if os.path.isfile(state_source):
             compile_shapes([state_source, clu], out_)
+
 # ========================= EOF ====================================================================
