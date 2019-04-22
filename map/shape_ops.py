@@ -187,8 +187,13 @@ def compile_shapes(in_shapes, out_shape):
                     base_geo = Polygon(f['geometry']['coordinates'][0])
                     out_geometries.append(base_geo)
                     out_features.append(f)
-                except:
-                    err_count += 1
+                except Exception as e:
+                    try:
+                        base_geo = Polygon(f['geometry']['coordinates'][0])
+                        out_geometries.append(base_geo)
+                        out_features.append(f)
+                    except Exception as e:
+                        err_count += 1
             print('base geometry errors: {}'.format(err_count))
             first = False
 
@@ -201,10 +206,13 @@ def compile_shapes(in_shapes, out_shape):
 
                 try:
                     poly = Polygon(feat['geometry']['coordinates'][0])
-                except:
-                    add_err_count += 1
-                    err = True
-                    break
+                except Exception as e:
+                    try:
+                        poly = Polygon(feat['geometry']['coordinates'][0][0])
+                    except Exception as e:
+                        add_err_count += 1
+                        err = True
+                        break
 
                 for _, out_geo in enumerate(out_geometries):
                     if poly.intersects(out_geo):
@@ -439,14 +447,9 @@ def crop_map():
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     for s in CLU_USEFUL:
-        clu = os.path.join(home, 'IrrigationGIS', 'openET', 'test', '{}_cropped_wgs.shp'.format(s))
-
-        state_source = os.path.join(home, 'IrrigationGIS', 'openET', 'test',
-                                    '{}'.format(s.upper()), '{}.shp'.format(s))
-
-        out_ = os.path.join(home, 'IrrigationGIS', 'openET', 'test',
-                            '{}'.format(s.upper()), '{}_addCLU.shp'.format(s))
-
+        clu = os.path.join(home, 'IrrigationGIS', 'clu', 'crop_vector_wgs', '{}_cropped_wgs.shp'.format(s))
+        state_source = os.path.join(home, 'IrrigationGIS', 'openET', '{}'.format(s.upper()), '{}.shp'.format(s))
+        out_ = os.path.join(home, 'IrrigationGIS', 'openET', 'test', '{}_addCLU.shp'.format(s))
         if os.path.isfile(state_source):
             compile_shapes([state_source, clu], out_)
 
