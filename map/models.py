@@ -23,7 +23,8 @@ from time import time
 import tensorflow as tf
 from numpy import unique, dot, mean, flatnonzero
 from numpy.random import randint
-from pandas import get_dummies, read_csv
+from pandas import read_csv, concat, errors, get_dummies
+
 from scipy.stats import randint as sp_randint
 from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestClassifier
@@ -134,6 +135,35 @@ def pca(csv):
     for eigenvalue, eigenvector in zip(eigenvalues, pca.components_):
         print(dot(eigenvector.T, dot(cov_matrix, eigenvector)))
         print(eigenvalue)
+
+
+def random_forest(csv):
+    df = read_csv(csv, engine='python')
+    labels = df['POINT_TYPE'].values
+    df.drop(columns=['YEAR', 'POINT_TYPE'], inplace=True)
+    df.dropna(axis=1, inplace=True)
+    data = df.values
+    names = df.columns
+    labels = labels.reshape((labels.shape[0],))
+
+    x, x_test, y, y_test = train_test_split(data, labels, test_size=0.33,
+                                            random_state=None)
+
+    rf = RandomForestClassifier(n_estimators=100,
+                                n_jobs=-1,
+                                bootstrap=False)
+
+    rf.fit(x, y)
+    _list = [(f, v) for f, v in zip(names, rf.feature_importances_)]
+    important = sorted(_list, key=lambda x: x[1], reverse=True)
+    pprint(rf.score(x_test, y_test))
+    y_pred = rf.predict(x_test)
+    cf = confusion_matrix(y_test, y_pred)
+    pprint(cf)
+    producer(cf)
+    consumer(cf)
+
+    return important
 
 
 def find_rf_variable_importance(csv):
@@ -282,13 +312,24 @@ def random_hyperparameter_search(csv):
     report(grid_search.cv_results_)
 
 
+def get_confusion_matrix(_dir):
+    df = read_csv(csv, engine='python')
+    y_true, y_pred = df['POINT_TYPE'].values, df['classification'].values
+    cf = confusion_matrix(y_true, y_pred)
+    pprint(cf)
+    producer(cf)
+    consumer(cf)
+
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    csv_loaction = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated')
-    csv = os.path.join(csv_loaction, 'bands_11DEC.csv')
-    random_forest_k_fold(csv)
-    csv = os.path.join(csv_loaction, 'bands_26MAR.csv')
+    csv_loaction = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'validation_tables')
+    csv = os.path.join(csv_loaction, 'validation_19APR.csv')
+    get_confusion_matrix(csv)
+    # csv = os.path.join(csv_loaction, 'bands_11DEC.csv')
+    # random_forest_k_fold(csv)
+    # csv = os.path.join(csv_loaction, 'bands_26MAR.csv')
     # find_rf_variable_importance(csv)
-    random_forest_k_fold(csv)
+    # random_forest_k_fold(csv)
     # mlp(csv)
 # ========================= EOF ====================================================================
