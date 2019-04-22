@@ -183,7 +183,7 @@ class PointsRunspec(object):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    gis = os.path.join(home, 'IrrigationGIS', 'EE_sample')
+    data = os.path.join(home, 'IrrigationGIS', 'EE_sample')
     extract = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'point_shp')
 
     kwargs = {
@@ -193,7 +193,7 @@ if __name__ == '__main__':
         'unirrigated': 20000,
     }
 
-    prs = PointsRunspec(gis, **kwargs, buffer=-20)
+    prs = PointsRunspec(data, buffer=-20, **kwargs)
     prs.save_sample_points(os.path.join(extract, 'points_4APR.shp'.format()))
 
 # ========================= EOF ====================================================================
