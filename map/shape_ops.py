@@ -196,8 +196,8 @@ def compile_shapes(in_shapes, out_shape):
                         err_count += 1
             print('base geometry errors: {}'.format(err_count))
             first = False
-
         else:
+            # for the following shapefiles:
             f_count = 0
             add_err_count = 0
             for feat in fiona.open(_file):
@@ -213,12 +213,10 @@ def compile_shapes(in_shapes, out_shape):
                         add_err_count += 1
                         err = True
                         break
-
                 for _, out_geo in enumerate(out_geometries):
                     if poly.intersects(out_geo):
                         inter = True
                         break
-
                 if not inter and not err:
                     out_features.append(feat)
 
@@ -227,7 +225,6 @@ def compile_shapes(in_shapes, out_shape):
                         pass
                     else:
                         print(f_count, '{} base features'.format(len(out_features)))
-
             print('added geometry errors: {}'.format(err_count))
 
     with fiona.open(out_shape, 'w', **meta) as output:
@@ -449,7 +446,7 @@ if __name__ == '__main__':
     for s in CLU_USEFUL:
         clu = os.path.join(home, 'IrrigationGIS', 'clu', 'crop_vector_wgs', '{}_cropped_wgs.shp'.format(s))
         state_source = os.path.join(home, 'IrrigationGIS', 'openET', '{}'.format(s.upper()), '{}.shp'.format(s))
-        out_ = os.path.join(home, 'IrrigationGIS', 'openET', 'test', '{}_addCLU.shp'.format(s))
+        out_ = os.path.join(home, 'IrrigationGIS', 'openET', 'alt', '{}_addCLU.shp'.format(s))
         if os.path.isfile(state_source):
             compile_shapes([state_source, clu], out_)
 
