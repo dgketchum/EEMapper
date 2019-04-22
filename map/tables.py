@@ -24,9 +24,6 @@ from pandas import read_csv, concat, errors, Series, DataFrame
 from pandas import to_datetime
 from pandas.io.json import json_normalize
 from shapely.geometry import Polygon
-from sklearn.metrics import confusion_matrix
-
-from map.models import producer, consumer
 
 INT_COLS = ['POINT_TYPE', 'YEAR']
 
@@ -316,8 +313,8 @@ def count_landsat_scenes(index, shp):
         print('{} l8, {} l7, {} l5'.format(l8, l7, l5))
 
 
-def get_confusion(_dir):
-    _list = [os.path.join(_dir, x) for x in os.listdir(_dir)]
+def concatenate_validation(_dir, out_file, glob=None):
+    _list = [os.path.join(_dir, x) for x in os.listdir(_dir) if glob in x]
     _list.sort()
     first = True
     for csv in _list:
@@ -333,42 +330,14 @@ def get_confusion(_dir):
             pass
 
     df.drop(columns=['system:index', '.geo'], inplace=True)
-
-    y_true, y_pred = df['POINT_TYPE'].values, df['classification'].values
-    cf = confusion_matrix(y_true, y_pred)
-    print(cf)
-    consumer(cf)
-    producer(cf)
+    df.to_csv(out_file)
 
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    huc_lev = 8
-    # attrs = os.path.join(home, 'IrrigationGIS', 'attr_irr')
-    # or_csv = os.path.join(attrs, 'csv', 'harney')
-    # out = os.path.join(attrs, 'shp', 'Harney_IrrAttrs.shp')
-    # concatenate_irrigation_attrs(or_csv, out)
 
-    # val = os.path.join(home, 'IrrigationGIS', 'validation_tables')
-    # get_confusion(val)
+    d = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'validation_to_concatenate')
+    out = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'validation_tables', 'validation_19APR.csv')
 
-    extracts = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_huc{}'.format(huc_lev))
-    tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'tables')
-    shapes = os.path.join(home, 'IrrigationGIS', 'time_series', 'shapefiles')
-
-    out_table = os.path.join(tables, 'concatenated_huc{}.csv'.format(huc_lev))
-    out_shape = os.path.join(shapes, 'time_series_15MAR19.shp')
-    template = os.path.join(home, 'IrrigationGIS', 'hydrography', 'huc{}_semiarid_clip.shp'.format(huc_lev))
-    #
-    # concatenate_attrs(extracts, out_table, out_shape, template_geometry=template)
-    # in_shape = os.path.join(shapes, 'time_series_15MAR19.shp')
-    # out_shp = in_shape.replace('time_series_', 'add_stats_')
-    # add_stats_to_shapefile(in_shape, out_shp)
-    tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county', 'using_lt')
-    concatenate_county_data(tables, glob='counties_')
-
-    # d = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'to_concatenate')
-    # r = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated')
-
-    # concatenate_band_extract(d, r, glob='bands_26MAR_')
+    concatenate_validation(d, out, glob='validation')
 # ========================= EOF ====================================================================
