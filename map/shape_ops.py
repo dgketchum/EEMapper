@@ -19,10 +19,10 @@ from collections import OrderedDict
 import fiona
 from rasterstats import zonal_stats
 from shapely.geometry import Polygon
-
+from pandas import DataFrame
 
 CLU_UNNEEDED = ['ca', 'nv', 'ut', 'wa']
-CLU_USEFUL = ['az', 'co', 'id', 'mt', 'nm', 'or']
+CLU_USEFUL = ['id', 'mt', 'nm', 'or']  # ['az', 'co',
 CLU_ONLY = ['ks', 'nd', 'ne', 'ok', 'sd', 'tx']
 
 
@@ -150,6 +150,20 @@ def get_area(shp):
                 raise TypeError
         print(area)
         print(area * 247.105)
+
+
+def wa_county_acreage(in_shp, out_table):
+    counties = {}
+    with fiona.open(in_shp, 'r') as src:
+        for feat in src:
+            co = feat['properties']['County']
+            if co not in counties.keys():
+                counties[co] = feat['properties']['ExactAcres']
+            else:
+                counties[co] += feat['properties']['ExactAcres']
+
+    df = DataFrame(counties)
+    df.to_csv(out_table)
 
 
 def clean_geometry(in_shp, out_shp):
@@ -443,11 +457,18 @@ def crop_map():
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    for s in CLU_USEFUL:
-        clu = os.path.join(home, 'IrrigationGIS', 'clu', 'crop_vector_wgs', '{}_cropped_wgs.shp'.format(s))
-        state_source = os.path.join(home, 'IrrigationGIS', 'openET', '{}'.format(s.upper()), '{}.shp'.format(s))
-        out_ = os.path.join(home, 'IrrigationGIS', 'openET', 'alt', '{}_addCLU.shp'.format(s))
-        if os.path.isfile(state_source):
-            compile_shapes([state_source, clu], out_)
+    # for s in CLU_USEFUL:
+    #     clu = os.path.join(home, 'IrrigationGIS', 'clu', 'crop_vector_wgs', '{}_cropped_wgs.shp'.format(s))
+    #     state_source = os.path.join(home, 'IrrigationGIS', 'openET', '{}'.format(s.upper()), '{}.shp'.format(s))
+    #     out_ = os.path.join(home, 'IrrigationGIS', 'openET', 'alt', '{}_addCLU.shp'.format(s))
+    #     if os.path.isfile(state_source):
+    #         compile_shapes([state_source, clu], out_)
 
+    # _dir = os.path.join(home, 'IrrigationGIS', 'training_data', 'uncultivated', 'to_merge')
+    # _list = [os.path.join(_dir, x) for x in os.listdir(_dir) if x.endswith('.shp')]
+    # fiona_merge_no_attribute(os.path.join(_dir, 'test.shp'), _list)
+
+    shp = os.path.join(home, 'IrrigationGIS', 'training_data', 'irrigated', 'grouped_v2.shp')
+    out = os.path.join(home, 'IrrigationGIS', 'training_data', 'irrigated', 'grouped_v2_clean.shp')
+    clean_geometry(shp, out)
 # ========================= EOF ====================================================================
