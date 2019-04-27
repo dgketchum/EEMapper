@@ -112,9 +112,9 @@ def merge_nass_irrmapper(nass, irrmapper, out_name):
     for i, r in idf.iterrows():
         for j, e in ndf.iterrows():
             if r['STATEFP'] == e['STATE_FIPS_CODE'] and r['COUNTYFP'] == int(e['COUNTY_ANSI']):
-                irr_area = (r['cdlMinMask_2002'] / 4046.86,
-                            r['cdlMinMask_2007'] / 4046.86,
-                            r['cdlMinMask_2012'] / 4046.86)
+                irr_area = (r['NoMask_2002'] / 4046.86,
+                            r['NoMask_2007'] / 4046.86,
+                            r['NoMask_2012'] / 4046.86)
 
                 nass_area = (e['VALUE_2002'], e['VALUE_2007'], e['VALUE_2012'])
 
@@ -177,12 +177,12 @@ def compare_nass_irrmapper(csv):
     #         xlim=(1e2, 1e6), ylim=(1e2, 1e6), ax=ax, loglog=True, color='b')
     # df.plot(x='NASS_2007_ac', y='IM2007_ac', kind='scatter',
     #         xlim=(1e2, 1e6), ylim=(1e2, 1e6), ax=ax, loglog=True, color='r')
-    df.plot(x='NASS_2012_ac', y='IM2012_ac', kind='scatter',
+    df.plot(x='NASS_2007_ac', y='IM2007_ac', kind='scatter',
             xlim=(1e2, 1e6), ylim=(1e2, 1e6), ax=ax, loglog=True, color='k')
-    plt.xlabel('NASS FRIS Total Irrigated Acres, 2012')
-    plt.ylabel('IrrMapper Total Irrigated Acres, 2012')
-    plt.show()
-    plt.savefig('figs/county_comparison_2012.png')
+    plt.xlabel('NASS FRIS Total Irrigated Acres, 2007')
+    plt.ylabel('IrrMapper Total Irrigated Acres, 2007')
+    # plt.show()
+    plt.savefig('figs/county_comparison_2007.png')
 
 
 if __name__ == '__main__':
@@ -197,9 +197,9 @@ if __name__ == '__main__':
 
     irr = os.path.join(irr_tables, 'irr_merged.csv')
     nass = os.path.join(nass_tables, 'nass_merged.csv')
-    o = os.path.join(nass_tables, 'nass_irrMap_30MAR.csv')
+    o = os.path.join(nass_tables, 'nass_irrMap_noMask.csv')
     # merge_nass_irrmapper(nass, irr, o)
     compare_nass_irrmapper(o)
-    state_sum(o)
+    # state_sum(o)
 
 # ========================= EOF ====================================================================
