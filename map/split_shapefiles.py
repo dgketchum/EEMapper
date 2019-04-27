@@ -193,8 +193,8 @@ def split_wrri_lulc(in_dir, out_dir):
 def reduce_shapefiles(root, outdir, n, shapefiles):
     for s in shapefiles:
         shp = os.path.join(root, s)
-        dst_file = os.path.join(outdir, s.replace('Forest_Practices_Applications',
-                                                  'WA_Forest_WGS84_{}'.format(n)))
+        dst_file = os.path.join(outdir, s.replace('raw',
+                                                  'select_{}'.format(n)))
         if os.path.isfile(dst_file):
             print(dst_file, 'exists')
         else:
@@ -230,8 +230,13 @@ def batch_reproject_vector(ogr_path, in_dir, out_dir, name_append, t_srs):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    in_ = os.path.join(home, 'IrrigationGIS', 'clu', 'crop_vector')
-    out_ = os.path.join(home, 'IrrigationGIS', 'clu', 'crop_vector_wgs')
-    ogr = os.path.join(home, 'miniconda2', 'envs', 'irri', 'bin', 'ogr2ogr')
-    batch_reproject_vector(ogr, in_, out_, 'wgs', t_srs=4326)
+    # in_ = os.path.join(home, 'IrrigationGIS', 'clu', 'crop_vector')
+    # out_ = os.path.join(home, 'IrrigationGIS', 'clu', 'crop_vector_wgs')
+    # ogr = os.path.join(home, 'miniconda2', 'envs', 'irri', 'bin', 'ogr2ogr')
+    # batch_reproject_vector(ogr, in_, out_, 'wgs', t_srs=4326)
+    # /home/dgketchum/IrrigationGIS/training_data/irrigated/AZ/AZ_v2_raw.shp
+    shp = os.path.join(home, 'IrrigationGIS', 'training_data', 'irrigated', 'AZ', 'AZ_v2_raw.shp')
+    r = os.path.join(home, 'IrrigationGIS', 'training_data', 'irrigated', 'AZ')
+    reduce_shapefiles(r, r, 5000, [shp])
+
 # ========================= EOF ====================================================================
