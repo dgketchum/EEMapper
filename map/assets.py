@@ -25,6 +25,16 @@ home = os.path.expanduser('~')
 EXEC = os.path.join(home, 'miniconda2', 'envs', 'ee', 'bin', 'earthengine')
 
 
+def change_permissions(ee_asset, user=None):
+    reader = list_assets(ee_asset)
+    _list = [x for x in reader if x[-4:] in ['2016', '2017', '2018']]
+    for r in _list:
+        command = 'acl'
+        cmd = ['{}'.format(EXEC), '{}'.format(command), 'set', 'public', '{}'.format(r)]
+        print(cmd)
+        check_call(cmd)
+
+
 def delete_assets(ee_asset_path, years_=None):
     reader = None
 
@@ -72,7 +82,7 @@ def list_assets(location):
 
 
 if __name__ == '__main__':
-    loc = os.path.join('users', 'dgketchum', 'classy_v2')
-    delete_assets(loc)
+    loc = os.path.join('users', 'dgketchum', 'classy')
+    change_permissions(loc)
 
 # ========================= EOF ====================================================================
