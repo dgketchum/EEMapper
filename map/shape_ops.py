@@ -22,8 +22,8 @@ from shapely.geometry import Polygon
 from pandas import DataFrame
 
 CLU_UNNEEDED = ['ca', 'nv', 'ut', 'wa']
-CLU_USEFUL = ['id', 'mt', 'nm', 'or']  # ['az', 'co',
-CLU_ONLY = ['ks', 'nd', 'ne', 'ok', 'sd', 'tx']
+CLU_USEFUL = ['ne']  # ['az', 'co', 'id', 'mt', 'nm', 'or']
+CLU_ONLY = ['ks', 'nd', 'ok', 'sd', 'tx']
 
 
 def fiona_merge_MT(out_shp, file_list):
@@ -468,7 +468,13 @@ if __name__ == '__main__':
     # _list = [os.path.join(_dir, x) for x in os.listdir(_dir) if x.endswith('.shp')]
     # fiona_merge_no_attribute(os.path.join(_dir, 'test.shp'), _list)
 
-    shp = os.path.join(home, 'IrrigationGIS', 'training_data', 'irrigated', 'grouped_v2.shp')
-    out = os.path.join(home, 'IrrigationGIS', 'training_data', 'irrigated', 'grouped_v2_clean.shp')
-    clean_geometry(shp, out)
+    _dir = os.path.join(home, 'IrrigationGIS', 'training_data', 'irrigated', 'inspected')
+    _out_dir = os.path.join(home, 'IrrigationGIS', 'EE_sample')
+    _list = sorted([os.path.join(_dir, x) for x in os.listdir(_dir) if x.endswith('.shp')])
+    fiona_merge_attribute(os.path.join(_out_dir, 'irrigated_25JUN.shp'), _list)
+
+    # shp = os.path.join(home, 'IrrigationGIS', 'training_data', 'irrigated', 'grouped_v2.shp')
+    # out = os.path.join(home, 'IrrigationGIS', 'training_data', 'irrigated', 'grouped_v2_clean.shp')
+    # clean_geometry(shp, out)
+
 # ========================= EOF ====================================================================
