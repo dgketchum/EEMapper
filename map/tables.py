@@ -336,8 +336,12 @@ def concatenate_validation(_dir, out_file, glob=None):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
 
-    d = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'validation_to_concatenate')
-    out = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'validation_tables', 'validation_19APR.csv')
+    # d = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'validation_to_concatenate')
+    # out = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'validation_tables', 'validation_19APR.csv')
 
-    concatenate_validation(d, out, glob='validation')
+    d = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'to_concatenate')
+    out = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated')
+
+    concatenate_band_extract(root=d, out_dir=out, glob='bands_26JUN', sample=0.6)
+    # concatenate_validation(d, out, glob='validation')
 # ========================= EOF ====================================================================
