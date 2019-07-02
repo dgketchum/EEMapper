@@ -28,7 +28,7 @@ training = os.path.join(os.path.expanduser('~'), 'IrrigationGIS', 'EE_sample')
 
 WETLAND = os.path.join(training, 'wetlands_8NOV.shp')
 UNCULTIVATED = os.path.join(training, 'uncultivated_4APR.shp')
-IRRIGATED = os.path.join(training, 'irrigated_4APR.shp')
+IRRIGATED = os.path.join(training, 'irrigated_25JUN.shp')
 UNIRRIGATED = os.path.join(training, 'unirrigated_4APR.shp')
 FALLOW = os.path.join(training, 'fallow_11FEB.shp')
 
@@ -78,9 +78,9 @@ class PointsRunspec(object):
         print('irrigated: {}'.format(n))
         self.create_sample_points(n, self.irr_path, code=0, attribute='YEAR')
 
-    def fallowed(self, n):
-        print('fallow: {}'.format(n))
-        self.create_sample_points(n, self.fallow_path, code=4, attribute='YEAR')
+    # def fallowed(self, n):
+    #     print('fallow: {}'.format(n))
+    #     self.create_sample_points(n, self.fallow_path, code=4, attribute='YEAR')
 
     def create_sample_points(self, n, shp, code, attribute=None):
 
@@ -92,6 +92,7 @@ class PointsRunspec(object):
 
         positive_area = sum([x.area for x in polygons])
         print('area: {} in {} features'.format(positive_area / 1e6, len(polygons)))
+        bad_polygons = 0
         for i, poly in enumerate(polygons):
 
             if attribute:
@@ -114,16 +115,24 @@ class PointsRunspec(object):
 
             poly_pt_ct = 0
             for coord in zip(x_range, y_range):
-                if Point(coord[0], coord[1]).within(poly):
-                    self._add_entry(coord, val=code)
-                    poly_pt_ct += 1
-                    instance_ct += 1
+                try:
+                    if Point(coord[0], coord[1]).within(poly):
+                        self._add_entry(coord, val=code)
+                        poly_pt_ct += 1
+                        instance_ct += 1
+                except Exception as e:
+                    print(poly)
+                    print(e)
+                    break
+
                 if poly_pt_ct >= required_points:
                     break
             if instance_ct > n:
                 break
+        print('bad class {} polygons: {}'.format(code, bad_polygons))
 
-    def _random_points(self, coords, n):
+    @staticmethod
+    def _random_points(coords, n):
         min_x, max_x = coords[0], coords[2]
         min_y, max_y = coords[1], coords[3]
         x_range = linspace(min_x, max_x, num=2 * n)
@@ -187,13 +196,13 @@ if __name__ == '__main__':
     extract = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'point_shp')
 
     kwargs = {
-        'irrigated': 20000,
-        'wetlands': 20000,
-        'uncultivated': 20000,
-        'unirrigated': 20000,
+        'irrigated': 40000,
+        'wetlands': 40000,
+        'uncultivated': 40000,
+        'unirrigated': 40000,
     }
 
     prs = PointsRunspec(data, buffer=-20, **kwargs)
-    prs.save_sample_points(os.path.join(extract, 'points_4APR.shp'.format()))
+    prs.save_sample_points(os.path.join(extract, 'points_26JUN.shp'.format()))
 
 # ========================= EOF ====================================================================
