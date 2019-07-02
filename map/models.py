@@ -23,7 +23,7 @@ from time import time
 import tensorflow as tf
 from numpy import unique, dot, mean, flatnonzero
 from numpy.random import randint
-from pandas import read_csv, concat, errors, get_dummies
+from pandas import read_csv, get_dummies
 
 from scipy.stats import randint as sp_randint
 from sklearn.decomposition import PCA
@@ -57,7 +57,6 @@ def mlp(csv):
     y = get_dummies(labels.reshape((labels.shape[0],))).values
     N = len(unique(labels))
     n = data.data.shape[1]
-    print('')
     print('train on {}'.format(data.shape))
 
     nodes = 500
@@ -139,11 +138,16 @@ def pca(csv):
 
 def random_forest(csv):
     df = read_csv(csv, engine='python')
+    # df = df.sample(frac=0.5).reset_index(drop=True)
     labels = df['POINT_TYPE'].values
+    print(df['POINT_TYPE'].value_counts())
     df.drop(columns=['YEAR', 'POINT_TYPE'], inplace=True)
     df.dropna(axis=1, inplace=True)
     data = df.values
+    print(csv)
     names = df.columns
+    print(list(names))
+    print(df.shape)
     labels = labels.reshape((labels.shape[0],))
 
     x, x_test, y, y_test = train_test_split(data, labels, test_size=0.33,
@@ -162,7 +166,6 @@ def random_forest(csv):
     pprint(cf)
     producer(cf)
     consumer(cf)
-
     return important
 
 
@@ -312,7 +315,7 @@ def random_hyperparameter_search(csv):
     report(grid_search.cv_results_)
 
 
-def get_confusion_matrix(_dir):
+def get_confusion_matrix(csv):
     df = read_csv(csv, engine='python')
     y_true, y_pred = df['POINT_TYPE'].values, df['classification'].values
     cf = confusion_matrix(y_true, y_pred)
@@ -323,11 +326,13 @@ def get_confusion_matrix(_dir):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    csv_loaction = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'validation_tables')
-    csv = os.path.join(csv_loaction, 'validation_19APR.csv')
-    get_confusion_matrix(csv)
-    # csv = os.path.join(csv_loaction, 'bands_11DEC.csv')
-    # random_forest_k_fold(csv)
+    csv_location = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated')
+    csv = os.path.join(csv_location, 'bands_140k_19NOV_75.csv')
+    random_forest(csv)
+    # csv = os.path.join(csv_location, 'bands_26JUN.csv')
+    # random_forest(csv)
+    # csv = os.path.join(csv_location, 'bands_25JUN.csv')
+    # random_forest(csv)
     # csv = os.path.join(csv_loaction, 'bands_26MAR.csv')
     # find_rf_variable_importance(csv)
     # random_forest_k_fold(csv)
