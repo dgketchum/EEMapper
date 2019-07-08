@@ -36,10 +36,10 @@ HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
 HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
 COUNTIES = 'users/dgketchum/boundaries/western_counties'
 
-STATES = ['MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']  # 'AZ', 'CA', 'CO', 'ID', ]
+STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
 
 EDIT_STATES = ['KS', 'ND', 'NE', 'OK', 'SD', 'TX']
-TARGET_STATES = ['MT', 'CO']
+TARGET_STATES = ['CA']
 
 POINTS_MT = 'ft:1quoEOgOl5dTQtYjyHZs9BxX8CZz1Leqv5qqFYLml'
 POINTS = 'ft:11GT2ikIkgqzYLb0R9tICu8PW7-lo7d-0GFutcywX'
@@ -109,7 +109,7 @@ YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
          2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
          2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
 
-TEST_YEARS = [2017, 2018]
+TEST_YEARS = [2017]
 ALL_YEARS = [x for x in range(1986, 2017)]
 
 
@@ -456,10 +456,10 @@ def stack_bands(yr, roi):
         roi).filterDate(start, end_date).map(ls8mask)
 
     lsSR_masked = ee.ImageCollection(l7_coll.merge(l8_coll).merge(l5_coll))
-    lsSR_spr_mn = ee.Image(lsSR_masked.filterDate(spring_s, spring_e).mean())
+    lsSR_spr_mn = ee.Image(lsSR_masked.filterDate(spring_s, spring_e).median())
     # lsSR_lspr_mn = ee.Image(lsSR_masked.filterDate(late_spring_s, late_spring_e).mean())
-    lsSR_sum_mn = ee.Image(lsSR_masked.filterDate(summer_s, fall_s).mean())
-    lsSR_fal_mn = ee.Image(lsSR_masked.filterDate(fall_s, fall_e).mean())
+    lsSR_sum_mn = ee.Image(lsSR_masked.filterDate(summer_s, fall_s).median())
+    lsSR_fal_mn = ee.Image(lsSR_masked.filterDate(fall_s, fall_e).median())
 
     proj = lsSR_sum_mn.select('B2').projection().getInfo()
     input_bands = lsSR_spr_mn.addBands([lsSR_sum_mn, lsSR_fal_mn])  # lsSR_lspr_mn
@@ -641,9 +641,9 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    # request_band_extract('bands_26JUN', filter_bounds=False)
+    # request_band_extract('bands_2JUL', filter_bounds=False)
     # filter_irrigated()
-    for state in STATES:
+    for state in TARGET_STATES:
         print(state)
         bounds = os.path.join(BOUNDARIES, state)
         export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
