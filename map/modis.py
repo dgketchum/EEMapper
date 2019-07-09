@@ -15,34 +15,39 @@
 # ===============================================================================
 
 import os
+from pprint import pprint
 
 import ee
 
+from map.call_ee import is_authorized
+
 ROI = 'users/dgketchum/boundaries/lolo_huc8'
-TEST_YEARS = [2017, 2018]
+TEST_YEARS = [2014, 2015, 2016, 2017, 2018]
 
 
-def get_modis_et(start, end, annual=True):
+def get_modis_et(start, end):
     fc = ee.FeatureCollection(ROI)
-    tot = ee.ImageCollection('MODIS/006/MOD16A2').\
-        filter(ee.Filter.date(start, end)).select('ET').sum().multiply(0.1)
-    tot = tot.multiply(ee.Image.pixelArea())
-    reduce = tot.reduceRegions(collection=fc,
-                               reducer=ee.Reducer.sum(),
-                               scale=30)
+    coll = ee.ImageCollection('MODIS/006/MOD16A2').filterDate(start, end)
+    _list = coll.toList(coll.size()).getInfo()
+    image = ee.Image(_list[0]['id']).select('ET').rename('{}_{}'.format(_list[0]['id'], 'ET'))
+    for i in _list[1:]:
+        image = image.addBands(ee.Image(i['id']).select('ET').rename('{}_{}'.format(i['id'], 'ET')))
+
+    reduce = image.reduceRegions(collection=fc, reducer=ee.Reducer.mean())
+
     task = ee.batch.Export.table.toCloudStorage(
         reduce,
-        description='modis_lolo_{}_'.format(year),
+        description='modis_lolo',
         bucket='wudr',
-        fileNamePrefix='modis_lolo_{}_'.format(year),
+        fileNamePrefix='modis_lolo',
         fileFormat='CSV')
     task.start()
 
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    for year in [str(x) for x in range(2014, 2019)]:
-        get_modis_et('{}-01-01'.format(year), '{}-12-31'.format(year))
+    is_authorized()
+    get_modis_et('{}-01-01'.format(TEST_YEARS[0]),
+                 '{}-12-31'.format(TEST_YEARS[-1]))
 
-    pass
 # ========================= EOF ====================================================================
