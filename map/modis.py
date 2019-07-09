@@ -16,7 +16,9 @@
 
 import os
 from pprint import pprint
-
+from pandas import read_csv, Series
+from datetime import datetime
+from matplotlib import pyplot as plt
 import ee
 
 from map.call_ee import is_authorized
@@ -40,14 +42,25 @@ def get_modis_et(start, end):
         description='modis_lolo',
         bucket='wudr',
         fileNamePrefix='modis_lolo',
-        fileFormat='CSV')
+        fileFormat='KML')
     task.start()
+
+
+def time_series_modis(csv):
+    df = read_csv(csv).drop(columns=['.geo', 'system:index', 'Id'])
+    dates = [datetime.strptime(x[-13:-3], '%Y_%m_%d') for x in df.columns]
+    vals = [x * 0.1 for x in list(df.loc[0, :])]
+    s = Series(data=vals, index=dates)
+    s.plot()
+    plt.show()
 
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     is_authorized()
-    get_modis_et('{}-01-01'.format(TEST_YEARS[0]),
-                 '{}-12-31'.format(TEST_YEARS[-1]))
+    # get_modis_et('{}-01-01'.format(TEST_YEARS[0]),
+    #              '{}-12-31'.format(TEST_YEARS[-1]))
+    table = os.path.join(home, 'IrrigationGIS', 'lolo', 'modis_loloee_export.csv')
+    time_series_modis(table)
 
 # ========================= EOF ====================================================================
