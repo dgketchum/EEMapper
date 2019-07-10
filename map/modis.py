@@ -51,7 +51,11 @@ def time_series_modis(csv):
     dates = [datetime.strptime(x[-13:-3], '%Y_%m_%d') for x in df.columns]
     vals = [x * 0.1 for x in list(df.loc[0, :])]
     s = Series(data=vals, index=dates)
-    s.plot()
+    s.fillna(method='ffill', inplace=True)
+    ns = s.resample('D').asfreq()
+    ns = ns / 8.
+    ns.interpolate(method='polynomial', order=3, inplace=True)
+    ns.plot()
     plt.show()
 
 
