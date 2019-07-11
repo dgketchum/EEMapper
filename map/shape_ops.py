@@ -464,14 +464,14 @@ if __name__ == '__main__':
     #     if os.path.isfile(state_source):
     #         compile_shapes([state_source, clu], out_)
 
-    # _dir = os.path.join(home, 'IrrigationGIS', 'training_data', 'uncultivated', 'to_merge')
-    # _list = [os.path.join(_dir, x) for x in os.listdir(_dir) if x.endswith('.shp')]
-    # fiona_merge_no_attribute(os.path.join(_dir, 'test.shp'), _list)
+    _dir = os.path.join(home, 'IrrigationGIS', 'training_data', 'unirrigated', 'to_merge')
+    _list = [os.path.join(_dir, x) for x in os.listdir(_dir) if x.endswith('.shp')]
+    fiona_merge_no_attribute(os.path.join(_dir, 'unirrigated_9JUL.shp'), _list)
 
-    _dir = os.path.join(home, 'IrrigationGIS', 'training_data', 'irrigated', 'inspected')
-    _out_dir = os.path.join(home, 'IrrigationGIS', 'EE_sample')
-    _list = sorted([os.path.join(_dir, x) for x in os.listdir(_dir) if x.endswith('.shp')])
-    fiona_merge_attribute(os.path.join(_out_dir, 'irrigated_25JUN.shp'), _list)
+    # _dir = os.path.join(home, 'IrrigationGIS', 'training_data', 'irrigated', 'inspected')
+    # _out_dir = os.path.join(home, 'IrrigationGIS', 'EE_sample')
+    # _list = sorted([os.path.join(_dir, x) for x in os.listdir(_dir) if x.endswith('.shp')])
+    # fiona_merge_attribute(os.path.join(_out_dir, 'irrigated_9JUL.shp'), _list)
 
     # shp = os.path.join(home, 'IrrigationGIS', 'training_data', 'irrigated', 'grouped_v2.shp')
     # out = os.path.join(home, 'IrrigationGIS', 'training_data', 'irrigated', 'grouped_v2_clean.shp')
