@@ -92,7 +92,7 @@ def concatenate_county_data(folder, glob='counties'):
     df.to_csv(out_file, index=False)
 
 
-def concatenate_band_extract(root, out_dir, glob='None', sample=None):
+def concatenate_band_extract(root, out_dir, glob='None', sample=None, n=None, spec=None):
     l = [os.path.join(root, x) for x in os.listdir(root) if glob in x]
     l.sort()
     first = True
@@ -100,22 +100,10 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None):
         try:
             if first:
                 df = read_csv(csv)
-                cols = list(df.columns)
-                names = [x for x in list(df.columns) if 'nd_max' in x]
-                idx = [list(df.columns).index(x) for x in names]
-                new_names = ['nd_max_{}'.format(x) for x in ['m2', 'm1', 'cy', 'p1', 'p2']]
-                cols[idx[0]: idx[-1] + 1] = new_names
-                df.columns = cols
                 print(df.shape, csv)
                 first = False
             else:
                 c = read_csv(csv)
-                cols = list(c.columns)
-                names = [x for x in list(c.columns) if 'nd_max' in x]
-                idx = [list(c.columns).index(x) for x in names]
-                new_names = ['nd_max_{}'.format(x) for x in ['m2', 'm1', 'cy', 'p1', 'p2']]
-                cols[idx[0]: idx[-1] + 1] = new_names
-                c.columns = cols
                 df = concat([df, c], sort=False)
                 print(c.shape, csv)
         except errors.EmptyDataError:
@@ -127,6 +115,9 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None):
     if sample:
         _len = int(df.shape[0]/1e3 * sample)
         out_file = os.path.join(out_dir, '{}_{}.csv'.format(glob, _len))
+    elif n:
+        _len = int(n / 1e3)
+        out_file = os.path.join(out_dir, '{}_{}.csv'.format(glob, _len))
     else:
         out_file = os.path.join(out_dir, '{}.csv'.format(glob))
 
@@ -135,6 +126,21 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None):
             df[c] = df[c].astype(int, copy=True)
         else:
             df[c] = df[c].astype(float, copy=True)
+    if n or spec:
+        counts = df['POINT_TYPE'].value_counts()
+        _min = min(counts.values)
+        for i in sorted(list(counts.index)):
+            if spec:
+                if i == 0:
+                    ndf = df[df['POINT_TYPE'] == i].sample(n=spec[i])
+                else:
+                    ndf = concat([ndf, df[df['POINT_TYPE'] == i].sample(n=spec[i])], sort=False)
+                out_file = os.path.join(out_dir, '{}_kw.csv'.format(glob))
+            elif i == 0:
+                ndf = df[df['POINT_TYPE'] == i].sample(n=n)
+            else:
+                ndf = concat([ndf, df[df['POINT_TYPE'] == i].sample(n=n)], sort=False)
+        df = ndf
     if sample:
         df = df.sample(frac=sample).reset_index(drop=True)
 
@@ -342,6 +348,6 @@ if __name__ == '__main__':
     d = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'to_concatenate')
     out = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated')
 
-    concatenate_band_extract(root=d, out_dir=out, glob='bands_26JUN', sample=0.6)
+    concatenate_band_extract(root=d, out_dir=out, glob='bands_9JUL', spec={0: 45000, 1: 15000, 2: 15000, 3: 15000})
     # concatenate_validation(d, out, glob='validation')
 # ========================= EOF ====================================================================
