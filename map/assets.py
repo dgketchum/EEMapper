@@ -15,7 +15,6 @@
 # ===============================================================================
 import csv
 import os
-from pprint import pprint
 from subprocess import Popen, PIPE, check_call
 
 EDIT_STATES = ['KS', 'ND', 'NE', 'OK', 'SD']
@@ -30,7 +29,17 @@ def change_permissions(ee_asset, user=None):
     _list = [x for x in reader if x[-4:] in ['2016', '2017', '2018']]
     for r in _list:
         command = 'acl'
-        cmd = ['{}'.format(EXEC), '{}'.format(command), 'set', 'public', '{}'.format(r)]
+        cmd = ['{}'.format(EXEC), '{}'.format(command), 'set', 'private', '{}'.format(r)]
+        print(cmd)
+        check_call(cmd)
+
+
+def copy_asset(ee_asset, dst):
+    reader = list_assets(ee_asset)
+    _list = [x for x in reader if x[-4:] in ['2016', '2017', '2018']]
+    for r in _list:
+        cmd = ['{}'.format(EXEC), 'cp', '{}'.format(r), '{}'.format(r.replace('users/dgketchum/classy',
+                                                                              dst))]
         print(cmd)
         check_call(cmd)
 
@@ -82,7 +91,7 @@ def list_assets(location):
 
 
 if __name__ == '__main__':
-    loc = os.path.join('users', 'dgketchum', 'classy')
-    change_permissions(loc)
-
+    loc = os.path.join('users', 'dgketchum', 'classy_v2')
+    delete_assets(loc)
+    # copy_asset(loc, dst='projects/openet/irrigation')
 # ========================= EOF ====================================================================
