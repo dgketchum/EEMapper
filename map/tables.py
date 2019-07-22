@@ -111,7 +111,10 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, n=None, sp
             pass
 
     df.drop(columns=['system:index', '.geo'], inplace=True)
-
+    try:
+        df.drop(columns=['nd_max_p1', 'nd_max_p2'], inplace=True)
+    except KeyError:
+        pass
     if sample:
         _len = int(df.shape[0]/1e3 * sample)
         out_file = os.path.join(out_dir, '{}_{}.csv'.format(glob, _len))
@@ -144,7 +147,10 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, n=None, sp
     if sample:
         df = df.sample(frac=sample).reset_index(drop=True)
 
+    print(df['POINT_TYPE'].value_counts())
+
     print('size: {}'.format(df.shape))
+    print('file: {}'.format(out_file))
     df.to_csv(out_file, index=False)
 
 
@@ -348,6 +354,7 @@ if __name__ == '__main__':
     d = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'to_concatenate')
     out = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated')
 
-    concatenate_band_extract(root=d, out_dir=out, glob='bands_9JUL', spec={0: 45000, 1: 15000, 2: 15000, 3: 15000})
+    concatenate_band_extract(root=d, out_dir=out, glob='bands_15JUL_v2',
+                             spec={0: 30000, 1: 10000, 2: 10000, 3: 10000})
     # concatenate_validation(d, out, glob='validation')
 # ========================= EOF ====================================================================
