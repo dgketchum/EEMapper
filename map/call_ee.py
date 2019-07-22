@@ -29,13 +29,13 @@ from map.assets import list_assets
 
 ROI = 'users/dgketchum/boundaries/western_11_union'
 BOUNDARIES = 'users/dgketchum/boundaries'
-ASSET_ROOT = 'users/dgketchum/classy_v2'
+ASSET_ROOT = 'users/dgketchum/IrrMapper/version_2'
 IRRIGATION_TABLE = 'users/dgketchum/irr_attrs/harney'
 HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
 HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
 COUNTIES = 'users/dgketchum/boundaries/western_counties'
 
-STATES = ['AZ', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']  # 'CA',
+STATES = ['AZ', 'CO', 'ID', 'MT', 'NM', 'OR', 'UT', 'WA', 'WY']  # 'CA', 'NV'
 
 EDIT_STATES = ['KS', 'ND', 'NE', 'OK', 'SD', 'TX']
 TARGET_STATES = ['CO']
@@ -48,11 +48,11 @@ POINTS_15JUL = 'ft:1B9ZLnB_3RnC5b_QXC8TJtwMZdhr0FtJZ_X99VnBV'
 VALIDATION_POINTS = 'ft:1F6qGFzg1M1WRPIJ8rnNsQLCk932pGpqL2-MRcOYd'
 TABLE = 'ft:1wLrSEoQie6u7wTPl1bJ7rLEq20OLvQncecM3_HeH'
 
-# bands_9JUL_kw
+# bands_15JUL_v1_kw
 TABLE_V1 = 'ft:1RbKio5wW2T7t8Gcg7xhMcL6xjOSoGhZdgeqeZ0Xf'
 
-# bands_10JUL_kw
-TABLE_V2 = 'ft:1BuEFjpOPbRopVReWM6UEFSsUX6lo0kcO_KCq0u52'
+# bands_15JUL_v2_kw
+TABLE_V2 = 'ft:16eZpSZExa2S-4n3kS0A1Vf84gKppCAONb0_nqIwG'
 
 # this dict is where we keep Fusion Table IDs from kml files waiting to be filtered
 IRR = {
@@ -228,7 +228,7 @@ def export_classification(out_name, asset, export='asset'):
     :param export:
     :return:
     """
-    fc = ee.FeatureCollection(TABLE_V1)
+    fc = ee.FeatureCollection(TABLE_V2)
     roi = ee.FeatureCollection(asset)
     mask = roi.geometry().bounds().getInfo()['coordinates']
 
@@ -246,10 +246,14 @@ def export_classification(out_name, asset, export='asset'):
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
-    for yr in TEST_YEARS:
-        input_bands = stack_bands_v1(yr, roi)
+    for yr in ALL_YEARS:
+        input_bands = stack_bands_v2(yr, roi)
         annual_stack = input_bands.select(input_props)
-        classified_img = annual_stack.classify(trained_model).int()
+        classified_img = annual_stack.classify(trained_model).int().set({
+            'system:index': ee.Date('{}-01-01'.format(yr)).format('YYYYMMdd'),
+            'system:time_start': ee.Date('{}-01-01'.format(yr)).millis(),
+            'geography': out_name,
+            'class_key': '0: irrigated, 1: rainfed, 2: uncultivated, 3: wetland'})
 
         if export == 'asset':
             task = ee.batch.Export.image.toAsset(
@@ -380,8 +384,8 @@ def request_band_extract(file_prefix, filter_bounds=False):
     """
     roi = ee.FeatureCollection(ROI)
     plots = ee.FeatureCollection(POINTS_15JUL)
-    for yr in YEARS:
-        stack = stack_bands_v1(yr, roi)
+    for yr in MISSING_YEARS:
+        stack = stack_bands_v2(yr, roi)
         start = '{}-01-01'.format(yr)
         d = datetime.strptime(start, '%Y-%m-%d')
         epoch = datetime.utcfromtimestamp(0)
@@ -540,7 +544,7 @@ def stack_bands_v2(yr, roi):
     input_bands = lsSR_spr_mn.addBands([lsSR_lspr_mn, lsSR_sum_mn, lsSR_fal_mn])
 
     nd_list_ = []
-    for pos, year in zip(['m2', 'm1', 'cy', 'p1', 'p2'], range(yr - 2, yr + 3)):
+    for pos, year in zip(['m2', 'm1', 'cy'], range(yr - 2, yr + 1)):
         if year <= 2011:
             collection = ndvi5()
         elif year == 2012:
@@ -731,12 +735,12 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    request_band_extract('bands_15JUL_v1', filter_bounds=False)
+    # request_band_extract('bands_15JUL_v2', filter_bounds=False)
     # filter_irrigated()
-    # for state in STATES:
-    #     print(state)
-    #     bounds = os.path.join(BOUNDARIES, state)
-    #     export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
+    for state in STATES:
+        print(state)
+        bounds = os.path.join(BOUNDARIES, state)
+        export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
     # attribute_irrigation()
     # request_validation_extract()
 # ========================= EOF ====================================================================
