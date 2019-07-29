@@ -35,8 +35,7 @@ HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
 HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
 COUNTIES = 'users/dgketchum/boundaries/western_counties'
 
-STATES = ['AZ', 'CO', 'ID', 'MT', 'NM', 'OR', 'UT', 'WA', 'WY']  # 'CA', 'NV'
-
+STATES = ['AZ', 'CA', 'NV', 'CO', 'ID', 'MT', 'NM', 'OR', 'UT', 'WA', 'WY']  #
 EDIT_STATES = ['KS', 'ND', 'NE', 'OK', 'SD', 'TX']
 TARGET_STATES = ['CO']
 
@@ -81,23 +80,23 @@ IRR = {
     # 'EastStates': ('ft:1AZUak3iuAtah1SHpkLfw0IRk_U5ei23VsPzBWxpD', [1987, 2001, 2004, 2007, 2016], 0.5),
     # 'ID_Bonner': ('ft:1kkaQomLStq-zf8Dpg2eTIrRdn_2Aw5g6lagZrdiK', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
     # 'ID': ('ft:1jDB3C181w1PGVamr64-ewpJVDQkzJc4Bvd1IPAFg', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
-    'KS': ('ft:1pdOquA_LM1jzQwTbMkgGUbKMssJfCHvqQCezI4-7', [2002, 2006, 2009, 2013, 2016], 0.5),
+    # 'KS': ('ft:1pdOquA_LM1jzQwTbMkgGUbKMssJfCHvqQCezI4-7', [2002, 2006, 2009, 2013, 2016], 0.5),
     # 'MT_Turner': ('ft:1PpvhFdLDG4oCh7OsVcjJX6vg8FNB0FWUIFqRKYxO', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
     # 'MT': ('ft:1wfJrtnDjBZqSzWq41veY_VrWROQ0kI-5NCko6xF3', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
     # 'MT_v2': ('ft:1OGof1MiB-KPEbqgq5ePiRmGyFWxk0Mqq4pNXKsGQ', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
-    'ND': ('ft:1Q3-umUl4nm-btFAL09SkYFjqFKIaVxZBqNvlVTxN', [2012, 2013, 2014, 2015, 2016], 0.5),
+    # 'ND': ('ft:1Q3-umUl4nm-btFAL09SkYFjqFKIaVxZBqNvlVTxN', [2012, 2013, 2014, 2015, 2016], 0.5),
     # 'NE': ('ft:1789J-j1dq8_Ez6wfObJxGSJaxRkuJsZMFLeeiwPo', [2003, 2006, 2009, 2013, 2016], 0.5),
-    'NE_v2': ('ft:19Q1EqxZGa--5d_SUQ1UBLw3SttOmkkv73_gnVx1M', [2003, 2009, 2013, 2016], 0.5),
+    # 'NE_v2': ('ft:19Q1EqxZGa--5d_SUQ1UBLw3SttOmkkv73_gnVx1M', [2003, 2009, 2013, 2016], 0.5),
     # 'NM_SanJuan': ('ft:1_-haRl7-ppkBYWBN-cPzItftKQC7yWI7sfgoVx1R', [1987, 2001, 2004, 2007, 2016], 0.5),
     # 'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2001, 2011)], 0.5),
     # 'NV_v2': ('ft:1bTsbFB-cOHPGFbbzGl36Zqe7I7II6WJ5HoGpuYZk', [x for x in range(2001, 2011, 2)], 0.5),
     # 'NW_OR': ('ft:1kXr3oMe9Ybsd3N7tyBBDCTweAxb4c8GBz6B8_ELm', [1994, 1996, 1997, 2001, 2011, 2013], 0.5),
     # 'OK': ('ft:1EjuYeilOTU3el9GsYZZXCi6sNC7z_jJ6mGa2wHIe', [2006, 2007, 2011, 2013, 2015], 0.5),
-    'OK_v2': ('ft:1294qsu79AiUMShQmaxFB3ysCOXaAIPpLFG52m7Un', [2006, 2007, 2011, 2013, 2015], 0.5),
+    # 'OK_v2': ('ft:1294qsu79AiUMShQmaxFB3ysCOXaAIPpLFG52m7Un', [2006, 2007, 2011, 2013, 2015], 0.5),
     # 'OR_Jackson': ('ft:1xk-uM9RoxJvtYYiFnurQodRUcmZRCHLMGHouff0K', [1994, 1996, 1997, 2001, 2011, 2013], 0.5),
     # 'OR_v2': ('ft:16WRkwd-tRZAKLdexaGt7boAKc5hTK8vk82tInioj', [1994, 1996, 1997, 2001, 2011, 2013], 0.5),
-    'SD': ('ft:1MdDBI49vMN2qfYAYqNtjeavsHpONJ0j0ahDHCmRc', [2007, 2008, 2009, 2013, 2016], 0.5),
-    'TX': ('ft:1N_99CtM8JN2fQ_LJSjZzHlwHfHElZWJeSSACRHln', [2005, 2006, 2009, 2011, 2016], 0.5),
+    # 'SD': ('ft:14lyo0o9NzN-deK1LJbMt3XFRQPVBYOgs5TI0-2Zb', [2007, 2008, 2009, 2013, 2016], 0.5),
+    # 'TX': ('ft:1N_99CtM8JN2fQ_LJSjZzHlwHfHElZWJeSSACRHln', [2005, 2006, 2009, 2011, 2016], 0.5),
     # 'UT': ('ft:1oA0v3UUBQj3qn9sa_pDJ8bwsAphfRZUlwwPWpFrT', [1998, 2003, 2006, 2013, 2016], 0.5),
     # 'UT_CO': ('ft:1Av2WlcPRBd7JZqYOU73VCLOJ-b5q6H5u6Bboebdv', [1998, 2003, 2006, 2013, 2016], 0.5),
     # 'WA': ('ft:1tGN7UdKijI7gZgna19wJ-cKMumSKRwsfEQQZNQjl', [1997, 1996], 0.5),
@@ -120,7 +119,7 @@ YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
          2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
          2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
 
-TEST_YEARS = [2007]
+TEST_YEARS = [2017, 2018]
 ALL_YEARS = [x for x in range(1986, 2017)]
 
 
@@ -253,7 +252,7 @@ def export_classification(out_name, asset, export='asset'):
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
-    for yr in ALL_YEARS:
+    for yr in TEST_YEARS:
         input_bands = stack_bands_v2(yr, roi)
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.classify(trained_model).int().set({
@@ -391,7 +390,7 @@ def request_band_extract(file_prefix, filter_bounds=False):
     """
     roi = ee.FeatureCollection(ROI)
     plots = ee.FeatureCollection(POINTS_15JUL)
-    for yr in MISSING_YEARS:
+    for yr in ALL_YEARS:
         stack = stack_bands_v2(yr, roi)
         start = '{}-01-01'.format(yr)
         d = datetime.strptime(start, '%Y-%m-%d')
@@ -743,11 +742,11 @@ def is_authorized():
 if __name__ == '__main__':
     is_authorized()
     # request_band_extract('bands_15JUL_v2', filter_bounds=False)
-    filter_irrigated()
-    # for state in STATES:
-    #     print(state)
-    #     bounds = os.path.join(BOUNDARIES, state)
-    #     export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
+    # filter_irrigated()
+    for state in STATES:
+        print(state)
+        bounds = os.path.join(BOUNDARIES, state)
+        export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
     # attribute_irrigation()
     # request_validation_extract()
 # ========================= EOF ====================================================================

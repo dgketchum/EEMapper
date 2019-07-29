@@ -38,8 +38,25 @@ def copy_asset(ee_asset, dst):
     reader = list_assets(ee_asset)
     _list = [x for x in reader if x[-4:] in ['2016', '2017', '2018']]
     for r in _list:
-        cmd = ['{}'.format(EXEC), 'cp', '{}'.format(r), '{}'.format(r.replace('users/dgketchum/classy',
-                                                                              dst))]
+        cmd = ['{}'.format(EXEC), 'cp', '{}'.format(r), '{}'.format(os.path.join(dst, os.path.basename(r)))]
+        print(cmd)
+        check_call(cmd)
+
+
+def duplicate_asset(ee_asset):
+    reader = list_assets(ee_asset)
+    _list = [x for x in reader if x[-4:] in ['2016', '2017', '2018']]
+    for r in _list:
+        if '2018' in r:
+            cmd = ['{}'.format(EXEC), 'cp', '{}'.format(r), '{}'.format(r.replace('2018', '2019'))]
+            print(cmd)
+            check_call(cmd)
+
+
+def set_metadata(ee_asset, key, value):
+    reader = list_assets(ee_asset)
+    for r in reader:
+        cmd = ['{}'.format(EXEC), 'asset', 'set', '-p', 'name', '{}'.format(r), '{}'.format(r.replace('2018', '2019'))]
         print(cmd)
         check_call(cmd)
 
@@ -55,9 +72,10 @@ def delete_assets(ee_asset_path, years_=None):
         reader = list_assets(ee_asset_path)
 
     for r in reader:
-        command = 'rm'
-        cmd = ['{}'.format(EXEC), '{}'.format(command), '{}'.format(r)]
-        check_call(cmd)
+        if 'projects' in r:
+            command = 'rm'
+            cmd = ['{}'.format(EXEC), '{}'.format(command), '{}'.format(r)]
+            check_call(cmd)
 
 
 def rename_assets(ee_asset_path, new_path, years_=None):
@@ -91,7 +109,8 @@ def list_assets(location):
 
 
 if __name__ == '__main__':
-    loc = os.path.join('users', 'dgketchum', 'classy_v2')
-    delete_assets(loc)
+    # loc = os.path.join('users', 'dgketchum', 'IrrMapper', 'version_2')
+    dst = os.path.join('projects', 'openet', 'irrigation', 'IrrMapper_v2')
+    duplicate_asset(dst)
     # copy_asset(loc, dst='projects/openet/irrigation')
 # ========================= EOF ====================================================================
