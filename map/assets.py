@@ -56,9 +56,20 @@ def duplicate_asset(ee_asset):
 def set_metadata(ee_asset, key, value):
     reader = list_assets(ee_asset)
     for r in reader:
-        cmd = ['{}'.format(EXEC), 'asset', 'set', '-p', 'name', '{}'.format(r), '{}'.format(r.replace('2018', '2019'))]
-        print(cmd)
-        check_call(cmd)
+        if 'dgketchum' in r:
+            cmd = ['{}'.format(EXEC), 'asset', 'set', '-p',
+                   '{}={}'.format(key, value), r]
+            print(cmd)
+            check_call(cmd)
+
+
+def get_metadata(ee_asset):
+    reader = list_assets(ee_asset)
+    for r in reader:
+        if 'project' in r:
+            cmd = ['{}'.format(EXEC), 'asset', 'info', r]
+            print(cmd)
+            check_call(cmd)
 
 
 def delete_assets(ee_asset_path, years_=None):
@@ -109,8 +120,13 @@ def list_assets(location):
 
 
 if __name__ == '__main__':
-    # loc = os.path.join('users', 'dgketchum', 'IrrMapper', 'version_2')
+    loc = os.path.join('users', 'dgketchum', 'IrrMapper', 'version_2')
     dst = os.path.join('projects', 'openet', 'irrigation', 'IrrMapper_v2')
-    duplicate_asset(dst)
-    # copy_asset(loc, dst='projects/openet/irrigation')
+    k = 'version'
+    v = '2'
+    # copy_asset(loc, dst)
+    # set_metadata(loc, key=k, value=v)
+    get_metadata(dst)
+    # delete_assets(dst)
+    # duplicate_asset(dst)
 # ========================= EOF ====================================================================
