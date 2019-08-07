@@ -30,14 +30,14 @@ from map.assets import list_assets
 ROI = 'users/dgketchum/boundaries/western_11_union'
 BOUNDARIES = 'users/dgketchum/boundaries'
 ASSET_ROOT = 'users/dgketchum/IrrMapper/version_2'
-IRRIGATION_TABLE = 'users/dgketchum/irr_attrs/harney'
+IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
 HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
 HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
 COUNTIES = 'users/dgketchum/boundaries/western_counties'
 
 STATES = ['AZ', 'CA', 'NV', 'CO', 'ID', 'MT', 'NM', 'OR', 'UT', 'WA', 'WY']  #
 EDIT_STATES = ['KS', 'ND', 'NE', 'OK', 'SD', 'TX']
-TARGET_STATES = ['CO']
+TARGET_STATES = ['NV']
 
 POINTS_MT = 'ft:1quoEOgOl5dTQtYjyHZs9BxX8CZz1Leqv5qqFYLml'
 POINTS = 'ft:11GT2ikIkgqzYLb0R9tICu8PW7-lo7d-0GFutcywX'
@@ -119,11 +119,12 @@ YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
          2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
          2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
 
-TEST_YEARS = [2017, 2018]
+# TEST_YEARS = [2000, 2018]
+TEST_YEARS = [x for x in range(2018, 2019)]
 ALL_YEARS = [x for x in range(1986, 2017)]
 
 
-def reduce_regions(tables, years=None, description=None, cdl_mask=False, min_years=0):
+def get_classified_results(tables, years=None, description=None, cdl_mask=False, min_years=0):
     """
     Reduce Regions, i.e. zonal stats: takes a statistic from a raster within the bounds of a vector.
     Use this to get e.g. irrigated area within a county, HUC, or state. This can mask based on Crop Data Layer,
@@ -195,6 +196,21 @@ def reduce_regions(tables, years=None, description=None, cdl_mask=False, min_yea
             first = False
 
         print(yr)
+
+
+def get_ndvi_stats(tables, out_name):
+    fc = ee.FeatureCollection(tables)
+    i = get_ndvi_series(TEST_YEARS, fc)
+    stats = i.reduceRegions(collection=fc,
+                            reducer=ee.Reducer.mean(),
+                            scale=30)
+    task = ee.batch.Export.table.toCloudStorage(
+        stats,
+        description='{}'.format(out_name),
+        bucket='wudr',
+        fileNamePrefix='{}'.format(out_name),
+        fileFormat='CSV')
+    task.start()
 
 
 def attribute_irrigation():
@@ -430,11 +446,30 @@ def get_ndvi_series(years, roi):
         stats = ee.Image(etc.reduce(ee.Reducer.mean()).rename('nd_mean_{}'.format(date[:4])))
         return stats
 
+    def ndvi_max(date):
+        etc = ndvi.filterDate(ee.Date(date).advance(4, 'month'),
+                              ee.Date(date).advance(9, 'month')).toBands()
+        stats = ee.Image(etc.reduce(ee.Reducer.max()).rename('nd_max_{}'.format(date[:4])))
+        return stats
+
+    def ndvi_min(date):
+        etc = ndvi.filterDate(ee.Date(date).advance(4, 'month'),
+                              ee.Date(date).advance(9, 'month')).toBands()
+        stats = ee.Image(etc.reduce(ee.Reducer.min()).rename('nd_min_{}'.format(date[:4])))
+        return stats
+
     bands_list = []
-    for yr, s in zip(years, [1, 2, 3, 4, 5]):
+    for yr in years:
         d = '{}-01-01'.format(yr)
-        bands = ndvi_means(d)
-        bands_list.append(bands.rename('nd_mean_{}'.format(s)))
+
+        bands_mean = ndvi_means(d)
+        bands_list.append(bands_mean.rename('nd_mean_{}'.format(yr)))
+
+        bands_max = ndvi_max(d)
+        bands_list.append(bands_max.rename('nd_max_{}'.format(yr)))
+
+        bands_min = ndvi_min(d)
+        bands_list.append(bands_min.rename('nd_min_{}'.format(yr)))
 
     i = ee.Image(bands_list)
     return i
@@ -743,10 +778,11 @@ if __name__ == '__main__':
     is_authorized()
     # request_band_extract('bands_15JUL_v2', filter_bounds=False)
     # filter_irrigated()
-    for state in STATES:
-        print(state)
-        bounds = os.path.join(BOUNDARIES, state)
-        export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
+    # for state in STATES:
+    #     print(state)
+    #     bounds = os.path.join(BOUNDARIES, state)
+    #     export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
     # attribute_irrigation()
+    get_ndvi_stats(IRRIGATION_TABLE, 'NV_agpoly_NDVI')
     # request_validation_extract()
 # ========================= EOF ====================================================================
