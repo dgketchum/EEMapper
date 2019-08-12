@@ -17,9 +17,10 @@ import os
 from collections import OrderedDict
 
 import fiona
+from geopandas import GeoDataFrame
+from pandas import DataFrame, read_csv
 from rasterstats import zonal_stats
-from shapely.geometry import Polygon
-from pandas import DataFrame
+from shapely.geometry import Polygon, Point
 
 CLU_UNNEEDED = ['ca', 'nv', 'ut', 'wa']
 CLU_USEFUL = ['ne']  # ['az', 'co', 'id', 'mt', 'nm', 'or']
@@ -455,26 +456,18 @@ def crop_map():
             254: 'Dbl Crop Barley/Soybeans'}
 
 
+def band_extract_to_shp(table, out_shp):
+    df = read_csv(table)
+    drops = [x for x in df.columns if x not in ['LAT_GCS', 'Lon_GCS', 'POINT_TYPE']]
+    df.drop(columns=drops, inplace=True)
+    geo = [Point(x, y) for x, y in zip(df['Lon_GCS'].values, df['LAT_GCS'].values)]
+    gpd = GeoDataFrame(df['POINT_TYPE'], crs={'init': 'epsg:4326'}, geometry=geo)
+    gpd.to_file(out_shp)
+
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    # for s in CLU_USEFUL:
-    #     clu = os.path.join(home, 'IrrigationGIS', 'clu', 'crop_vector_wgs', '{}_cropped_wgs.shp'.format(s))
-    #     state_source = os.path.join(home, 'IrrigationGIS', 'openET', '{}'.format(s.upper()), '{}.shp'.format(s))
-    #     out_ = os.path.join(home, 'IrrigationGIS', 'openET', 'alt', '{}_addCLU.shp'.format(s))
-    #     if os.path.isfile(state_source):
-    #         compile_shapes([state_source, clu], out_)
-
-    # _dir = os.path.join(home, 'IrrigationGIS', 'training_data', 'unirrigated', 'to_merge')
-    # _list = [os.path.join(_dir, x) for x in os.listdir(_dir) if x.endswith('.shp')]
-    # fiona_merge_no_attribute(os.path.join(_dir, 'unirrigated_9JUL.shp'), _list)
-
-    _dir = os.path.join(home, 'IrrigationGIS', 'training_data', 'irrigated', 'inspected')
-    _out_dir = os.path.join(home, 'IrrigationGIS', 'EE_sample')
-    _list = sorted([os.path.join(_dir, x) for x in os.listdir(_dir) if x.endswith('.shp')])
-    fiona_merge_attribute(os.path.join(_out_dir, 'irrigated_15JUL.shp'), _list)
-
-    # shp = os.path.join(home, 'IrrigationGIS', 'training_data', 'irrigated', 'grouped_v2.shp')
-    # out = os.path.join(home, 'IrrigationGIS', 'training_data', 'irrigated', 'grouped_v2_clean.shp')
-    # clean_geometry(shp, out)
-
+    table = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated', 'bands_15JUL_v2_kw.csv')
+    out = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'band_extract_points', 'band_extract_15JUL.shp')
+    band_extract_to_shp(table, out)
 # ========================= EOF ====================================================================
