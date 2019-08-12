@@ -17,8 +17,8 @@ import os
 from collections import OrderedDict
 
 import fiona
-from geopandas import GeoDataFrame
-from pandas import DataFrame, read_csv
+from geopandas import GeoDataFrame, read_file
+from pandas import DataFrame, read_csv, concat
 from rasterstats import zonal_stats
 from shapely.geometry import Polygon, Point
 
@@ -465,9 +465,18 @@ def band_extract_to_shp(table, out_shp):
     gpd.to_file(out_shp)
 
 
+def sample_shp(in_shp, out_shp, n):
+    gpd = read_file(in_shp)
+    sample = [DataFrame(gpd[gpd['POINT_TYPE'] == x]).sample(n=n) for x in [0, 1, 2, 3]]
+    df = concat(sample)
+    gpd = GeoDataFrame(df, crs={'init': 'epsg:4326'}, geometry=df['geometry'])
+    gpd.to_file(out_shp)
+    pass
+
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    table = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated', 'bands_15JUL_v2_kw.csv')
-    out = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'band_extract_points', 'band_extract_15JUL.shp')
-    band_extract_to_shp(table, out)
+    table = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'validation_points', 'points_9JUL_validation.shp')
+    out = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'validation_points', 'validation_pts_samp40k.shp')
+    sample_shp(table, out, n=10000)
 # ========================= EOF ====================================================================
