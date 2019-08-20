@@ -20,11 +20,24 @@ import fiona
 from geopandas import GeoDataFrame, read_file
 from pandas import DataFrame, read_csv, concat
 from rasterstats import zonal_stats
-from shapely.geometry import Polygon, Point
+from shapely.geometry import Polygon, Point, mapping
 
 CLU_UNNEEDED = ['ca', 'nv', 'ut', 'wa']
-CLU_USEFUL = ['ne']  # ['az', 'co', 'id', 'mt', 'nm', 'or']
-CLU_ONLY = ['ks', 'nd', 'ok', 'sd', 'tx']
+CLU_USEFUL = ['az', 'co', 'id', 'mt', 'nm', 'or']
+CLU_ONLY = ['ne', 'ks', 'nd', 'ok', 'sd', 'tx']
+
+SHAPE_COMPILATION = {
+    # 'AZ': {'CLU': '/home/dgketchum/IrrigationGIS/clu/crop_vector_v2/az_cropped.shp'},
+    'CO': (
+        ('UCRBGS', '/home/dgketchum/IrrigationGIS/openET/CO/co_wUCRB_wgs.shp'),
+        ('CODWR', '/home/dgketchum/IrrigationGIS/raw_field_polygons/CO/CO_irrigated_latest.shp'),
+        ('CLU', '/home/dgketchum/IrrigationGIS/clu/crop_vector_v2/co_cropped.shp')),
+    'WY': (
+        ('UCRBGS', '/home/dgketchum/IrrigationGIS/openET/WY/WY_USGS_UCRB.shp'),
+        ('BRC', '/home/dgketchum/IrrigationGIS/openET/WY/WY_BRC.shp'),
+        ('WYSWP', '/home/dgketchum/IrrigationGIS/raw_field_polygons/WY/Irrigated_Land/Irrigated_Land_wgs.shp')),
+
+}
 
 
 def fiona_merge_MT(out_shp, file_list):
@@ -153,6 +166,44 @@ def get_area(shp):
         print(area * 247.105)
 
 
+def get_centroids(in_shape, out_shape):
+    features = []
+    multi_ct = 0
+    poly_ct = 0
+    with fiona.open(in_shape, 'r') as src:
+        meta = src.meta
+        for feat in src:
+            if feat['geometry']['type'] == 'MultiPolygon':
+                try:
+                    polys = [x for x in feat['geometry']['coordinates']]
+                    for coords in polys:
+                        poly = Polygon(coords[0])
+                        center = poly.centroid
+                        feat['geometry'] = center
+                        features.append(feat)
+                        multi_ct += 1
+                        break
+                except ValueError:
+                    pass
+            try:
+                poly = Polygon(feat['geometry']['coordinates'][0])
+                center = poly.centroid
+                feat['geometry'] = center
+                features.append(feat)
+                poly_ct += 1
+            except:
+                pass
+    meta['schema'] = {'type': 'Feature', 'properties': OrderedDict(
+        [('OBJECTID', 'int:9')]), 'geometry': 'Point'}
+    ct = 0
+    with fiona.open(out_shape, 'w', **meta) as dst:
+        ct += 1
+        for c in features:
+            feat = {'properties': OrderedDict([('OBJECTID', ct)]),
+                    'geometry': mapping(c['geometry'])}
+            dst.write(feat)
+
+
 def wa_county_acreage(in_shp, out_table):
     counties = {}
     with fiona.open(in_shp, 'r') as src:
@@ -183,19 +234,19 @@ def clean_geometry(in_shp, out_shp):
     return None
 
 
-def compile_shapes(in_shapes, out_shape):
+def compile_shapes(out_shape, **kwargs):
     out_features = []
     out_geometries = []
     err = False
     first = True
     err_count = 0
-    for _file in in_shapes:
+    for code, _file in kwargs.items():
         print(_file)
         if first:
             with fiona.open(_file) as src:
                 meta = src.meta
                 meta['schema'] = {'type': 'Feature', 'properties': OrderedDict(
-                    [('OBJECTID', 'int:9')]), 'geometry': 'Polygon'}
+                    [('OBJECTID', 'int:9'), ('SOURCECODE', 'str')]), 'geometry': 'Polygon'}
                 raw_features = [x for x in src]
             for f in raw_features:
                 try:
@@ -212,7 +263,6 @@ def compile_shapes(in_shapes, out_shape):
             print('base geometry errors: {}'.format(err_count))
             first = False
         else:
-            # for the following shapefiles:
             f_count = 0
             add_err_count = 0
             for feat in fiona.open(_file):
@@ -314,22 +364,35 @@ def zonal_cdl(in_shp, in_raster, out_shp):
     ct = 1
     crops = crop_map()
     geo = []
+    bad_geo_ct = 0
     with fiona.open(in_shp) as src:
         meta = src.meta
         for feat in src:
-            geo.append(feat)
+            try:
+                _ = feat['geometry']['type']
+                geo.append(feat)
+            except TypeError:
+                bad_geo_ct += 1
+    print(bad_geo_ct, 'bad geometries')
+
+    temp_file = out_shp.replace('.shp', '_temp.shp')
+    with fiona.open(temp_file, 'w', **meta) as tmp:
+        for feat in geo:
+            tmp.write(feat)
 
     meta['schema'] = {'type': 'Feature', 'properties': OrderedDict(
         [('FID', 'int:9'), ('CDL', 'int:9')]), 'geometry': 'Polygon'}
-    stats = zonal_stats(in_shp, in_raster, stats=['majority'], nodata=0.0)
+    stats = zonal_stats(temp_file, in_raster, stats=['majority'], nodata=0.0)
     with fiona.open(out_shp, mode='w', **meta) as out:
         for attr, g in zip(stats, geo):
-            if attr['majority'] in crops.keys():
+            if attr['majority'] in crops:
                 feat = {'type': 'Feature', 'properties': {'FID': ct,
                                                           'CDL': int(attr['majority'])},
                         'geometry': g['geometry']}
                 out.write(feat)
                 ct += 1
+    print(out_shp, ct)
+    os.remove(temp_file)
 
 
 def clean_clu(in_shp, out_shp):
@@ -396,6 +459,7 @@ def crop_map():
             56: 'Hops',
             57: 'Herbs',
             58: 'Clover/Wildflowers',
+            59: 'Sod/Grass Seed',
             61: 'Fallow/Idle Cropland',
             66: 'Cherries',
             67: 'Peaches',
@@ -408,6 +472,7 @@ def crop_map():
             75: 'Almonds',
             76: 'Walnuts',
             77: 'Pears',
+            176: 'Grass/Pasture',
             204: 'Pistachios',
             205: 'Triticale',
             206: 'Carrots',
@@ -476,7 +541,28 @@ def sample_shp(in_shp, out_shp, n):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    table = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'validation_points', 'points_9JUL_validation.shp')
-    out = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'validation_points', 'validation_pts_samp40k.shp')
-    sample_shp(table, out, n=10000)
+    gis = os.path.join(home, 'IrrigationGIS')
+    _in = os.path.join(gis, 'openET', 'ID', 'ID_ESPA_fields.shp')
+    _out = os.path.join(gis, 'openET', 'centroids', 'ID_ESPA_fields_cent.shp')
+    get_centroids(_in, _out)
+
+    # for k, v in SHAPE_COMPILATION.items():
+    #     out = os.path.join(home, 'IrrigationGIS', 'openET', 'state_reprioritization', '{}_addCLU_v2.shp'.format(k))
+    #     compile_shapes(out, v)
+
+    # _dir = clu = os.path.join(home, 'IrrigationGIS', 'clu', 'shapefiles')
+    # cdl_dir = os.path.join(home, 'IrrigationGIS', 'cdl')
+    # _shapes = [os.path.join(_dir, x) for x in os.listdir(_dir) if x.endswith('.shp')]
+    # states = [x[:2] for x in os.listdir(_dir) if x.endswith('.shp')]
+    # for shape, state in zip(_shapes, states):
+    #     if state in CLU_USEFUL:
+    #         cdl = os.path.join(cdl_dir, 'CDL_2017_{}.tif'.format(state.upper()))
+    #         out_ = os.path.join(home, 'IrrigationGIS', 'clu', 'crop_vector_v2', '{}_cropped.shp'.format(state))
+    #         if not os.path.exists(out_):
+    #             print(out_)
+    #             zonal_cdl(shape, cdl, out_)
+
+    # table = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'validation_points', 'points_9JUL_validation.shp')
+    # out = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'validation_points', 'validation_pts_samp40k.shp')
+    # sample_shp(table, out, n=10000)
 # ========================= EOF ====================================================================
