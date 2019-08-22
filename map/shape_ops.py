@@ -27,15 +27,18 @@ CLU_USEFUL = ['az', 'co', 'id', 'mt', 'nm', 'or']
 CLU_ONLY = ['ne', 'ks', 'nd', 'ok', 'sd', 'tx']
 
 SHAPE_COMPILATION = {
-    # 'AZ': {'CLU': '/home/dgketchum/IrrigationGIS/clu/crop_vector_v2/az_cropped.shp'},
+    # 'AZ': (
+    #     ('UCRBGS', '/home/dgketchum/IrrigationGIS/openET/AZ/az_ucrb.shp'),
+    #     ('LCRVPD', '/home/dgketchum/IrrigationGIS/openET/AZ/az_lcrb.shp'),
+    #     ('CLU', '/home/dgketchum/IrrigationGIS/clu/crop_vector_v2_wgs/az_cropped_v2_wgs.shp')),
     'CO': (
-        ('UCRBGS', '/home/dgketchum/IrrigationGIS/openET/CO/co_wUCRB_wgs.shp'),
-        ('CODWR', '/home/dgketchum/IrrigationGIS/raw_field_polygons/CO/CO_irrigated_latest.shp'),
-        ('CLU', '/home/dgketchum/IrrigationGIS/clu/crop_vector_v2/co_cropped.shp')),
-    'WY': (
-        ('UCRBGS', '/home/dgketchum/IrrigationGIS/openET/WY/WY_USGS_UCRB.shp'),
-        ('BRC', '/home/dgketchum/IrrigationGIS/openET/WY/WY_BRC.shp'),
-        ('WYSWP', '/home/dgketchum/IrrigationGIS/raw_field_polygons/WY/Irrigated_Land/Irrigated_Land_wgs.shp')),
+        ('UCRBGS', '/home/dgketchum/IrrigationGIS/openET/CO/co_ucrb_add.shp'),
+        ('CODWR', '/home/dgketchum/IrrigationGIS/raw_field_polygons/CO/CO_irrigated_latest_wgs.shp'),
+        ('CLU', '/home/dgketchum/IrrigationGIS/clu/crop_vector_v2_wgs/co_cropped_v2_wgs.shp')),
+    # 'WY': (
+    #     ('UCRBGS', '/home/dgketchum/IrrigationGIS/openET/WY/WY_USGS_UCRB.shp'),
+    #     ('BRC', '/home/dgketchum/IrrigationGIS/openET/WY/WY_BRC.shp'),
+    #     ('WYSWP', '/home/dgketchum/IrrigationGIS/raw_field_polygons/WY/Irrigated_Land/Irrigated_Land_wgs.shp')),
 
 }
 
@@ -234,21 +237,23 @@ def clean_geometry(in_shp, out_shp):
     return None
 
 
-def compile_shapes(out_shape, **kwargs):
+def compile_shapes(out_shape, *shapes):
     out_features = []
     out_geometries = []
     err = False
     first = True
     err_count = 0
-    for code, _file in kwargs.items():
+    for code, _file in shapes:
         print(_file)
         if first:
             with fiona.open(_file) as src:
+                print(src.crs)
                 meta = src.meta
                 meta['schema'] = {'type': 'Feature', 'properties': OrderedDict(
                     [('OBJECTID', 'int:9'), ('SOURCECODE', 'str')]), 'geometry': 'Polygon'}
                 raw_features = [x for x in src]
             for f in raw_features:
+                f['properties']['SOURCECODE'] = code
                 try:
                     base_geo = Polygon(f['geometry']['coordinates'][0])
                     out_geometries.append(base_geo)
@@ -265,37 +270,41 @@ def compile_shapes(out_shape, **kwargs):
         else:
             f_count = 0
             add_err_count = 0
-            for feat in fiona.open(_file):
-                inter = False
-                f_count += 1
+            with fiona.open(_file) as src:
+                print(src.crs)
+                for feat in src:
+                    inter = False
+                    f_count += 1
+                    feat['properties']['SOURCECODE'] = code
 
-                try:
-                    poly = Polygon(feat['geometry']['coordinates'][0])
-                except Exception as e:
                     try:
-                        poly = Polygon(feat['geometry']['coordinates'][0][0])
+                        poly = Polygon(feat['geometry']['coordinates'][0])
                     except Exception as e:
-                        add_err_count += 1
-                        err = True
-                        break
-                for _, out_geo in enumerate(out_geometries):
-                    if poly.intersects(out_geo):
-                        inter = True
-                        break
-                if not inter and not err:
-                    out_features.append(feat)
+                        try:
+                            poly = Polygon(feat['geometry']['coordinates'][0][0])
+                        except Exception as e:
+                            add_err_count += 1
+                            err = True
+                            break
+                    for _, out_geo in enumerate(out_geometries):
+                        if poly.intersects(out_geo):
+                            inter = True
+                            break
+                    if not inter and not err:
+                        out_features.append(feat)
 
-                if f_count % 10000 == 0:
-                    if f_count == 0:
-                        pass
-                    else:
-                        print(f_count, '{} base features'.format(len(out_features)))
-            print('added geometry errors: {}'.format(err_count))
+                    if f_count % 10000 == 0:
+                        if f_count == 0:
+                            pass
+                        else:
+                            print(f_count, '{} base features'.format(len(out_features)))
+                print('added geometry errors: {}'.format(err_count))
 
     with fiona.open(out_shape, 'w', **meta) as output:
         ct = 0
         for feat in out_features:
-            feat = {'type': 'Feature', 'properties': {'OBJECTID': ct},
+            feat = {'type': 'Feature', 'properties': OrderedDict(
+                [('OBJECTID', ct), ('SOURCECODE', feat['properties']['SOURCECODE'])]),
                     'geometry': feat['geometry']}
             output.write(feat)
             ct += 1
@@ -542,13 +551,13 @@ def sample_shp(in_shp, out_shp, n):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     gis = os.path.join(home, 'IrrigationGIS')
-    _in = os.path.join(gis, 'openET', 'ID', 'ID_ESPA_fields.shp')
-    _out = os.path.join(gis, 'openET', 'centroids', 'ID_ESPA_fields_cent.shp')
-    get_centroids(_in, _out)
+    # _in = os.path.join(gis, 'openET', 'ID', 'ID_ESPA_fields.shp')
+    # _out = os.path.join(gis, 'openET', 'centroids', 'ID_ESPA_fields_cent.shp')
+    # get_centroids(_in, _out)
 
-    # for k, v in SHAPE_COMPILATION.items():
-    #     out = os.path.join(home, 'IrrigationGIS', 'openET', 'state_reprioritization', '{}_addCLU_v2.shp'.format(k))
-    #     compile_shapes(out, v)
+    for k, v in SHAPE_COMPILATION.items():
+        out = os.path.join(home, 'IrrigationGIS', 'openET', 'state_reprioritization', '{}_addCLU_v2.shp'.format(k))
+        compile_shapes(out, *v)
 
     # _dir = clu = os.path.join(home, 'IrrigationGIS', 'clu', 'shapefiles')
     # cdl_dir = os.path.join(home, 'IrrigationGIS', 'cdl')
