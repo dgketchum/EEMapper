@@ -86,9 +86,10 @@ def concatenate_county_data(folder, glob='counties'):
         df = concat([df, c], sort=False, axis=1)
         print(c.shape, csv)
 
-    out_file = os.path.join(folder, 'irr_merged_gt.csv'.format(glob))
+    out_file = os.path.join(folder, 'irr_merged.csv'.format(glob))
 
     print('size: {}'.format(df.shape))
+    # df.drop(columns=['.geo'], inplace=True)
     df.to_csv(out_file, index=False)
 
 
@@ -198,7 +199,7 @@ def concatenate_irrigation_attrs(_dir, out_filename):
     gpd.to_file(out_filename)
 
 
-def concatenate_attrs(_dir, out_csv_filename, out_shp_filename, template_geometry):
+def concatenate_attrs_huc(_dir, out_csv_filename, out_shp_filename, template_geometry):
 
     _files = [os.path.join(_dir, x) for x in os.listdir(_dir) if x.endswith('.csv')]
     _files.sort()
@@ -325,7 +326,7 @@ def count_landsat_scenes(index, shp):
         print('{} l8, {} l7, {} l5'.format(l8, l7, l5))
 
 
-def concatenate_validation(_dir, out_file, glob=None):
+def concatenate_validation(_dir, out_file, glob='validation'):
     _list = [os.path.join(_dir, x) for x in os.listdir(_dir) if glob in x]
     _list.sort()
     first = True
@@ -340,21 +341,21 @@ def concatenate_validation(_dir, out_file, glob=None):
         except errors.EmptyDataError:
             print('{} is empty'.format(csv))
             pass
-
+    # df = df.sample(n=32000)
     df.drop(columns=['system:index', '.geo'], inplace=True)
     df.to_csv(out_file)
 
 
+def concatenate_attrs_county(d, out_csv, out_shp, geo):
+    pass
+
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-
-    # d = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'validation_to_concatenate')
-    # out = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'validation_tables', 'validation_19APR.csv')
-
-    d = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'to_concatenate')
-    out = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated')
-
-    concatenate_band_extract(root=d, out_dir=out, glob='bands_15JUL_v2',
-                             spec={0: 30000, 1: 10000, 2: 10000, 3: 10000})
-    # concatenate_validation(d, out, glob='validation')
+    d = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county',
+                     'counties_v2', 'noCdlMask_minYr5')
+    out_csv = os.path.join(d, 'irr_v2_noCdlMask_minYr5.csv')
+    out_shp = out_csv.replace('.csv', '.shp')
+    geo = os.path.join('IrrigationGIS', 'boundaries', 'counties', 'western_11_states.shp')
+    concatenate_attrs_county(d, out_csv, out_shp, geo)
 # ========================= EOF ====================================================================
