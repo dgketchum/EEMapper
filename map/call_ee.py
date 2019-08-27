@@ -44,13 +44,13 @@ POINTS = 'ft:11GT2ikIkgqzYLb0R9tICu8PW7-lo7d-0GFutcywX'
 
 POINTS_15JUL = 'ft:1B9ZLnB_3RnC5b_QXC8TJtwMZdhr0FtJZ_X99VnBV'
 
-VALIDATION_POINTS = 'ft:1F6qGFzg1M1WRPIJ8rnNsQLCk932pGpqL2-MRcOYd'
+VALIDATION_POINTS = 'ft:1FQr4nFmTOVTBOv_GeTYniHQKeXg2lnQohHM8l7iZ'
 TABLE = 'ft:1wLrSEoQie6u7wTPl1bJ7rLEq20OLvQncecM3_HeH'
 
 # bands_15JUL_v1_kw
 TABLE_V1 = 'ft:1RbKio5wW2T7t8Gcg7xhMcL6xjOSoGhZdgeqeZ0Xf'
 
-# bands_15JUL_v2_kw
+# bands_15JUL_v2_kw; we used this one!
 TABLE_V2 = 'ft:16eZpSZExa2S-4n3kS0A1Vf84gKppCAONb0_nqIwG'
 
 # this dict is where we keep Fusion Table IDs from kml files waiting to be filtered
@@ -71,19 +71,19 @@ IRR = {
     # 'Acequias': ('ft:1j_Z6exiBQy5NlVLZUe25AsFp-jSfCHn_HAWGT06D', [1987, 2001, 2004, 2007, 2016], 0.5),
     # 'AZ': ('ft:1ZwRYaGmMc7oJuDTrKbrZm3oL7yBYdeKjEa05n5oX', [2001, 2003, 2004, 2007, 2016], 0.5),
     # 'AZ_v2': ('ft:1O19WW5lOlEfVo4gp3ZJ8etHXwYDieC1eoscfIAXW', [2001, 2003, 2004, 2007, 2016], 0.5),
-    # 'CO_DIV1': ('ft:1wRNUsKChMUb9rUWDbxOeGeTaNWNZUA0YHXSLXPv2', [1998, 2003, 2006, 2013, 2016], 0.5),
+    'CO_DIV1': ('ft:1wRNUsKChMUb9rUWDbxOeGeTaNWNZUA0YHXSLXPv2', [1998, 2003, 2006, 2013, 2016], 0.5),
     # 'CO_SanLuis': ('ft:1mcBXyFw1PoVOoAGibDpZjCgb001jA_Mj_hyd-h92', [1998, 2003, 2006, 2013, 2016], 0.5),
     # 'CA': ('ft:1oadWhheDKaonOPhIJ9lJVCwnOt5g0G644p3FC9oy', [2014], 0.5),
     # 'CO_SanLuis_test': ('ft:1mcBXyFw1PoVOoAGibDpZjCgb001jA_Mj_hyd-h92', [2016], 0.5),
-    # 'CA_v2': ('ft:1LRHed3EWaa1UNKTU1e3jIHqwldMP-MGN6_xB_YjK', [2014], 0.5),
-    # 'CA_Sonoma': ('ft:10Faop_14Dthnpa-qAHSScpjv5SkEZJ6RnVfVDy-L', [1998, 2000, 2007, 2014, 2016], 0.5),
+    'CA_v2': ('ft:1LRHed3EWaa1UNKTU1e3jIHqwldMP-MGN6_xB_YjK', [1998, 2000, 2007, 2014, 2016], 0.5),
+    'CA_Sonoma': ('ft:10Faop_14Dthnpa-qAHSScpjv5SkEZJ6RnVfVDy-L', [1998, 2000, 2007, 2014, 2016], 0.5),
     # 'EastStates': ('ft:1AZUak3iuAtah1SHpkLfw0IRk_U5ei23VsPzBWxpD', [1987, 2001, 2004, 2007, 2016], 0.5),
     # 'ID_Bonner': ('ft:1kkaQomLStq-zf8Dpg2eTIrRdn_2Aw5g6lagZrdiK', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
-    # 'ID': ('ft:1jDB3C181w1PGVamr64-ewpJVDQkzJc4Bvd1IPAFg', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
+    'ID': ('ft:1jDB3C181w1PGVamr64-ewpJVDQkzJc4Bvd1IPAFg', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
     # 'KS': ('ft:1pdOquA_LM1jzQwTbMkgGUbKMssJfCHvqQCezI4-7', [2002, 2006, 2009, 2013, 2016], 0.5),
     # 'MT_Turner': ('ft:1PpvhFdLDG4oCh7OsVcjJX6vg8FNB0FWUIFqRKYxO', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
     # 'MT': ('ft:1wfJrtnDjBZqSzWq41veY_VrWROQ0kI-5NCko6xF3', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
-    # 'MT_v2': ('ft:1OGof1MiB-KPEbqgq5ePiRmGyFWxk0Mqq4pNXKsGQ', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
+    'MT_v2': ('ft:1OGof1MiB-KPEbqgq5ePiRmGyFWxk0Mqq4pNXKsGQ', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
     # 'ND': ('ft:1Q3-umUl4nm-btFAL09SkYFjqFKIaVxZBqNvlVTxN', [2012, 2013, 2014, 2015, 2016], 0.5),
     # 'NE': ('ft:1789J-j1dq8_Ez6wfObJxGSJaxRkuJsZMFLeeiwPo', [2003, 2006, 2009, 2013, 2016], 0.5),
     # 'NE_v2': ('ft:19Q1EqxZGa--5d_SUQ1UBLw3SttOmkkv73_gnVx1M', [2003, 2009, 2013, 2016], 0.5),
@@ -94,14 +94,14 @@ IRR = {
     # 'OK': ('ft:1EjuYeilOTU3el9GsYZZXCi6sNC7z_jJ6mGa2wHIe', [2006, 2007, 2011, 2013, 2015], 0.5),
     # 'OK_v2': ('ft:1294qsu79AiUMShQmaxFB3ysCOXaAIPpLFG52m7Un', [2006, 2007, 2011, 2013, 2015], 0.5),
     # 'OR_Jackson': ('ft:1xk-uM9RoxJvtYYiFnurQodRUcmZRCHLMGHouff0K', [1994, 1996, 1997, 2001, 2011, 2013], 0.5),
-    # 'OR_v2': ('ft:16WRkwd-tRZAKLdexaGt7boAKc5hTK8vk82tInioj', [1994, 1996, 1997, 2001, 2011, 2013], 0.5),
+    'OR_v2': ('ft:16WRkwd-tRZAKLdexaGt7boAKc5hTK8vk82tInioj', [1994, 1996, 1997, 2001, 2011, 2013], 0.5),
     # 'SD': ('ft:14lyo0o9NzN-deK1LJbMt3XFRQPVBYOgs5TI0-2Zb', [2007, 2008, 2009, 2013, 2016], 0.5),
     # 'TX': ('ft:1N_99CtM8JN2fQ_LJSjZzHlwHfHElZWJeSSACRHln', [2005, 2006, 2009, 2011, 2016], 0.5),
-    # 'UT': ('ft:1oA0v3UUBQj3qn9sa_pDJ8bwsAphfRZUlwwPWpFrT', [1998, 2003, 2006, 2013, 2016], 0.5),
-    # 'UT_CO': ('ft:1Av2WlcPRBd7JZqYOU73VCLOJ-b5q6H5u6Bboebdv', [1998, 2003, 2006, 2013, 2016], 0.5),
-    # 'WA': ('ft:1tGN7UdKijI7gZgna19wJ-cKMumSKRwsfEQQZNQjl', [1997, 1996], 0.5),
-    # 'WY': ('ft:1nB1Tg_CcmuhXtbnCE3wKVan0ERqV0jann4P2rvDh', [1998, 2003, 2006, 2013, 2016], 0.5),
-    # 'WY_v2': ('ft:1_KxgTHOb6rm_3t3-Wc7RBIFnVubcOYt3COkkL6Po', [1998, 2003, 2006, 2013, 2016], 0.5),
+    'UT': ('ft:1oA0v3UUBQj3qn9sa_pDJ8bwsAphfRZUlwwPWpFrT', [1998, 2003, 2006, 2013, 2016], 0.5),
+    'UT_CO': ('ft:1Av2WlcPRBd7JZqYOU73VCLOJ-b5q6H5u6Bboebdv', [1998, 2003, 2006, 2013, 2016], 0.5),
+    'WA': ('ft:1tGN7UdKijI7gZgna19wJ-cKMumSKRwsfEQQZNQjl', [1997, 1996], 0.5),
+    'WY': ('ft:1nB1Tg_CcmuhXtbnCE3wKVan0ERqV0jann4P2rvDh', [1998, 2003, 2006, 2013, 2016], 0.5),
+    'WY_v2': ('ft:1_KxgTHOb6rm_3t3-Wc7RBIFnVubcOYt3COkkL6Po', [1998, 2003, 2006, 2013, 2016], 0.5),
 }
 
 CO_IRR = {
@@ -119,12 +119,12 @@ YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
          2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
          2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
 
-# TEST_YEARS = [2000, 2018]
-TEST_YEARS = [x for x in range(2018, 2019)]
+TEST_YEARS = [2002]
+# TEST_YEARS = [x for x in range(2018, 2019)]
 ALL_YEARS = [x for x in range(1986, 2017)]
 
 
-def get_classified_results(tables, years=None, description=None, cdl_mask=False, min_years=0):
+def reduce_classification(tables, years=None, description=None, cdl_mask=False, min_years=0):
     """
     Reduce Regions, i.e. zonal stats: takes a statistic from a raster within the bounds of a vector.
     Use this to get e.g. irrigated area within a county, HUC, or state. This can mask based on Crop Data Layer,
@@ -138,7 +138,7 @@ def get_classified_results(tables, years=None, description=None, cdl_mask=False,
     :return:
     """
     sum_mask = None
-    image_list = list_assets('users/dgketchum/classy')
+    image_list = list_assets('users/dgketchum/IrrMapper/version_2')
     fc = ee.FeatureCollection(tables)
 
     if min_years > 0:
@@ -146,70 +146,82 @@ def get_classified_results(tables, years=None, description=None, cdl_mask=False,
         sum = ee.ImageCollection(coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum()
         sum_mask = sum.lt(min_years)
 
-    first = True
+    # first = True
     for yr in years:
-        yr_img = [x for x in image_list if x.endswith(str(yr))]
-        coll = ee.ImageCollection(yr_img)
-        tot = coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
+        if yr not in [2002, 2007, 2012]:
+            yr_img = [x for x in image_list if x.endswith(str(yr))]
+            coll = ee.ImageCollection(yr_img)
+            tot = coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
 
-        if cdl_mask and min_years > 0:
-            # cultivated/uncultivated band only available 2013 to 2017
-            cdl = ee.Image('USDA/NASS/CDL/2013')
-            cultivated = cdl.select('cultivated')
-            cdl_crop_mask = cultivated.eq(2)
-            tot = tot.mask(cdl_crop_mask).mask(sum_mask)
+            if cdl_mask and min_years > 0:
+                # cultivated/uncultivated band only available 2013 to 2017
+                cdl = ee.Image('USDA/NASS/CDL/2013')
+                cultivated = cdl.select('cultivated')
+                cdl_crop_mask = cultivated.eq(2)
+                tot = tot.mask(cdl_crop_mask).mask(sum_mask)
 
-        elif min_years > 0:
-            tot = tot.mask(sum_mask)
+            elif min_years > 0:
+                tot = tot.mask(sum_mask)
 
-        elif cdl_mask:
-            cdl = ee.Image('USDA/NASS/CDL/2013')
-            cultivated = cdl.select('cultivated')
-            cdl_crop_mask = cultivated.eq(2)
-            tot = tot.mask(cdl_crop_mask)
+            elif cdl_mask:
+                cdl = ee.Image('USDA/NASS/CDL/2013')
+                cultivated = cdl.select('cultivated')
+                cdl_crop_mask = cultivated.eq(2)
+                tot = tot.mask(cdl_crop_mask)
 
-        tot = tot.multiply(ee.Image.pixelArea())
-        reduce = tot.reduceRegions(collection=fc,
-                                   reducer=ee.Reducer.sum(),
-                                   scale=30)
-        task = ee.batch.Export.table.toCloudStorage(
-            reduce,
-            description='{}_area_{}_'.format(description, yr),
-            bucket='wudr',
-            fileNamePrefix='{}_area_{}_'.format(description, yr),
-            fileFormat='CSV')
-        task.start()
-
-        if first:
-            tot = coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 1, 1, 1])
             tot = tot.multiply(ee.Image.pixelArea())
             reduce = tot.reduceRegions(collection=fc,
                                        reducer=ee.Reducer.sum(),
                                        scale=30)
             task = ee.batch.Export.table.toCloudStorage(
                 reduce,
-                description='{}_total_area_'.format(description),
+                description='{}_area_{}_'.format(description, yr),
                 bucket='wudr',
-                fileNamePrefix='{}_total_area_'.format(description),
+                fileNamePrefix='{}_area_{}_'.format(description, yr),
                 fileFormat='CSV')
             task.start()
-            first = False
 
-        print(yr)
+            # if first:
+            #     tot = coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 1, 1, 1])
+            #     tot = tot.multiply(ee.Image.pixelArea())
+            #     reduce = tot.reduceRegions(collection=fc,
+            #                                reducer=ee.Reducer.sum(),
+            #                                scale=30)
+            #     task = ee.batch.Export.table.toCloudStorage(
+            #         reduce,
+            #         description='{}_total_area_'.format(description),
+            #         bucket='wudr',
+            #         fileNamePrefix='{}_total_area_'.format(description),
+            #         fileFormat='CSV')
+            #     task.start()
+            #     first = False
+
+            print(yr)
 
 
-def get_ndvi_stats(tables, out_name):
+def get_ndvi_stats(tables, years, out_name):
+
     fc = ee.FeatureCollection(tables)
-    i = get_ndvi_series(TEST_YEARS, fc)
+    i = get_ndvi_series(years, fc)
+    image_list = list_assets('users/dgketchum/IrrMapper/version_2')
+
+    for yr in years:
+        coll = ee.ImageCollection(image_list).filterDate('{}-01-01'.format(yr), '{}-12-31'.format(yr))
+        remap = coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
+        cls = remap.rename('irr_{}'.format(yr))
+        i = i.addBands(cls)
+
     stats = i.reduceRegions(collection=fc,
                             reducer=ee.Reducer.mean(),
                             scale=30)
+
     task = ee.batch.Export.table.toCloudStorage(
         stats,
         description='{}'.format(out_name),
         bucket='wudr',
         fileNamePrefix='{}'.format(out_name),
-        fileFormat='CSV')
+        fileFormat='KML')
+
     task.start()
 
 
@@ -366,7 +378,7 @@ def request_validation_extract(file_prefix='validation'):
     """
     roi = ee.FeatureCollection(ROI)
     plots = ee.FeatureCollection(VALIDATION_POINTS).filterBounds(roi)
-    image_list = list_assets('users/dgketchum/classy')
+    image_list = list_assets('users/dgketchum/IrrMapper/version_2')
 
     for yr in YEARS:
         yr_img = [x for x in image_list if x.endswith(str(yr))]
@@ -382,8 +394,7 @@ def request_validation_extract(file_prefix='validation'):
         plot_sample_regions = classified.sampleRegions(
             collection=filtered,
             properties=['POINT_TYPE', 'YEAR'],
-            scale=30,
-            tileScale=16)
+            scale=30)
 
         task = ee.batch.Export.table.toCloudStorage(
             plot_sample_regions,
@@ -776,13 +787,5 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    # request_band_extract('bands_15JUL_v2', filter_bounds=False)
-    # filter_irrigated()
-    # for state in STATES:
-    #     print(state)
-    #     bounds = os.path.join(BOUNDARIES, state)
-    #     export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
-    # attribute_irrigation()
-    get_ndvi_stats(IRRIGATION_TABLE, 'NV_agpoly_NDVI')
-    # request_validation_extract()
+    request_validation_extract()
 # ========================= EOF ====================================================================
