@@ -16,9 +16,9 @@
 
 import os
 
-from pandas import read_csv
 import matplotlib.pyplot as plt
-import numpy as np
+from mpl_toolkits.axes_grid.inset_locator import InsetPosition
+from pandas import read_csv, Series
 
 
 def time_series_normalized(csv):
@@ -39,9 +39,89 @@ def time_series_normalized(csv):
     plt.show()
 
 
+def state_sum(csv):
+    cdf = read_csv(csv)
+    df = cdf.groupby(['State', 'State_Code'])[['IM2002_ac', 'NASS_2002_ac', 'IM2007_ac',
+                                               'NASS_2007_ac', 'IM2012_ac', 'NASS_2012_ac']].sum()
+    fig, ax = plt.subplots(1, 1)
+    s = Series(index=df.index)
+    s.loc[0], s.loc[df.shape[0]] = 0, 1e8
+    s.interpolate(axis=0, inplace=True)
+    s.index = s.values
+    s.plot(x=s.values, ax=ax, kind='line', lw=1, loglog=True, color='k', style='--', alpha=0.5)
+    ax = df.plot(x='NASS_{}_ac'.format(2002), y='IM{}_ac'.format(2002), kind='scatter', s=4,
+                 xlim=(1e2, 1e6), ylim=(1e2, 1e6), ax=ax, loglog=True, color='g')
+    df.plot(x='NASS_{}_ac'.format(2007), y='IM{}_ac'.format(2007), kind='scatter', s=4,
+            xlim=(1e2, 1e6), ylim=(1e2, 1e6), ax=ax, loglog=True, color='b')
+    df.plot(x='NASS_{}_ac'.format(2012), y='IM{}_ac'.format(2012), kind='scatter', s=4,
+            xlim=(1e2, 1e6), ylim=(1e2, 1e6), ax=ax, loglog=True, color='r')
+    plt.xlabel('NASS FRIS Total Irrigated Acres'.format())
+    plt.ylabel('IrrMapper Total Irrigated Acres'.format())
+    # plt.show()
+    # plt.savefig('figs/state_sum_{}.png'.format(yr))
+    return plt
+
+
+def compare_nass_irrmapper(csv):
+    df = read_csv(csv)
+    fig, ax = plt.subplots(1, 1)
+    s = Series(index=df.index)
+    s.loc[0], s.loc[df.shape[0]] = 0, 1e6
+    s.interpolate(axis=0, inplace=True)
+    s.index = s.values
+    s.plot(x=s.values, ax=ax, kind='line', lw=1, loglog=True, color='k', style='--', alpha=0.5, label='_nolegend_')
+
+    df.plot(x='NASS_{}_ac'.format(2002), y='IM{}_ac'.format(2002), kind='scatter', s=4,
+                 xlim=(1e2, 1e6), ylim=(1e2, 1e6), ax=ax, loglog=True, color='g')
+    df.plot(x='NASS_{}_ac'.format(2007), y='IM{}_ac'.format(2007), kind='scatter', s=4,
+            xlim=(1e2, 1e6), ylim=(1e2, 1e6), ax=ax, loglog=True, color='b')
+    df.plot(x='NASS_{}_ac'.format(2012), y='IM{}_ac'.format(2012), kind='scatter', s=4,
+            xlim=(1e2, 1e6), ylim=(1e2, 1e6), ax=ax, loglog=True, color='r')
+
+    plt.xlabel('NASS FRIS Total Irrigated Acres, Counties'.format())
+    plt.ylabel('IrrMapper Total Irrigated Acres'.format())
+    legend =ax.legend(['2002', '2007', '2012'], loc='lower right')
+    # fig.suptitle('Lorem ipsum dolor sit amet, consectetur adipiscing elit', ha='center')
+    frame = legend.get_frame()
+    frame.set_color('grey')
+    df_state = df.groupby(['State', 'State_Code'])[['IM2002_ac', 'NASS_2002_ac', 'IM2007_ac',
+                                                    'NASS_2007_ac', 'IM2012_ac', 'NASS_2012_ac']].sum()
+    s = Series(index=df_state.index)
+    s.loc[0], s.loc[df_state.shape[0]] = 1e6, 1e7
+    s.interpolate(axis=0, inplace=True)
+    s.index = s.values
+    ax2 = fig.add_axes([0, 0, 1, 1])
+    ax2.xaxis.label.set_visible(False)
+    ax2.yaxis.label.set_visible(False)
+    ax.text(0.25, 0.63, 'States', transform=ax.transAxes, ha="right")
+
+    df_state.plot(x='NASS_{}_ac'.format(2002), y='IM{}_ac'.format(2002), kind='scatter', s=4,
+                  xlim=(1e6, 1e7), ylim=(1e6, 1e7), ax=ax2, loglog=True, color='g')
+    df_state.plot(x='NASS_{}_ac'.format(2007), y='IM{}_ac'.format(2007), kind='scatter', s=4,
+                  xlim=(1e6, 1e7), ylim=(1e6, 1e7), ax=ax2, loglog=True, color='b')
+    df_state.plot(x='NASS_{}_ac'.format(2012), y='IM{}_ac'.format(2012), kind='scatter', s=4,
+                  xlim=(1e6, 1e7), ylim=(1e6, 1e7), ax=ax2, loglog=True, color='r')
+    s.plot(x=s.values, kind='line', lw=1, loglog=True, color='k', style='--', alpha=0.5, label='_nolegend_')
+    ip = InsetPosition(ax, [0.07, 0.67, 0.3, 0.3])
+    ax2.set_axes_locator(ip)
+    # plt.show()
+    plt.savefig('figs/nass_irrmapper_comparison_3yr_v2_23AUG2019.png'.format())
+
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
+
     tables = os.path.join(home, 'IrrigationGIS', 'time_series')
     huc_8 = os.path.join(tables, 'tables', 'concatenated_huc8.csv')
-    time_series_normalized(huc_8)
+    # time_series_normalized(huc_8)
+
+    irr_tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county', 'counties_v2', 'cdlMask_minYr5')
+    nass_tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county')
+
+    irr = os.path.join(irr_tables, 'irr_merged.csv')
+    nass = os.path.join(nass_tables, 'nass_merged.csv')
+    o = os.path.join(irr_tables, 'nass_irrMap.csv')
+
+    for y in [2002, 2007, 2012]:
+        compare_nass_irrmapper(o)
 # ========================= EOF ====================================================================
