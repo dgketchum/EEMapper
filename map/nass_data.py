@@ -112,9 +112,9 @@ def merge_nass_irrmapper(nass, irrmapper, out_name):
     for i, r in idf.iterrows():
         for j, e in ndf.iterrows():
             if r['STATEFP'] == e['STATE_FIPS_CODE'] and r['COUNTYFP'] == int(e['COUNTY_ANSI']):
-                irr_area = (r['NoMask_2002'] / 4046.86,
-                            r['NoMask_2007'] / 4046.86,
-                            r['NoMask_2012'] / 4046.86)
+                irr_area = (r['cdlMask_2002'] / 4046.86,
+                            r['cdlMask_2007'] / 4046.86,
+                            r['cdlMask_2012'] / 4046.86)
 
                 nass_area = (e['VALUE_2002'], e['VALUE_2007'], e['VALUE_2012'])
 
@@ -143,52 +143,10 @@ def merge_nass_irrmapper(nass, irrmapper, out_name):
     gdf.to_file(out_shp)
 
 
-def state_sum(csv):
-    cdf = read_csv(csv)
-    df = cdf.groupby(['State', 'State_Code'])[['IM2002_ac', 'NASS_2002_ac', 'IM2007_ac',
-                                              'NASS_2007_ac', 'IM2012_ac', 'NASS_2012_ac']].sum()
-    fig, ax = plt.subplots(1, 1)
-    s = Series(index=df.index)
-    s.loc[0], s.loc[df.shape[0]] = 0, 1e8
-    s.interpolate(axis=0, inplace=True)
-    s.index = s.values
-    s.plot(x=s.values, ax=ax, kind='line', loglog=True)
-    # df.plot(x='NASS_2002_ac', y='IM2002_ac', kind='scatter',
-    #         xlim=(1e5, 1e8), ylim=(1e5, 1e8), ax=ax, loglog=True, color='b')
-    # df.plot(x='NASS_2007_ac', y='IM2007_ac', kind='scatter',
-    #         xlim=(1e5, 1e8), ylim=(1e5, 1e8), ax=ax, loglog=True, color='r')
-    df.plot(x='NASS_2012_ac', y='IM2012_ac', kind='scatter',
-            xlim=(1e5, 1e8), ylim=(1e5, 1e8), ax=ax, loglog=True, color='k')
-    plt.xlabel('NASS FRIS Total Irrigated Acres, 2012')
-    plt.ylabel('IrrMapper Total Irrigated Acres, 2012')
-    plt.show()
-    plt.savefig('figs/state_sum_2012.png')
-
-
-def compare_nass_irrmapper(csv):
-    df = read_csv(csv)
-    fig, ax = plt.subplots(1, 1)
-    s = Series(index=df.index)
-    s.loc[0], s.loc[df.shape[0]] = 0, 1e6
-    s.interpolate(axis=0, inplace=True)
-    s.index = s.values
-    s.plot(x=s.values, ax=ax, kind='line', loglog=True)
-    # df.plot(x='NASS_2002_ac', y='IM2002_ac', kind='scatter',
-    #         xlim=(1e2, 1e6), ylim=(1e2, 1e6), ax=ax, loglog=True, color='b')
-    # df.plot(x='NASS_2007_ac', y='IM2007_ac', kind='scatter',
-    #         xlim=(1e2, 1e6), ylim=(1e2, 1e6), ax=ax, loglog=True, color='r')
-    df.plot(x='NASS_2007_ac', y='IM2007_ac', kind='scatter',
-            xlim=(1e2, 1e6), ylim=(1e2, 1e6), ax=ax, loglog=True, color='k')
-    plt.xlabel('NASS FRIS Total Irrigated Acres, 2007')
-    plt.ylabel('IrrMapper Total Irrigated Acres, 2007')
-    # plt.show()
-    plt.savefig('figs/county_comparison_2007.png')
-
-
 if __name__ == '__main__':
     home = os.path.expanduser('~')
+    irr_tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county', 'counties_v2', 'cdlMask_minYr5')
     nass_tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county')
-    irr_tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county')
     # _files = [os.path.join(tables, x) for x in ['qs.census2002.txt',
     #                                             'qs.census2007.txt',
     #                                             'qs.census2012.txt']]
@@ -197,9 +155,6 @@ if __name__ == '__main__':
 
     irr = os.path.join(irr_tables, 'irr_merged.csv')
     nass = os.path.join(nass_tables, 'nass_merged.csv')
-    o = os.path.join(nass_tables, 'nass_irrMap_noMask.csv')
-    # merge_nass_irrmapper(nass, irr, o)
-    compare_nass_irrmapper(o)
-    # state_sum(o)
+    o = os.path.join(irr_tables, 'nass_irrMap.csv')
 
 # ========================= EOF ====================================================================
