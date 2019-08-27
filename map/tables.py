@@ -346,8 +346,74 @@ def concatenate_validation(_dir, out_file, glob='validation'):
     df.to_csv(out_file)
 
 
-def concatenate_attrs_county(d, out_csv, out_shp, geo):
-    pass
+def concatenate_attrs_county(_dir, out_csv_filename, out_shp_filename, template_geometry):
+    _files = [os.path.join(_dir, x) for x in os.listdir(_dir) if x.endswith('.csv') and 'total' not in x]
+    total = [os.path.join(_dir, x) for x in os.listdir(_dir) if x.endswith('.csv') and 'total' in x][0]
+    _files.sort()
+    first = True
+    df_geo = []
+    template_names = []
+    count_arr = None
+    names = None
+
+    for year in range(1986, 2017):
+        print(year)
+        _file = [f for f in _files if str(year) in f][0]
+
+        if first:
+            df = read_csv(_file)  # , index_col=['huc8']).sort_values('huc8', axis=0)
+            names = df['Name']
+            units = df.index
+            template_gpd = read_file(template_geometry).sort_values('huc8', axis=0)
+            for i, r in template_gpd.iterrows():
+
+                if r['Name'] in DUPLICATE_HUC8_NAMES:
+                    df_geo.append(r['geometry'])
+                    template_names.append('{}_{}'.format(r['Name'], str(r['states']).replace(',', '_')))
+                elif r['Name'] in names.values and r['Name'] not in template_names:
+                    df_geo.append(r['geometry'])
+                    template_names.append(r['Name'])
+                else:
+                    print('{} is in the list'.format(r['Name']))
+
+            mean_arr = df['mean']
+            df.drop(columns=KML_DROP, inplace=True)
+            df.drop(columns=['.geo', 'mean'], inplace=True)
+            count_arr = read_csv(total, index_col=0)['count'].values
+            df['TotalPix'.format(year)] = count_arr
+            df['Ct_{}'.format(year)] = mean_arr * count_arr
+            first = False
+
+        else:
+            mean_arr = read_csv(_mean, index_col=['huc8']).sort_values('huc8', axis=0)['mean'].values
+            df['Ct_{}'.format(year)] = mean_arr * count_arr
+
+    year_cts = [x for x in df.columns if 'Ct_' in x]
+    cts = df.drop(columns=[x for x in df.columns if x not in year_cts])
+
+    arr = cts.values
+    max_pct = (max(arr, axis=1) / df['TotalPix'].values).reshape(arr.shape[0], 1)
+    df['max_pct'] = max_pct
+
+    min_pct = (min(arr, axis=1) / df['TotalPix'].values).reshape(arr.shape[0], 1)
+    df['min_pct'] = min_pct
+
+    mean_pct = (mean(arr, axis=1) / df['TotalPix'].values).reshape(arr.shape[0], 1)
+    df['mean_pct'] = mean_pct
+
+    diff = (max_pct - min_pct) / mean_pct
+    df['diff_pct'] = diff
+
+    std_ = std(arr, axis=1).reshape(arr.shape[0], 1)
+    df['std_dev'] = std_
+
+    df.drop(columns=['Name'], inplace=True)
+    df['Name'] = names
+    df['geometry'] = df_geo
+    df['huc8'] = units
+    df.to_csv(out_csv_filename)
+    gpd = GeoDataFrame(df, crs={'init': 'epsg:4326'}, geometry=df_geo)
+    gpd.to_file(out_shp_filename)
 
 
 if __name__ == '__main__':
