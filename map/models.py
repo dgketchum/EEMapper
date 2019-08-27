@@ -319,6 +319,7 @@ def random_hyperparameter_search(csv):
 
 
 def get_confusion_matrix(csv):
+
     df = read_csv(csv, engine='python')
     y_true, y_pred = df['POINT_TYPE'].values, df['classification'].values
     cf = confusion_matrix(y_true, y_pred)
@@ -326,26 +327,17 @@ def get_confusion_matrix(csv):
     producer(cf)
     consumer(cf)
 
+    pt = [1 if x in [1, 2, 3] else 0 for x in df['POINT_TYPE'].values]
+    cls = [1 if x in [1, 2, 3] else 0 for x in df['classification'].values]
+    cf = confusion_matrix(pt, cls)
+    pprint(cf)
+    producer(cf)
+    consumer(cf)
+
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    csv_location = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated')
-    # csv = os.path.join(csv_location, 'bands_140k_19NOV_75.csv')
-    # random_forest(csv, binary=True)
-    # csv = os.path.join(csv_location, 'bands_26JUN.csv')
-    # random_forest(csv)
-    # csv = os.path.join(csv_location, 'bands_2JUL_84.csv')
-    # random_forest(csv)
-    csv = os.path.join(csv_location, 'bands_15JUL_v1_kw.csv')
-    random_forest(csv, binary=True)
-    csv = os.path.join(csv_location, 'bands_15JUL_v1_kw.csv')
-    random_forest(csv, binary=False)
-    csv = os.path.join(csv_location, 'bands_15JUL_v2_kw.csv')
-    random_forest(csv, binary=True)
-    csv = os.path.join(csv_location, 'bands_15JUL_v2_kw.csv')
-    random_forest(csv, binary=False)
-    # csv = os.path.join(csv_loaction, 'bands_26MAR.csv')
-    # find_rf_variable_importance(csv)
-    # random_forest_k_fold(csv)
-    # mlp(csv)
+    csv_location = os.path.join(home, 'IrrigationGIS', 'EE_extracts',
+                                'validation_tables', 'validation_12AUG2019.csv')
+    get_confusion_matrix(csv_location)
 # ========================= EOF ====================================================================
