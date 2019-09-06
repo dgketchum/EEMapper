@@ -21,24 +21,6 @@ from mpl_toolkits.axes_grid.inset_locator import InsetPosition
 from pandas import read_csv, Series
 
 
-def time_series_normalized(csv):
-    df = read_csv(csv).sort_values('huc8', axis=0).drop(columns=['geometry'])
-    # df.dropna(axis=0, how='any', inplace=True)
-    index = df['huc8']
-    drop = [x for x in df.columns if not x.startswith('Ct_')]
-    df.drop(columns=drop, inplace=True)
-    df.index = index
-    df = df.div(df.mean(axis=1), axis=0)
-    dft = df.transpose()
-    dft.index = [int(x.replace('Ct_', '')) for x in df.columns.values]
-    dft = dft.reindex(sorted(dft.columns), axis=1)
-    labels = [x for x in dft.columns]
-    range = dft.index.values
-    vals = [dft[x].values for x in labels]
-    dft.plot()
-    plt.show()
-
-
 def state_sum(csv):
     cdf = read_csv(csv)
     df = cdf.groupby(['State', 'State_Code'])[['IM2002_ac', 'NASS_2002_ac', 'IM2007_ac',
@@ -62,7 +44,7 @@ def state_sum(csv):
     return plt
 
 
-def compare_nass_irrmapper(csv):
+def compare_nass_irrmapper_scatter(csv):
     df = read_csv(csv)
     fig, ax = plt.subplots(1, 1)
     s = Series(index=df.index)
@@ -108,6 +90,43 @@ def compare_nass_irrmapper(csv):
     plt.savefig('figs/nass_irrmapper_comparison_3yr_v2_23AUG2019.png'.format())
 
 
+def irr_time_series(csv):
+    df = read_csv(csv)
+    yrs = [x for x in df.columns if 'Ct_' in x]
+    df = df.groupby(['STATEFP']).sum()
+    df = df[yrs]
+    df = df.div(df.mean(axis=1), axis=0)
+    linear = [x for x in range(1986, 2017)]
+    totals = df.sum(axis=0)
+    z_totals = totals.div(totals.mean(), totals.values)
+    z_totals.index = linear
+    fig, ax = plt.subplots()
+    for i, r in df.iterrows():
+        r.index = linear
+        r.name = state_fp_code()[r.name]
+        ax = r.plot(ax=ax, kind='line', x=linear, y=r.values, alpha=0.3)
+
+    z_totals.name = 'All'
+    z_totals.plot(ax=ax, kind='line', x=linear, y=z_totals.values)
+
+    plt.legend(loc='best')
+    plt.show()
+
+
+def state_fp_code():
+    return {4: 'AZ',
+            6: 'CA',
+            8: 'CO',
+            16: 'ID',
+            30: 'MT',
+            32: 'NV',
+            35: 'NM',
+            41: 'OR',
+            49: 'UT',
+            53: 'WA',
+            56: 'WY'}
+
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
 
@@ -122,6 +141,9 @@ if __name__ == '__main__':
     nass = os.path.join(nass_tables, 'nass_merged.csv')
     o = os.path.join(irr_tables, 'nass_irrMap.csv')
 
-    for y in [2002, 2007, 2012]:
-        compare_nass_irrmapper(o)
+    irr_all = os.path.join(irr_tables, 'irr_v2_CdlMask_minYr5_6SEPT2019.csv')
+
+    # compare_nass_irrmapper_scatter(o)
+    irr_time_series(irr_all)
+
 # ========================= EOF ====================================================================
