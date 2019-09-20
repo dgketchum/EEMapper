@@ -116,6 +116,7 @@ def list_assets(location):
                             delimiter=' ', skipinitialspace=True,
                             fieldnames=['name'])
     assets = [x['name'] for x in reader]
+    assets = [x for x in assets if 'Running' not in x]
     return assets
 
 
