@@ -121,7 +121,7 @@ YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
 
 TEST_YEARS = [2002]
 # TEST_YEARS = [x for x in range(2018, 2019)]
-ALL_YEARS = [x for x in range(1986, 2017)]
+ALL_YEARS = [x for x in range(1984, 2019)]
 
 
 def reduce_classification(tables, years=None, description=None, cdl_mask=False, min_years=0):
@@ -787,5 +787,6 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    request_validation_extract()
+    reduce_classification(COUNTIES, years=ALL_YEARS, description='v2_cdlMask_minYr5', cdl_mask=True, min_years=5)
+    # request_validation_extract()
 # ========================= EOF ====================================================================
