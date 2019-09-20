@@ -19,7 +19,7 @@ import os
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid.inset_locator import InsetPosition
 from pandas import read_csv, Series
-
+from geopandas import read_file
 
 def state_sum(csv):
     cdf = read_csv(csv)
@@ -142,8 +142,9 @@ if __name__ == '__main__':
     o = os.path.join(irr_tables, 'nass_irrMap.csv')
 
     irr_all = os.path.join(irr_tables, 'irr_v2_CdlMask_minYr5_6SEPT2019.csv')
+    irr_shp = irr_all.replace('.csv', '.shp')
+    irr_out_shp = irr_shp.replace('6SEPT2019', '11SEPT2019')
 
     # compare_nass_irrmapper_scatter(o)
-    irr_time_series(irr_all)
-
+    # irr_time_series(irr_all)
 # ========================= EOF ====================================================================
