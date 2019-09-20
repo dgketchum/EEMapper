@@ -353,64 +353,57 @@ def concatenate_attrs_county(_dir, out_csv_filename, out_shp_filename, template_
     first = True
     df_geo = []
     template_names = []
-    count_arr = None
-    names = None
 
-    for year in range(1986, 2017):
+    for year in range(1986, 2019):
         print(year)
         _file = [f for f in _files if str(year) in f][0]
 
         if first:
-            df = read_csv(_file)  # , index_col=['huc8']).sort_values('huc8', axis=0)
-            names = df['Name']
-            units = df.index
-            template_gpd = read_file(template_geometry).sort_values('huc8', axis=0)
+            df = read_csv(_file, index_col=['GEOID']).sort_values('GEOID', axis=0)
+            template_gpd = read_file(template_geometry).sort_values('GEOID', axis=0)
             for i, r in template_gpd.iterrows():
+                df_geo.append(r['geometry'])
+                template_names.append(r['GEOID'])
 
-                if r['Name'] in DUPLICATE_HUC8_NAMES:
-                    df_geo.append(r['geometry'])
-                    template_names.append('{}_{}'.format(r['Name'], str(r['states']).replace(',', '_')))
-                elif r['Name'] in names.values and r['Name'] not in template_names:
-                    df_geo.append(r['geometry'])
-                    template_names.append(r['Name'])
-                else:
-                    print('{} is in the list'.format(r['Name']))
-
-            mean_arr = df['mean']
-            df.drop(columns=KML_DROP, inplace=True)
-            df.drop(columns=['.geo', 'mean'], inplace=True)
-            count_arr = read_csv(total, index_col=0)['count'].values
-            df['TotalPix'.format(year)] = count_arr
-            df['Ct_{}'.format(year)] = mean_arr * count_arr
+            mean_arr = df['sum'].values
+            df['Ct_{}'.format(year)] = mean_arr
+            df.drop(columns=['.geo', 'sum'], inplace=True)
+            count_arr = read_csv(total)['sum'].values
+            df['total_area'.format(year)] = count_arr
             first = False
 
         else:
-            mean_arr = read_csv(_mean, index_col=['huc8']).sort_values('huc8', axis=0)['mean'].values
-            df['Ct_{}'.format(year)] = mean_arr * count_arr
+            mean_arr = read_csv(_file, index_col=['GEOID']).sort_values('GEOID', axis=0)['sum'].values
+            df['Ct_{}'.format(year)] = mean_arr
 
     year_cts = [x for x in df.columns if 'Ct_' in x]
     cts = df.drop(columns=[x for x in df.columns if x not in year_cts])
 
     arr = cts.values
-    max_pct = (max(arr, axis=1) / df['TotalPix'].values).reshape(arr.shape[0], 1)
+    max_pct = (max(arr, axis=1) / df['total_area'].values).reshape(arr.shape[0], 1)
     df['max_pct'] = max_pct
 
-    min_pct = (min(arr, axis=1) / df['TotalPix'].values).reshape(arr.shape[0], 1)
+    min_pct = (min(arr, axis=1) / df['total_area'].values).reshape(arr.shape[0], 1)
     df['min_pct'] = min_pct
 
-    mean_pct = (mean(arr, axis=1) / df['TotalPix'].values).reshape(arr.shape[0], 1)
+    mean_pct = (mean(arr, axis=1) / df['total_area'].values).reshape(arr.shape[0], 1)
     df['mean_pct'] = mean_pct
 
     diff = (max_pct - min_pct) / mean_pct
     df['diff_pct'] = diff
 
+    early_col = ['Ct_{}'.format(x) for x in range(1986, 1991)]
+    late_col = ['Ct_{}'.format(x) for x in range(2014, 2019)]
+    df['early_mean'] = df[early_col].mean(axis=1)
+    df['late_mean'] = df[late_col].mean(axis=1)
+    df['delta'] = (df['late_mean'] - df['early_mean']) / df[year_cts].mean(axis=1)
+
     std_ = std(arr, axis=1).reshape(arr.shape[0], 1)
     df['std_dev'] = std_
 
-    df.drop(columns=['Name'], inplace=True)
-    df['Name'] = names
+    # df.drop(columns=['Name'], inplace=True)
+    # df['Name'] = names
     df['geometry'] = df_geo
-    df['huc8'] = units
     df.to_csv(out_csv_filename)
     gpd = GeoDataFrame(df, crs={'init': 'epsg:4326'}, geometry=df_geo)
     gpd.to_file(out_shp_filename)
@@ -419,9 +412,9 @@ def concatenate_attrs_county(_dir, out_csv_filename, out_shp_filename, template_
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     d = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county',
-                     'counties_v2', 'noCdlMask_minYr5')
-    out_csv = os.path.join(d, 'irr_v2_noCdlMask_minYr5.csv')
+                     'counties_v2', 'cdlMask_minYr5')
+    out_csv = os.path.join(d, 'irr_v2_CdlMask_minYr5_11SEPT2019.csv')
     out_shp = out_csv.replace('.csv', '.shp')
-    geo = os.path.join('IrrigationGIS', 'boundaries', 'counties', 'western_11_states.shp')
+    geo = os.path.join(home, 'IrrigationGIS', 'boundaries', 'counties', 'western_11_states.shp')
     concatenate_attrs_county(d, out_csv, out_shp, geo)
 # ========================= EOF ====================================================================
