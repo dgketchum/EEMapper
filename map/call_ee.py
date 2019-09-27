@@ -22,6 +22,7 @@
 
 import os
 from datetime import datetime
+from pprint import pprint
 
 import ee
 
@@ -69,8 +70,8 @@ ID_IRR = {
 
 IRR_TEST = {
     # 'MT': ('ft:1wfJrtnDjBZqSzWq41veY_VrWROQ0kI-5NCko6xF3', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
-    'MT_v2': ('ft:1OGof1MiB-KPEbqgq5ePiRmGyFWxk0Mqq4pNXKsGQ', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
-    'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2011, 2018)], 0.5),
+    'MT_v2': ('ft:1OGof1MiB-KPEbqgq5ePiRmGyFWxk0Mqq4pNXKsGQ', [2009], 0.5),  # , 2009, 2010, 2011, 2012, 2013
+    # 'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2011, 2018)], 0.5),
     # 'WY_v2': ('ft:1_KxgTHOb6rm_3t3-Wc7RBIFnVubcOYt3COkkL6Po', [1998, 2003, 2006, 2013, 2016], 0.5),
 }
 
@@ -365,8 +366,18 @@ def filter_irrigated(filter_type='filter_low'):
                 filt_fc = combo_mean.filter(ee.Filter.Or(ee.Filter.gt('mean', v[2]), ee.Filter.gt('mean', v[2])))
 
             elif filter_type == 'filter_high':
+
+                irrmapper = ee.ImageCollection(ASSET_ROOT)
+                irrmapper = irrmapper.gt(0).sum()
+                # equipped = irrmapper.gte(10).rename('equip')
+                equip = irrmapper.reduceRegions(collection=plots,
+                                                reducer=ee.Reducer.mode(),
+                                                scale=30.0)
+                equip_filter = equip.filter(ee.Filter.eq('equip', 1))
+                pprint(equip_filter.first().getInfo())
+
                 early_nd_max = early_collection.select('nd_mean').reduce(ee.Reducer.intervalMean(75., 100.))
-                early_int_mean = early_nd_max.reduceRegions(collection=plots,
+                early_int_mean = early_nd_max.reduceRegions(collection=equip_filter,
                                                             reducer=ee.Reducer.mean(),
                                                             scale=30.0)
 
@@ -374,7 +385,9 @@ def filter_irrigated(filter_type='filter_low'):
                 combo_mean = s_nd_max.reduceRegions(collection=early_int_mean,
                                                     reducer=ee.Reducer.mean(),
                                                     scale=30.0)
+
                 filt_fc = combo_mean.filter(ee.Filter.And(ee.Filter.lt('mean', v[2]), ee.Filter.lt('mean', v[2])))
+
             else:
                 raise NotImplementedError('must choose from filter_low or filter_high')
 
@@ -385,7 +398,7 @@ def filter_irrigated(filter_type='filter_low'):
                                                         fileNamePrefix='{}_{}'.format(k, year),
                                                         fileFormat='KML')
 
-            task.start()
+            # task.start()
             print(k, year)
 
 
