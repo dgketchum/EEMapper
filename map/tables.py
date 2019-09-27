@@ -86,9 +86,11 @@ def concatenate_county_data(folder, glob='counties'):
         df = concat([df, c], sort=False, axis=1)
         print(c.shape, csv)
 
-    out_file = os.path.join(folder, 'irr_merged.csv'.format(glob))
+    out_file = os.path.join(folder, 'irr_merged.csv')
 
     print('size: {}'.format(df.shape))
+    # df = df.reindex(sorted(df.columns), axis=1)
+
     # df.drop(columns=['.geo'], inplace=True)
     df.to_csv(out_file, index=False)
 
@@ -394,8 +396,8 @@ def concatenate_attrs_county(_dir, out_csv_filename, out_shp_filename, template_
 
     early_col = ['Ct_{}'.format(x) for x in range(1986, 1991)]
     late_col = ['Ct_{}'.format(x) for x in range(2014, 2019)]
-    df['early_mean'] = df[early_col].mean(axis=1)
-    df['late_mean'] = df[late_col].mean(axis=1)
+    df['early_mean'] = df[early_col].mean(axis=1) / df['total_area']
+    df['late_mean'] = df[late_col].mean(axis=1) / df['total_area']
     df['delta'] = (df['late_mean'] - df['early_mean']) / df[year_cts].mean(axis=1)
 
     std_ = std(arr, axis=1).reshape(arr.shape[0], 1)
@@ -412,9 +414,10 @@ def concatenate_attrs_county(_dir, out_csv_filename, out_shp_filename, template_
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     d = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county',
-                     'counties_v2', 'cdlMask_minYr5')
-    out_csv = os.path.join(d, 'irr_v2_CdlMask_minYr5_11SEPT2019.csv')
+                     'counties_v2', 'noCdlMask_minYr5')
+    out_csv = os.path.join(d, 'irr_v2_noCdlMask_minYr5_25SEPT2019.csv')
     out_shp = out_csv.replace('.csv', '.shp')
     geo = os.path.join(home, 'IrrigationGIS', 'boundaries', 'counties', 'western_11_states.shp')
-    concatenate_attrs_county(d, out_csv, out_shp, geo)
+    concatenate_county_data(d, glob='v2_noCdlMask_minYr5')
+    # concatenate_attrs_county(d, out_csv, out_shp, geo)
 # ========================= EOF ====================================================================
