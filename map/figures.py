@@ -19,7 +19,7 @@ import os
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid.inset_locator import InsetPosition
 from pandas import read_csv, Series
-from geopandas import read_file
+
 
 def state_sum(csv):
     cdf = read_csv(csv)
@@ -44,7 +44,7 @@ def state_sum(csv):
     return plt
 
 
-def compare_nass_irrmapper_scatter(csv):
+def compare_nass_irrmapper_scatter(csv, fig_name=None):
     df = read_csv(csv)
     fig, ax = plt.subplots(1, 1)
     s = Series(index=df.index)
@@ -87,16 +87,17 @@ def compare_nass_irrmapper_scatter(csv):
     ip = InsetPosition(ax, [0.07, 0.67, 0.3, 0.3])
     ax2.set_axes_locator(ip)
     # plt.show()
-    plt.savefig('figs/nass_irrmapper_comparison_3yr_v2_23AUG2019.png'.format())
+    if fig_name:
+        plt.savefig(fig_name)
 
 
-def irr_time_series(csv):
+def irr_time_series(csv, fig_name=None):
     df = read_csv(csv)
     yrs = [x for x in df.columns if 'Ct_' in x]
     df = df.groupby(['STATEFP']).sum()
     df = df[yrs]
     df = df.div(df.mean(axis=1), axis=0)
-    linear = [x for x in range(1986, 2017)]
+    linear = [x for x in range(1986, 2019)]
     totals = df.sum(axis=0)
     z_totals = totals.div(totals.mean(), totals.values)
     z_totals.index = linear
@@ -104,12 +105,14 @@ def irr_time_series(csv):
     for i, r in df.iterrows():
         r.index = linear
         r.name = state_fp_code()[r.name]
-        ax = r.plot(ax=ax, kind='line', x=linear, y=r.values, alpha=0.3)
+        ax = r.plot(ax=ax, kind='line', x=linear, y=r.values, alpha=0.6)
 
     z_totals.name = 'All'
     z_totals.plot(ax=ax, kind='line', x=linear, y=z_totals.values)
 
-    plt.legend(loc='best')
+    plt.legend(loc='lower center', ncol=6)
+    if fig_name:
+        plt.savefig(fig_name)
     plt.show()
 
 
@@ -134,17 +137,19 @@ if __name__ == '__main__':
     huc_8 = os.path.join(tables, 'tables', 'concatenated_huc8.csv')
     # time_series_normalized(huc_8)
 
-    irr_tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county', 'counties_v2', 'cdlMask_minYr5')
+    irr_tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county', 'counties_v2', 'noCdlMask_minYr5')
     nass_tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county')
 
     irr = os.path.join(irr_tables, 'irr_merged.csv')
     nass = os.path.join(nass_tables, 'nass_merged.csv')
     o = os.path.join(irr_tables, 'nass_irrMap.csv')
 
-    irr_all = os.path.join(irr_tables, 'irr_v2_CdlMask_minYr5_6SEPT2019.csv')
+    irr_all = os.path.join(irr_tables, 'irr_v2_noCdlMask_minYr5_25SEPT2019.csv')
     irr_shp = irr_all.replace('.csv', '.shp')
-    irr_out_shp = irr_shp.replace('6SEPT2019', '11SEPT2019')
 
-    # compare_nass_irrmapper_scatter(o)
-    # irr_time_series(irr_all)
+    # figure = 'figs/z_annual_irr_byState_noCdl_5Yr_25SETP2019.png'
+    figure = 'figs/comparison_noCdl_5Yr_25SETP2019.png'
+
+    compare_nass_irrmapper_scatter(o, fig_name=figure)
+    # irr_time_series(irr_all, fig_name=figure)
 # ========================= EOF ====================================================================
