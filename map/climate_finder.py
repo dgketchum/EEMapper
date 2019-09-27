@@ -15,8 +15,9 @@
 # ===============================================================================
 
 
-import os
 import io
+import os
+
 import requests
 from pandas import read_csv
 
@@ -51,7 +52,7 @@ def get_climate_counties(counties, no_months=5, wy_end=10, out_file=None):
     return None
 
 
-def get_county_droughts(out_file):
+def get_county_variability(out_file):
     df = read_csv(out_file)
     pass
 
