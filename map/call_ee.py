@@ -70,7 +70,8 @@ ID_IRR = {
 
 IRR_TEST = {
     # 'MT': ('ft:1wfJrtnDjBZqSzWq41veY_VrWROQ0kI-5NCko6xF3', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
-    'MT_v2': ('ft:1OGof1MiB-KPEbqgq5ePiRmGyFWxk0Mqq4pNXKsGQ', [2009], 0.5),  # , 2009, 2010, 2011, 2012, 2013
+    'MT_v2': ('ft:1OGof1MiB-KPEbqgq5ePiRmGyFWxk0Mqq4pNXKsGQ', [2009], 0.5),
+    'NV_v2': ('ft:1bTsbFB-cOHPGFbbzGl36Zqe7I7II6WJ5HoGpuYZk', [2015], 0.5),
     # 'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2011, 2018)], 0.5),
     # 'WY_v2': ('ft:1_KxgTHOb6rm_3t3-Wc7RBIFnVubcOYt3COkkL6Po', [1998, 2003, 2006, 2013, 2016], 0.5),
 }
@@ -96,7 +97,7 @@ IRR = {
     # 'NE': ('ft:1789J-j1dq8_Ez6wfObJxGSJaxRkuJsZMFLeeiwPo', [2003, 2006, 2009, 2013, 2016], 0.5),
     # 'NE_v2': ('ft:19Q1EqxZGa--5d_SUQ1UBLw3SttOmkkv73_gnVx1M', [2003, 2009, 2013, 2016], 0.5),
     'NM_SanJuan': ('ft:1_-haRl7-ppkBYWBN-cPzItftKQC7yWI7sfgoVx1R', [1987, 2001, 2004, 2007, 2016], 0.5),
-    'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2001, 2010)], 0.5),
+    'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2011, 2016)], 0.5),
     'NV_v2': ('ft:1bTsbFB-cOHPGFbbzGl36Zqe7I7II6WJ5HoGpuYZk', [x for x in range(2001, 2010, 2)], 0.5),
     'NW_OR': ('ft:1kXr3oMe9Ybsd3N7tyBBDCTweAxb4c8GBz6B8_ELm', [1994, 1996, 1997, 2001, 2011, 2013], 0.5),
     # 'OK': ('ft:1EjuYeilOTU3el9GsYZZXCi6sNC7z_jJ6mGa2wHIe', [2006, 2007, 2011, 2013, 2015], 0.5),
@@ -208,7 +209,6 @@ def reduce_classification(tables, years=None, description=None, cdl_mask=False, 
 
 
 def get_ndvi_stats(tables, years, out_name):
-
     fc = ee.FeatureCollection(tables)
     i = get_ndvi_series(years, fc)
     image_list = list_assets('users/dgketchum/IrrMapper/version_2')
@@ -261,7 +261,6 @@ def attribute_irrigation():
 
 
 def export_classification(out_name, asset, export='asset'):
-
     """
     Trains a Random Forest classifier using a training table input, creates a stack of raster images of the same
     features, and classifies it.  I run this over a for-loop iterating state by state.
@@ -331,7 +330,7 @@ def filter_irrigated(filter_type='filter_low'):
             likely irrigated), filter_high filters out high-ndvi feilds, leaving likely fallowed fields
     :return:
     """
-    for k, v in IRR_TEST.items():
+    for k, v in IRR.items():
         plots = ee.FeatureCollection(v[0])
 
         for year in v[1]:
@@ -352,6 +351,7 @@ def filter_irrigated(filter_type='filter_low'):
 
             early_collection = period_stat(collection, early_summer_s, early_summer_e)
             late_collection = period_stat(collection, late_summer_s, late_summer_e)
+            summer_collection = period_stat(collection, early_summer_s, late_summer_e)
 
             if filter_type == 'filter_low':
                 early_nd_max = early_collection.select('nd_mean').reduce(ee.Reducer.intervalMean(0.0, 15.0))
@@ -368,25 +368,24 @@ def filter_irrigated(filter_type='filter_low'):
             elif filter_type == 'filter_high':
 
                 irrmapper = ee.ImageCollection(ASSET_ROOT)
-                irrmapper = irrmapper.gt(0).sum()
-                # equipped = irrmapper.gte(10).rename('equip')
-                equip = irrmapper.reduceRegions(collection=plots,
-                                                reducer=ee.Reducer.mode(),
-                                                scale=30.0)
-                equip_filter = equip.filter(ee.Filter.eq('equip', 1))
-                pprint(equip_filter.first().getInfo())
+                img = ee.Image()
+                for y in range(1986, 2019):
+                    i = irrmapper.filterDate('{}-01-01'.format(y), '{}-12-31'.format(y)).mosaic()
+                    i = i.remap([0, 1, 2, 3], [1, 0, 0, 0]).rename('irr')
+                    img = img.addBands(i)
 
-                early_nd_max = early_collection.select('nd_mean').reduce(ee.Reducer.intervalMean(75., 100.))
-                early_int_mean = early_nd_max.reduceRegions(collection=equip_filter,
-                                                            reducer=ee.Reducer.mean(),
-                                                            scale=30.0)
+                img = img.reduce(ee.Reducer.sum())
+                equipped = img.gte(10).rename('equip')
+                equip = equipped.reduceRegions(collection=plots,
+                                               reducer=ee.Reducer.mode(),
+                                               scale=30.0)
 
-                s_nd_max = late_collection.select('nd_mean').reduce(ee.Reducer.intervalMean(75., 100.))
-                combo_mean = s_nd_max.reduceRegions(collection=early_int_mean,
-                                                    reducer=ee.Reducer.mean(),
-                                                    scale=30.0)
+                summer_nd_max = summer_collection.select('nd_max').reduce(ee.Reducer.mean())
+                early_int_mean = summer_nd_max.reduceRegions(collection=equip,
+                                                             reducer=ee.Reducer.mean(),
+                                                             scale=30.0)
 
-                filt_fc = combo_mean.filter(ee.Filter.And(ee.Filter.lt('mean', v[2]), ee.Filter.lt('mean', v[2])))
+                filt_fc = early_int_mean.filter(ee.Filter.And(ee.Filter.lt('mean', v[2]), ee.Filter.eq('mode', 1)))
 
             else:
                 raise NotImplementedError('must choose from filter_low or filter_high')
@@ -398,8 +397,8 @@ def filter_irrigated(filter_type='filter_low'):
                                                         fileNamePrefix='{}_{}'.format(k, year),
                                                         fileFormat='KML')
 
-            # task.start()
-            print(k, year)
+            task.start()
+            print(k, year, filt_fc.size().getInfo())
 
 
 def request_validation_extract(file_prefix='validation'):
