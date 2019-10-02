@@ -22,7 +22,6 @@
 
 import os
 from datetime import datetime
-from pprint import pprint
 
 import ee
 
@@ -31,14 +30,14 @@ from map.assets import list_assets
 ROI = 'users/dgketchum/boundaries/western_11_union'
 BOUNDARIES = 'users/dgketchum/boundaries'
 ASSET_ROOT = 'users/dgketchum/IrrMapper/version_2'
-IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
+IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/WA_clip'
 HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
 HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
 COUNTIES = 'users/dgketchum/boundaries/western_counties'
 
 STATES = ['AZ', 'CA', 'NV', 'CO', 'ID', 'MT', 'NM', 'OR', 'UT', 'WA', 'WY']  #
 EDIT_STATES = ['KS', 'ND', 'NE', 'OK', 'SD', 'TX']
-TARGET_STATES = ['NV']
+TARGET_STATES = ['WA']
 
 POINTS_MT = 'ft:1quoEOgOl5dTQtYjyHZs9BxX8CZz1Leqv5qqFYLml'
 POINTS = 'ft:11GT2ikIkgqzYLb0R9tICu8PW7-lo7d-0GFutcywX'
@@ -71,7 +70,7 @@ ID_IRR = {
 IRR_TEST = {
     # 'MT': ('ft:1wfJrtnDjBZqSzWq41veY_VrWROQ0kI-5NCko6xF3', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
     'MT_v2': ('ft:1OGof1MiB-KPEbqgq5ePiRmGyFWxk0Mqq4pNXKsGQ', [2009], 0.5),
-    'NV_v2': ('ft:1bTsbFB-cOHPGFbbzGl36Zqe7I7II6WJ5HoGpuYZk', [2015], 0.5),
+    # 'NV_v2': ('ft:1bTsbFB-cOHPGFbbzGl36Zqe7I7II6WJ5HoGpuYZk', [2015], 0.5),
     # 'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2011, 2018)], 0.5),
     # 'WY_v2': ('ft:1_KxgTHOb6rm_3t3-Wc7RBIFnVubcOYt3COkkL6Po', [1998, 2003, 2006, 2013, 2016], 0.5),
 }
@@ -241,12 +240,12 @@ def attribute_irrigation():
     """
     fc = ee.FeatureCollection(IRRIGATION_TABLE)
     for state in TARGET_STATES:
-        for yr in range(1986, 2017):
+        for yr in [2017]:
             images = os.path.join(ASSET_ROOT, '{}_{}'.format(state, yr))
             coll = ee.Image(images)
-            tot = coll.select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
+            tot = coll.select('classification')  # .remap([0, 1, 2, 3], [1, 0, 0, 0])
             means = tot.reduceRegions(collection=fc,
-                                      reducer=ee.Reducer.mean(),
+                                      reducer=ee.Reducer.mode(),
                                       scale=30)
 
             task = ee.batch.Export.table.toCloudStorage(
@@ -254,7 +253,7 @@ def attribute_irrigation():
                 description='{}_{}'.format(state, yr),
                 bucket='wudr',
                 fileNamePrefix='attr_{}_{}'.format(state, yr),
-                fileFormat='CSV')
+                fileFormat='KML')
 
             print(state, yr)
             task.start()
@@ -330,7 +329,7 @@ def filter_irrigated(filter_type='filter_low'):
             likely irrigated), filter_high filters out high-ndvi feilds, leaving likely fallowed fields
     :return:
     """
-    for k, v in IRR.items():
+    for k, v in IRR_TEST.items():
         plots = ee.FeatureCollection(v[0])
 
         for year in v[1]:
@@ -399,6 +398,7 @@ def filter_irrigated(filter_type='filter_low'):
 
             task.start()
             print(k, year, filt_fc.size().getInfo())
+            break
 
 
 def request_validation_extract(file_prefix='validation'):
@@ -826,5 +826,9 @@ if __name__ == '__main__':
     # reduce_classification(COUNTIES, years=[2017, 2018],
     #                       description='v2_noCdlMask_minYr5',
     #                       cdl_mask=False, min_years=5)
-    filter_irrigated(filter_type='filter_high')
+    # attribute_irrigation()
+    for state in ['NE']:
+        print(state)
+        bounds = os.path.join(BOUNDARIES, state)
+        export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
 # ========================= EOF ====================================================================
