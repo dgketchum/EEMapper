@@ -30,14 +30,16 @@ from map.assets import list_assets
 ROI = 'users/dgketchum/boundaries/western_11_union'
 BOUNDARIES = 'users/dgketchum/boundaries'
 ASSET_ROOT = 'users/dgketchum/IrrMapper/version_2'
-IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/WA_clip'
+IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
 HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
 HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
 COUNTIES = 'users/dgketchum/boundaries/western_counties'
+UCRB = 'users/dgketchum/boundaries/UCRB'
+LCRB = 'users/dgketchum/boundaries/LCRB'
 
 STATES = ['AZ', 'CA', 'NV', 'CO', 'ID', 'MT', 'NM', 'OR', 'UT', 'WA', 'WY']  #
 EDIT_STATES = ['KS', 'ND', 'NE', 'OK', 'SD', 'TX']
-TARGET_STATES = ['WA']
+TARGET_STATES = ['AZ', 'CA', 'NM', 'NV', 'UT']
 
 POINTS_MT = 'ft:1quoEOgOl5dTQtYjyHZs9BxX8CZz1Leqv5qqFYLml'
 POINTS = 'ft:11GT2ikIkgqzYLb0R9tICu8PW7-lo7d-0GFutcywX'
@@ -238,25 +240,47 @@ def attribute_irrigation():
     field polygon coverages.
     :return:
     """
-    fc = ee.FeatureCollection(IRRIGATION_TABLE)
+    fc = ee.FeatureCollection(LCRB)
     for state in TARGET_STATES:
-        for yr in [2017]:
+        for yr in range(1986, 2019):
             images = os.path.join(ASSET_ROOT, '{}_{}'.format(state, yr))
             coll = ee.Image(images)
-            tot = coll.select('classification')  # .remap([0, 1, 2, 3], [1, 0, 0, 0])
+            tot = coll.select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
             means = tot.reduceRegions(collection=fc,
-                                      reducer=ee.Reducer.mode(),
+                                      reducer=ee.Reducer.mean(),
                                       scale=30)
 
             task = ee.batch.Export.table.toCloudStorage(
                 means,
-                description='{}_{}'.format(state, yr),
+                description='lcrb_{}_{}'.format(state, yr),
                 bucket='wudr',
-                fileNamePrefix='attr_{}_{}'.format(state, yr),
-                fileFormat='KML')
+                fileNamePrefix='lcrb_attr_{}_{}'.format(state, yr),
+                fileFormat='CSV')
 
             print(state, yr)
             task.start()
+
+
+def export_raster(roi, description):
+    fc = ee.FeatureCollection(roi)
+    mask = fc.geometry().bounds().getInfo()['coordinates']
+    image_list = list_assets('users/dgketchum/IrrMapper/version_2')
+
+    for yr in range(2012, 2019):
+        yr_img = [x for x in image_list if x.endswith(str(yr))]
+        coll = ee.ImageCollection(yr_img)
+        img = ee.ImageCollection(coll.mosaic().select('classification'))
+        img = img.first()
+        task = ee.batch.Export.image.toDrive(
+            img,
+            description='IrrMapper_V2_{}_{}'.format(description, yr),
+            folder='Irrigation',
+            region=mask,
+            scale=30,
+            maxPixels=1e13,
+            fileNamePrefix='IrrMapper_V2_{}_{}'.format(description, yr))
+        task.start()
+        print(yr)
 
 
 def export_classification(out_name, asset, export='asset'):
@@ -398,7 +422,6 @@ def filter_irrigated(filter_type='filter_low'):
 
             task.start()
             print(k, year, filt_fc.size().getInfo())
-            break
 
 
 def request_validation_extract(file_prefix='validation'):
@@ -831,4 +854,7 @@ if __name__ == '__main__':
         print(state)
         bounds = os.path.join(BOUNDARIES, state)
         export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
+    # filter_irrigated(filter_type='filter_high')
+    # export_raster(UCRB, description='UCRB')
+    attribute_irrigation()
 # ========================= EOF ====================================================================
