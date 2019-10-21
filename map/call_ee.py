@@ -244,30 +244,55 @@ def attribute_irrigation():
             task.start()
 
 
-def  export_raster(roi, descript):
+def export_raster(roi, description):
+    fc = ee.FeatureCollection(roi)
+    mask = fc.geometry().bounds().getInfo()['coordinates']
+    image_list = list_assets('users/dgketchum/IrrMapper/version_2')
+
+    for yr in range(1986, 2019):
+        yr_img = [x for x in image_list if x.endswith(str(yr))]
+        coll = ee.ImageCollection(yr_img)
+        img = ee.ImageCollection(coll.mosaic().select('classification'))
+        img = img.first()
+        task = ee.batch.Export.image.toDrive(
+            img,
+            description='IrrMapper_V2_{}_{}'.format(description, yr),
+            folder='Irrigation',
+            region=mask,
+            scale=30,
+            maxPixels=1e13,
+            fileNamePrefix='IrrMapper_V2_{}_{}'.format(description, yr))
+        task.start()
+        print(yr)
+
+
+def export_equipped(roi, description):
     fc = ee.FeatureCollection(roi)
     roi_mask = fc.geometry().bounds().getInfo()['coordinates']
     image_list = list_assets('users/dgketchum/IrrMapper/version_2')
+    years = [str(x) for x in range(1986, 1991)]
 
-    for years, period in zip(([x for x in range(1986, 1991)], 'start'),
-                             ([x for x in range(2014, 2019)], 'end')):
+    target_images = [x for x in image_list if x.endswith(years[0])]
+    target = ee.ImageCollection(target_images)
+    target = target.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
 
-        for yr in years:
-            yr_img = [x for x in image_list if x.endswith(str(yr))]
-            coll = ee.ImageCollection(yr_img)
-            sum = ee.ImageCollection(coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum()
-            sum_mask = sum.gt(3)
-            print(sum_mask.getInfo())
-            task = ee.batch.Export.image.toDrive(
-                sum_mask,
-                description='IrrMapper_V2_{}_{}'.format(descript, period),
-                folder='Irrigation',
-                region=roi_mask,
-                scale=30,
-                maxPixels=1e13,
-                fileNamePrefix='IrrMapper_V2_{}_{}'.format(descript, period))
-            task.start()
-            print(period)
+    range_images = [x for x in image_list if x.endswith(tuple(years))]
+    coll = ee.ImageCollection(range_images)
+    sum = ee.ImageCollection(coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum()
+    sum_mask = sum.lt(3)
+
+    img = target.mask(sum_mask)
+
+    task = ee.batch.Export.image.toDrive(
+        img,
+        description='IrrMapper_V2_end_first',
+        # folder='Irrigation',
+        region=roi_mask,
+        scale=30,
+        maxPixels=1e13,
+        # fileNamePrefix='IrrMapper_V2_{}_{}'.format(description, period)
+    )
+    task.start()
 
 
 def export_classification(out_name, asset, export='asset'):
@@ -841,6 +866,6 @@ if __name__ == '__main__':
     #     bounds = os.path.join(BOUNDARIES, state)
     #     export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
     # filter_irrigated(filter_type='filter_high')
-    export_raster(ROI, descript='del')
+    export_equipped(ROI, description='del')
     # attribute_irrigation()
 # ========================= EOF ====================================================================
