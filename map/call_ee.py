@@ -45,6 +45,7 @@ POINTS_MT = 'ft:1quoEOgOl5dTQtYjyHZs9BxX8CZz1Leqv5qqFYLml'
 POINTS = 'ft:11GT2ikIkgqzYLb0R9tICu8PW7-lo7d-0GFutcywX'
 
 POINTS_15JUL = 'ft:1B9ZLnB_3RnC5b_QXC8TJtwMZdhr0FtJZ_X99VnBV'
+POINTS_15JUL_LCRB = 'ft:1EqYW6f6Bs0Eq__15u0VtIje1KgoWABU3Z1RKFHCa'
 
 VALIDATION_POINTS = 'ft:1FQr4nFmTOVTBOv_GeTYniHQKeXg2lnQohHM8l7iZ'
 TABLE = 'ft:1wLrSEoQie6u7wTPl1bJ7rLEq20OLvQncecM3_HeH'
@@ -130,7 +131,7 @@ YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
 
 TEST_YEARS = [2002]
 # TEST_YEARS = [x for x in range(2018, 2019)]
-ALL_YEARS = [x for x in range(1984, 2019)]
+ALL_YEARS = [x for x in range(1986, 2019)]
 
 
 def reduce_classification(tables, years=None, description=None, cdl_mask=False, min_years=0):
@@ -645,10 +646,10 @@ def stack_bands_v2(yr, roi):
     end_date = '{}-01-01'.format(yr + 1)
     water_year_start = '{}-10-01'.format(yr - 1)
 
-    spring_s, spring_e = '{}-03-01'.format(yr), '{}-05-01'.format(yr),
-    late_spring_s, late_spring_e = '{}-05-01'.format(yr), '{}-07-01'.format(yr)
-    summer_s, summer_e = '{}-07-01'.format(yr), '{}-09-01'.format(yr)
-    fall_s, fall_e = '{}-09-01'.format(yr), '{}-11-01'.format(yr)
+    spring_s, spring_e = '{}-01-01'.format(yr), '{}-03-01'.format(yr),
+    late_spring_s, late_spring_e = '{}-03-01'.format(yr), '{}-06-01'.format(yr)
+    summer_s, summer_e = '{}-06-01'.format(yr), '{}-09-01'.format(yr)
+    fall_s, fall_e = '{}-09-01'.format(yr), '{}-12-01'.format(yr)
 
     l5_coll = ee.ImageCollection('LANDSAT/LT05/C01/T1_SR').filterBounds(
         roi).filterDate(start, end_date).map(ls5_edge_removal).map(ls57mask)
@@ -866,6 +867,7 @@ if __name__ == '__main__':
     #     bounds = os.path.join(BOUNDARIES, state)
     #     export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
     # filter_irrigated(filter_type='filter_high')
-    export_equipped(ROI, description='del')
+    # export_equipped(ROI, description='del')
     # attribute_irrigation()
+    request_band_extract(file_prefix='lcrb', filter_bounds=True)
 # ========================= EOF ====================================================================
