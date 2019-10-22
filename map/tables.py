@@ -58,7 +58,7 @@ COLS = ['SCENE_ID',
         'BASE_URL']
 
 
-def concatenate_county_data(folder, glob='counties'):
+def concatenate_county_data(folder, out_file, glob='counties', acres=False):
     df = None
     base_names = [x for x in os.listdir(folder)]
     _files = [os.path.join(folder, x) for x in base_names if x.startswith(glob) and not 'total_area' in x]
@@ -81,18 +81,20 @@ def concatenate_county_data(folder, glob='counties'):
             except ValueError:
                 pass
 
-        c = read_csv(csv).sort_values('COUNTYNS')['sum']  # / 4046.86
+        #  current code sums pixel area in square meters per feature
+        c = read_csv(csv).sort_values('COUNTYNS')['sum']  # pixel count
+        if acres:
+            c = read_csv(csv).sort_values('COUNTYNS')['sum'] / 4046.86  # acres
+
         c.name = '{}_{}'.format(comps[1], year)
         df = concat([df, c], sort=False, axis=1)
         print(c.shape, csv)
 
-    out_file = os.path.join(folder, 'irr_merged.csv')
-
-    print('size: {}'.format(df.shape))
+    # print('size: {}'.format(df.shape))
     # df = df.reindex(sorted(df.columns), axis=1)
-
     # df.drop(columns=['.geo'], inplace=True)
     df.to_csv(out_file, index=False)
+    print('saved {}'.format(out_file))
 
 
 def concatenate_band_extract(root, out_dir, glob='None', sample=None, n=None, spec=None):
@@ -157,11 +159,11 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, n=None, sp
     df.to_csv(out_file, index=False)
 
 
-def concatenate_irrigation_attrs(_dir, out_filename):
-    _files = [os.path.join(_dir, x) for x in os.listdir(_dir) if x.endswith('.csv')]
+def concatenate_irrigation_attrs(_dir, out_filename, glob):
+    _files = [os.path.join(_dir, x) for x in os.listdir(_dir) if glob in x]
     _files.sort()
     first_year = True
-    for year in range(1986, 2017):
+    for year in range(1986, 2019):
         yr_files = [f for f in _files if str(year) in f]
         first_state = True
         for f in yr_files:
@@ -418,6 +420,11 @@ if __name__ == '__main__':
     out_csv = os.path.join(d, 'irr_v2_noCdlMask_minYr5_25SEPT2019.csv')
     out_shp = out_csv.replace('.csv', '.shp')
     geo = os.path.join(home, 'IrrigationGIS', 'boundaries', 'counties', 'western_11_states.shp')
-    concatenate_county_data(d, glob='v2_noCdlMask_minYr5')
+    # atts_d = os.path.join(home, 'IrrigationGIS', 'irr_attrs')
+    # outfile = os.path.join(atts_d, 'lcrb_irrmapperV2.csv')
+
+    irr = os.path.join(d, 'irr_merged_ac.csv')
+    concatenate_county_data(d, out_file=irr, glob='v2_noCdlMask_minYr5', acres=True)
     # concatenate_attrs_county(d, out_csv, out_shp, geo)
+    # concatenate_irrigation_attrs(atts_d, outfile, glob='lcrb_attr')
 # ========================= EOF ====================================================================

@@ -19,6 +19,8 @@ import os
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid.inset_locator import InsetPosition
 from pandas import read_csv, Series
+from numpy import array, vstack, append, isnan, any
+from sklearn.metrics import r2_score
 
 
 def state_sum(csv):
@@ -44,7 +46,7 @@ def state_sum(csv):
     return plt
 
 
-def compare_nass_irrmapper_scatter(csv, fig_name=None):
+def compare_nass_irrmapper_scatter(csv, fig_name=None, print_correlation=False):
     df = read_csv(csv)
     fig, ax = plt.subplots(1, 1)
     s = Series(index=df.index)
@@ -60,7 +62,7 @@ def compare_nass_irrmapper_scatter(csv, fig_name=None):
     df.plot(x='NASS_{}_ac'.format(2012), y='IM{}_ac'.format(2012), kind='scatter', s=4,
             xlim=(1e2, 1e6), ylim=(1e2, 1e6), ax=ax, loglog=True, color='r')
 
-    plt.xlabel('NASS FRIS Total Irrigated Acres, Counties'.format())
+    plt.xlabel('NASS AgStats Total Irrigated Acres, Counties'.format())
     plt.ylabel('IrrMapper Total Irrigated Acres'.format())
     legend =ax.legend(['2002', '2007', '2012'], loc='lower right')
     # fig.suptitle('Lorem ipsum dolor sit amet, consectetur adipiscing elit', ha='center')
@@ -75,7 +77,7 @@ def compare_nass_irrmapper_scatter(csv, fig_name=None):
     ax2 = fig.add_axes([0, 0, 1, 1])
     ax2.xaxis.label.set_visible(False)
     ax2.yaxis.label.set_visible(False)
-    ax.text(0.25, 0.63, 'States', transform=ax.transAxes, ha="right")
+    ax.text(0.26, 0.62, 'States', transform=ax.transAxes, ha="right")
 
     df_state.plot(x='NASS_{}_ac'.format(2002), y='IM{}_ac'.format(2002), kind='scatter', s=4,
                   xlim=(1e6, 1e7), ylim=(1e6, 1e7), ax=ax2, loglog=True, color='g')
@@ -89,6 +91,33 @@ def compare_nass_irrmapper_scatter(csv, fig_name=None):
     # plt.show()
     if fig_name:
         plt.savefig(fig_name)
+
+    if print_correlation:
+        irrmap_cols = [x for x in df_state.columns if 'IM' in x]
+        nass_cols = [x for x in df_state.columns if 'NASS' in x]
+        im_state_df = df_state[irrmap_cols]
+        nass_state_df = df_state[nass_cols]
+        im_state = array([im_state_df[x].values for x in im_state_df]).flatten()
+        nass_state = array([nass_state_df[x].values for x in nass_state_df]).flatten()
+        comp = vstack([im_state, nass_state]).transpose()
+        comp = append(comp, (comp[:, 0] - comp[:, 1]).reshape(comp.shape[0], 1), axis=1)
+        rmse = ((comp[2, :]) ** 2).mean() ** .5
+        coeff_det = r2_score(comp[:, 0], comp[:, 1])
+        print('state r squared: {}'.format(coeff_det))
+
+        irrmap_cols = [x for x in df.columns if 'IM' in x]
+        nass_cols = [x for x in df.columns if 'NASS' in x]
+        im_county_df = df[irrmap_cols]
+        nass_county_df = df[nass_cols]
+        im_county = array([im_county_df[x].values for x in im_county_df]).flatten()
+        nass_county = array([nass_county_df[x].values for x in nass_county_df]).flatten()
+        comp = vstack([im_county, nass_county]).transpose()
+        comp = append(comp, (comp[:, 0] - comp[:, 1]).reshape(comp.shape[0], 1), axis=1)
+        comp = comp[~isnan(comp).any(axis=1)]
+        rmse = ((comp[2, :]) ** 2).mean() ** .5
+        coeff_det = r2_score(comp[:, 0], comp[:, 1])
+        print('county r squared: {}'.format(coeff_det))
+    return None
 
 
 def irr_time_series(csv, fig_name=None):
@@ -112,7 +141,7 @@ def irr_time_series(csv, fig_name=None):
 
     plt.legend(loc='lower center', ncol=6)
     if fig_name:
-        plt.savefig(fig_name)
+        plt.savefig(fig_name.replace('.', '_state.'))
     plt.show()
 
 
@@ -148,8 +177,9 @@ if __name__ == '__main__':
     irr_shp = irr_all.replace('.csv', '.shp')
 
     # figure = 'figs/z_annual_irr_byState_noCdl_5Yr_25SETP2019.png'
-    figure = 'figs/comparison_noCdl_5Yr_25SETP2019.png'
+    figure = 'figs/comparison_noCdl_5Yr_22OCT2019.png'
 
-    compare_nass_irrmapper_scatter(o, fig_name=figure)
-    # irr_time_series(irr_all, fig_name=figure)
+    # compare_nass_irrmapper_scatter(o, print_correlation=True)
+    irr_time_series(irr_all, fig_name=figure)
+    # state_sum(o)
 # ========================= EOF ====================================================================

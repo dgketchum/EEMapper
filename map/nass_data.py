@@ -18,7 +18,6 @@ import json
 import os
 from copy import deepcopy
 
-import matplotlib.pyplot as plt
 from geopandas import GeoDataFrame
 from numpy import nan
 from pandas import read_table, read_csv, DataFrame, Series
@@ -93,11 +92,6 @@ def strip_null(row):
     return val
 
 
-# ['system:index', 'AFFGEOID', 'ALAND', 'AWATER', 'COUNTYFP', 'COUNTYNS', 'GEOID', 'LSAD', 'NAME', 'STATEFP', '.geo',
-#  'total_area', 'MinMask_2012', 'NoMask_2007', 'cdlMinMask_2002', 'cdlMask_2002', 'MinMask_2007', 'cdlMask_2012',
-#  'NoMask_2012', 'cdlMask_2007', 'cdlMinMask_2007', 'MinMask_2002', 'cdlMinMask_2012', 'NoMask_2002']
-
-
 def merge_nass_irrmapper(nass, irrmapper, out_name):
     idf = read_csv(irrmapper)
     ndf = read_csv(nass)
@@ -147,11 +141,11 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     irr_tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county', 'counties_v2', 'noCdlMask_minYr5')
     nass_tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county')
-    # _files = [os.path.join(tables, x) for x in ['qs.census2002.txt',
-    #                                             'qs.census2007.txt',
-    #                                             'qs.census2012.txt']]
-    # merged = os.path.join(tables, 'nass_merged.csv')
-    # get_nass(_files, merged)
+    _files = [os.path.join(nass_tables, x) for x in [  # 'qs.census2002.txt',
+        # 'qs.census2007.txt',
+        'qs.census2012.txt']]
+    merged = os.path.join(nass_tables, 'nass_merged_test.csv')
+    get_nass(_files, merged)
 
     irr = os.path.join(irr_tables, 'irr_merged.csv')
     nass = os.path.join(nass_tables, 'nass_merged.csv')
