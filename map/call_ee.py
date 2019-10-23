@@ -324,7 +324,7 @@ def export_classification(out_name, asset, export='asset'):
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
     for yr in TEST_YEARS:
-        input_bands = stack_bands_v2(yr, roi)
+        input_bands = stack_bands_lcrb(yr, roi)
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.classify(trained_model).int().set({
             'system:index': ee.Date('{}-01-01'.format(yr)).format('YYYYMMdd'),
@@ -490,7 +490,7 @@ def request_band_extract(file_prefix, filter_bounds=False):
     roi = ee.FeatureCollection(ROI)
     plots = ee.FeatureCollection(POINTS_15JUL)
     for yr in ALL_YEARS:
-        stack = stack_bands_v2(yr, roi)
+        stack = stack_bands_lcrb(yr, roi)
         start = '{}-01-01'.format(yr)
         d = datetime.strptime(start, '%Y-%m-%d')
         epoch = datetime.utcfromtimestamp(0)

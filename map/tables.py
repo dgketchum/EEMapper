@@ -413,6 +413,16 @@ def concatenate_attrs_county(_dir, out_csv_filename, out_shp_filename, template_
     gpd.to_file(out_shp_filename)
 
 
+def get_project_totals(csv, out_file):
+    df = read_csv(csv)
+    df.drop(['COUNTYFP', 'COUNTYNS', 'LSAD', 'GEOID'], inplace=True, axis=1)
+    df = df.groupby(['STATEFP']).sum()
+    df.to_csv(out_file.replace('.csv', '_state.csv'))
+    s = df.sum()
+    s.to_csv(out_file.replace('.csv', '_totals.csv'))
+    print('project totals, acreas: {}'.format(s))
+
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     d = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county',
@@ -424,7 +434,8 @@ if __name__ == '__main__':
     # outfile = os.path.join(atts_d, 'lcrb_irrmapperV2.csv')
 
     irr = os.path.join(d, 'irr_merged_ac.csv')
-    concatenate_county_data(d, out_file=irr, glob='v2_noCdlMask_minYr5', acres=True)
+    # concatenate_county_data(d, out_file=irr, glob='v2_noCdlMask_minYr5', acres=True)
     # concatenate_attrs_county(d, out_csv, out_shp, geo)
     # concatenate_irrigation_attrs(atts_d, outfile, glob='lcrb_attr')
+    get_project_totals(irr, out_file=os.path.join(d, 'irrmapper_annual_acres.csv'))
 # ========================= EOF ====================================================================

@@ -120,7 +120,8 @@ def compare_nass_irrmapper_scatter(csv, fig_name=None, print_correlation=False):
     return None
 
 
-def irr_time_series(csv, fig_name=None):
+def irr_time_series_states(csv, fig_name=None):
+    #  this uses pixel counts still
     df = read_csv(csv)
     yrs = [x for x in df.columns if 'Ct_' in x]
     df = df.groupby(['STATEFP']).sum()
@@ -137,11 +138,37 @@ def irr_time_series(csv, fig_name=None):
         ax = r.plot(ax=ax, kind='line', x=linear, y=r.values, alpha=0.6)
 
     z_totals.name = 'All'
-    z_totals.plot(ax=ax, kind='line', x=linear, y=z_totals.values)
-
-    plt.legend(loc='lower center', ncol=6)
+    z_totals.plot(ax=ax, kind='line', color='k', alpha=0.7, x=linear, y=z_totals.values)
+    plt.title('Normalized Irrigated Area')
+    ax.axvspan(2011.5, 2012.5, alpha=0.5, color='red')
+    plt.xlim(1984, 2020)
+    plt.ylim(0.6, 1.5)
+    plt.legend(loc='lower center', ncol=6, labelspacing=1)
     if fig_name:
         plt.savefig(fig_name.replace('.', '_state.'))
+    plt.show()
+
+
+def irr_time_series_totals(csv, fig_name):
+    df = read_csv(csv)
+    df.drop(['COUNTYFP', 'COUNTYNS', 'LSAD', 'GEOID'], inplace=True, axis=1)
+    df = df.groupby(['STATEFP']).sum()
+    totals = df.sum(axis=0)
+    labels = [x for x in df.columns if 'noCdlMask' in x]
+    years = [x for x in range(1986, 2019)]
+    totals = totals[labels]
+    totals.sort_index(inplace=True)
+    totals.index = years
+    fig, ax = plt.subplots()
+    nass = [(2002, 25441101), (2007, 24849491), (2012, 23692532)]
+    totals = Series(totals.values/1e6, index=years)
+    totals.plot(ax=ax, kind='line', x=years, y=totals)
+    ax.plot(ax=ax, x=[x[0] for x in nass], y=[x[1] for x in nass])
+    plt.title('Total Irrigated Area, Western 11 States \n 1986 - 2018')
+    plt.ylabel('Million Acres')
+    plt.xlabel('Year')
+    if fig_name:
+        plt.savefig(fig_name.replace('.', '_totals.'))
     plt.show()
 
 
@@ -177,9 +204,13 @@ if __name__ == '__main__':
     irr_shp = irr_all.replace('.csv', '.shp')
 
     # figure = 'figs/z_annual_irr_byState_noCdl_5Yr_25SETP2019.png'
-    figure = 'figs/comparison_noCdl_5Yr_22OCT2019.png'
+    # figure = 'figs/comparison_noCdl_5Yr_22OCT2019.png'
+    figure = 'figs/irr_totals_timeSeries_22OCT2019.png'
 
-    # compare_nass_irrmapper_scatter(o, print_correlation=True)
-    irr_time_series(irr_all, fig_name=figure)
+    irr = os.path.join(irr_tables, 'irr_merged_ac.csv')
+
+    compare_nass_irrmapper_scatter(o, print_correlation=True)
+    # irr_time_series_states(irr_all, fig_name=figure)
     # state_sum(o)
+    # irr_time_series_totals(irr, fig_name=figure)
 # ========================= EOF ====================================================================
