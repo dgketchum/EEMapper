@@ -57,6 +57,8 @@ COLS = ['SCENE_ID',
         'TOTAL_SIZE',
         'BASE_URL']
 
+DROP_COUNTY = ['system:index', 'AFFGEOID', 'COUNTYFP', 'COUNTYNS', 'GEOID', 'LSAD', 'STATEFP', '.geo']
+
 
 def concatenate_county_data(folder, out_file, glob='counties', acres=False):
     df = None
@@ -70,29 +72,38 @@ def concatenate_county_data(folder, out_file, glob='counties', acres=False):
         print(csv)
         if first:
             df = read_csv(totals_file).sort_values('COUNTYNS')
-            df['total_area'] = df['sum']
+            cty_str = df['COUNTYFP'].map(lambda x: str(int(x)).zfill(3))
+            idx_str = df['STATEFP'].map(lambda x: str(int(x))) + cty_str
+            idx = idx_str.map(int)
+            df['FIPS'] = idx
+            df.index = idx
+            if acres:
+                df['total_area'] = df['sum'] / 4046.86
+            else:
+                df['total_area'] = df['sum']
             df.drop(columns=['sum'], inplace=True)
             first = False
 
-        comps = os.path.basename(csv).split('_')
-        for c in comps:
-            try:
-                year = int(c)
-            except ValueError:
-                pass
+        prefix, year = os.path.basename(csv).split('_')[1], os.path.basename(csv).split('_')[4]
 
-        #  current code sums pixel area in square meters per feature
-        c = read_csv(csv).sort_values('COUNTYNS')['sum']  # pixel count
+        c = read_csv(csv).sort_values('COUNTYNS')
+        name = '{}_{}'.format(prefix, year)
+        cty_str = c['COUNTYFP'].map(lambda x: str(int(x)).zfill(3))
+        idx_str = c['STATEFP'].map(lambda x: str(int(x))) + cty_str
+        idx = idx_str.map(int)
+        c.index = idx
         if acres:
-            c = read_csv(csv).sort_values('COUNTYNS')['sum'] / 4046.86  # acres
+            c[name] = c['sum'] / 4046.86
+        else:
+            c[name] = c['sum']
 
-        c.name = '{}_{}'.format(comps[1], year)
-        df = concat([df, c], sort=False, axis=1)
+        df = concat([df, c[name]], axis=1)
         print(c.shape, csv)
 
     # print('size: {}'.format(df.shape))
     # df = df.reindex(sorted(df.columns), axis=1)
-    # df.drop(columns=['.geo'], inplace=True)
+    df.drop(columns=DROP_COUNTY, inplace=True)
+    df.sort_index(axis=1, inplace=True)
     df.to_csv(out_file, index=False)
     print('saved {}'.format(out_file))
 
@@ -433,9 +444,9 @@ if __name__ == '__main__':
     # atts_d = os.path.join(home, 'IrrigationGIS', 'irr_attrs')
     # outfile = os.path.join(atts_d, 'lcrb_irrmapperV2.csv')
 
-    irr = os.path.join(d, 'irr_merged_ac.csv')
-    # concatenate_county_data(d, out_file=irr, glob='v2_noCdlMask_minYr5', acres=True)
+    irr = os.path.join(d, 'irr_merged.csv')
+    concatenate_county_data(d, out_file=irr, glob='v2_noCdlMask_minYr5', acres=True)
     # concatenate_attrs_county(d, out_csv, out_shp, geo)
     # concatenate_irrigation_attrs(atts_d, outfile, glob='lcrb_attr')
-    get_project_totals(irr, out_file=os.path.join(d, 'irrmapper_annual_acres.csv'))
+    # get_project_totals(irr, out_file=os.path.join(d, 'irrmapper_annual_acres.csv'))
 # ========================= EOF ====================================================================
