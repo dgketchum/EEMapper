@@ -29,13 +29,18 @@ from map.assets import list_assets
 
 ROI = 'users/dgketchum/boundaries/western_11_union'
 BOUNDARIES = 'users/dgketchum/boundaries'
+
 ASSET_ROOT = 'users/dgketchum/IrrMapper/version_2'
+ASSET_ROOT_LCRB = 'users/dgketchum/IrrMapper/lcrb'
+
 IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
+
 HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
 HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
 COUNTIES = 'users/dgketchum/boundaries/western_counties'
+
 UCRB = 'users/dgketchum/boundaries/UCRB'
-LCRB = 'users/dgketchum/boundaries/LCRB'
+LCRB = 'users/dgketchum/boundaries/lcrb'
 
 STATES = ['AZ', 'CA', 'NV', 'CO', 'ID', 'MT', 'NM', 'OR', 'UT', 'WA', 'WY']  #
 EDIT_STATES = ['KS', 'ND', 'NE', 'OK', 'SD', 'TX']
@@ -55,6 +60,7 @@ TABLE_V1 = 'ft:1RbKio5wW2T7t8Gcg7xhMcL6xjOSoGhZdgeqeZ0Xf'
 
 # bands_15JUL_v2_kw; we used this one!
 TABLE_V2 = 'ft:16eZpSZExa2S-4n3kS0A1Vf84gKppCAONb0_nqIwG'
+TABLE_LCRB = 'ft:1EtepJLpjCOZd7r51_8lijNisomv0tDYmpVkr_RR4'
 
 # this dict is where we keep Fusion Table IDs from kml files waiting to be filtered
 
@@ -129,7 +135,7 @@ YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
          2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
          2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
 
-TEST_YEARS = [2002]
+TEST_YEARS = [2013]
 # TEST_YEARS = [x for x in range(2018, 2019)]
 ALL_YEARS = [x for x in range(1986, 2019)]
 
@@ -305,7 +311,7 @@ def export_classification(out_name, asset, export='asset'):
     :param export:
     :return:
     """
-    fc = ee.FeatureCollection(TABLE_V2)
+    fc = ee.FeatureCollection(TABLE_LCRB)
     roi = ee.FeatureCollection(asset)
     mask = roi.geometry().bounds().getInfo()['coordinates']
 
@@ -790,15 +796,6 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    # reduce_classification(COUNTIES, years=[2017, 2018],
-    #                       description='v2_noCdlMask_minYr5',
-    #                       cdl_mask=False, min_years=5)
-    # for state in ['NE']:
-    #     print(state)
-    #     bounds = os.path.join(BOUNDARIES, state)
-    #     export_classification(out_name='{}'.format(state), asset=bounds, export='asset')
-    # filter_irrigated(filter_type='filter_high')
-    # export_equipped(ROI, description='del')
-    # attribute_irrigation()
-    request_band_extract(file_prefix='lcrb', filter_bounds=True)
+    export_classification(out_name='lcrb', asset=LCRB)
+    # request_band_extract(file_prefix='lcrb', filter_bounds=True)
 # ========================= EOF ====================================================================
