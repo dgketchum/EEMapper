@@ -21,9 +21,8 @@ from pprint import pprint
 from time import time
 
 import tensorflow as tf
-from numpy import unique, dot, mean, flatnonzero
-from numpy.random import randint
-from pandas import read_csv, get_dummies
+from numpy import dot, mean, flatnonzero
+from pandas import read_csv
 from scipy.stats import randint as sp_randint
 from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestClassifier
@@ -43,74 +42,6 @@ def consumer(arr):
 def producer(arr):
     c = [(arr[x, x] / sum(arr[:, x])) for x in range(0, arr.shape[0])]
     print('producer accuracy: {}'.format(c))
-
-
-def mlp(csv):
-    start = datetime.now()
-    df = read_csv(csv, engine='python')
-    labels = df['POINT_TYPE'].values
-    df.drop(columns=['YEAR', 'POINT_TYPE'], inplace=True)
-    data = df.values
-
-    x = normalize_feature_array(data)
-    y = get_dummies(labels.reshape((labels.shape[0],))).values
-    N = len(unique(labels))
-    n = data.data.shape[1]
-    print('train on {}'.format(data.shape))
-
-    nodes = 500
-    eta = 0.01
-    epochs = 10000
-    seed = 128
-    batch_size = 1000
-
-    x, x_test, y, y_test = train_test_split(x, y, test_size=0.33,
-                                            random_state=None)
-
-    X = tf.placeholder("float", [None, n])
-    Y = tf.placeholder("float", [None, N])
-
-    weights = {
-        'hidden': tf.Variable(tf.random_normal([n, nodes], seed=seed), name='Wh'),
-        'output': tf.Variable(tf.random_normal([nodes, N], seed=seed), name='Wo')}
-    biases = {
-        'hidden': tf.Variable(tf.random_normal([nodes], seed=seed), name='Bh'),
-        'output': tf.Variable(tf.random_normal([N], seed=seed), name='Bo')}
-
-    y_pred = tf.add(tf.matmul(multilayer_perceptron(X, weights['hidden'], biases['hidden']),
-                              weights['output']), biases['output'])
-
-    loss_op = tf.reduce_sum(tf.nn.softmax_cross_entropy_with_logits(logits=y_pred, labels=Y))
-
-    optimizer = tf.train.AdamOptimizer(learning_rate=eta).minimize(loss_op)
-
-    init = tf.global_variables_initializer()
-
-    with tf.Session() as sess:
-
-        sess.run(init)
-
-        for step in range(epochs):
-
-            offset = randint(0, y.shape[0] - batch_size - 1)
-
-            batch_data = x[offset:(offset + batch_size), :]
-            batch_labels = y[offset:(offset + batch_size), :]
-
-            feed_dict = {X: batch_data, Y: batch_labels}
-
-            _, loss = sess.run([optimizer, loss_op],
-                               feed_dict=feed_dict)
-
-            if step % 1000 == 0:
-                pred = tf.nn.softmax(y_pred)
-                correct_prediction = tf.equal(tf.argmax(pred, 1), tf.argmax(Y, 1))
-                accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-
-        print('Test accuracy: {}, loss {}'.format(accuracy.eval({X: x_test, Y: y_test}), loss))
-
-    print('training time: {} seconds'.format((datetime.now() - start).seconds))
-    return None
 
 
 def pca(csv):
@@ -337,7 +268,6 @@ def get_confusion_matrix(csv):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    csv_location = os.path.join(home, 'IrrigationGIS', 'EE_extracts',
-                                'validation_tables', 'validation_12AUG2019.csv')
-    get_confusion_matrix(csv_location)
+    bands = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated', 'lcrb.csv')
+    random_forest(bands, binary=True)
 # ========================= EOF ====================================================================
