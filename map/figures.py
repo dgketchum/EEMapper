@@ -18,8 +18,9 @@ import os
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid.inset_locator import InsetPosition
-from numpy import array, vstack, append, isnan
+from numpy import logical_not, isnan, array
 from pandas import read_csv, Series
+from sklearn import linear_model
 from sklearn.metrics import r2_score
 
 
@@ -59,28 +60,40 @@ def state_sum(csv):
 
 
 def compare_nass_irrmapper_scatter(csv, fig_name):
-    df = read_csv(csv)
-    s = Series(index=df.index)
-    s.loc[0], s.loc[df.shape[0]] = 0, 1e6
-    s.interpolate(axis=0, inplace=True)
-    s.index = s.values
+    def get_axis_limits(ax, scale=.9):
+        return ax.get_xlim()[1] * scale, ax.get_ylim()[1] * scale
 
+    df = read_csv(csv)
+    s = array([0, 1e6])
     fig, ax = plt.subplots(2, 4)
     rows, cols = [0, 0, 0, 0, 1, 1, 1, 1], [0, 1, 2, 3, 0, 1, 2, 3]
 
     for r, c, year in zip(rows, cols, range(1987, 2022, 5)):
+
         n, i = 'NASS_{}'.format(year), 'IM_{}'.format(year)
         a = ax[r, c]
+
         ydf = df[[n, i]]
 
-        s.plot(kind='line', lw=1, loglog=True,
-               color='k', style='--', alpha=0.5, label='_nolegend_', ax=a)
+        nass, irr = ydf[n].values, ydf[i].values
+        nass, irr = nass[logical_not(isnan(nass))], irr[logical_not(isnan(nass))]
+        nass, irr = nass.reshape(nass.shape[0], 1), irr.reshape(irr.shape[0], 1)
+
+        r2, m, _int = get_correlations(nass, irr)
+
+        a.plot(s, s, linewidth=1, linestyle='--', color='k', alpha=0.5, label='_nolegend_')
+
+        # y = [(m * x + _int)[0] for x in s]
+        # a.loglog(s, y, linestyle='--', color='blue', linewidth=1)
 
         ydf.plot(n, i, xlim=(1e2, 1e6), ylim=(1e2, 1e6), loglog=True, color='k', alpha=0.3,
                  kind='scatter', ax=a, marker='o', s=3)
 
         a.set(adjustable='box')
         a.set_title(str(year), size=10)
+
+        a.text(0.05, 0.9, '$r^2$={0:.4f}'.format(r2), transform=a.transAxes,
+               size=7)
 
         if c > 0:
             a.set_yticks([])
@@ -89,44 +102,28 @@ def compare_nass_irrmapper_scatter(csv, fig_name):
 
         x_axis = a.xaxis
         x_axis.label.set_visible(False)
+        a.set_xlim(1e2, 1e6)
 
         y_axis = a.yaxis
         y_axis.label.set_visible(False)
+        a.set_ylim(1e2, 1e6)
 
     fig.delaxes(ax[1, 3])
     plt.tight_layout()
-    plt.show()
+    # plt.show()
     plt.savefig(fig_name)
+    # plt.close()
 
 
-def get_correlations(csv):
-    df_state = read_csv(csv)
-    df = None
-    irrmap_cols = [x for x in df_state.columns if 'IM' in x]
-    nass_cols = [x for x in df_state.columns if 'NASS' in x]
-    im_state_df = df_state[irrmap_cols]
-    nass_state_df = df_state[nass_cols]
-    im_state = array([im_state_df[x].values for x in im_state_df]).flatten()
-    nass_state = array([nass_state_df[x].values for x in nass_state_df]).flatten()
-    comp = vstack([im_state, nass_state]).transpose()
-    comp = append(comp, (comp[:, 0] - comp[:, 1]).reshape(comp.shape[0], 1), axis=1)
-    rmse = ((comp[2, :]) ** 2).mean() ** .5
-    coeff_det = r2_score(comp[:, 0], comp[:, 1])
-    print('state r squared: {}'.format(coeff_det))
-
-    irrmap_cols = [x for x in df.columns if 'IM' in x]
-    nass_cols = [x for x in df.columns if 'NASS' in x]
-    im_county_df = df[irrmap_cols]
-    nass_county_df = df[nass_cols]
-    im_county = array([im_county_df[x].values for x in im_county_df]).flatten()
-    nass_county = array([nass_county_df[x].values for x in nass_county_df]).flatten()
-    comp = vstack([im_county, nass_county]).transpose()
-    comp = append(comp, (comp[:, 0] - comp[:, 1]).reshape(comp.shape[0], 1), axis=1)
-    comp = comp[~isnan(comp).any(axis=1)]
-    rmse = ((comp[2, :]) ** 2).mean() ** .5
-    coeff_det = r2_score(comp[:, 0], comp[:, 1])
-    print('county r squared: {}'.format(coeff_det))
-    return None
+def get_correlations(a, b):
+    coeff_det = r2_score(a, b)
+    regr = linear_model.LinearRegression()
+    regr.fit(a, b)
+    pred = regr.predict(a)
+    slope, intercept = regr.coef_[0][0], regr.intercept_
+    print('regression coeff: {}'.format(slope))
+    print('r squared: {}'.format(coeff_det))
+    return coeff_det, slope, intercept
 
 
 def irr_time_series_states(csv, fig_name=None):
