@@ -436,17 +436,9 @@ def get_project_totals(csv, out_file):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    d = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county',
-                     'counties_v2', 'noCdlMask_minYr5')
-    out_csv = os.path.join(d, 'irr_v2_noCdlMask_minYr5_25SEPT2019.csv')
-    out_shp = out_csv.replace('.csv', '.shp')
-    geo = os.path.join(home, 'IrrigationGIS', 'boundaries', 'counties', 'western_11_states.shp')
-    # atts_d = os.path.join(home, 'IrrigationGIS', 'irr_attrs')
-    # outfile = os.path.join(atts_d, 'lcrb_irrmapperV2.csv')
 
+    d = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county')
+    no_cdl = os.path.join(d, 'counties_v2', 'noCdlMask_minYr5')
     irr = os.path.join(d, 'irr_merged.csv')
     concatenate_county_data(d, out_file=irr, glob='v2_noCdlMask_minYr5', acres=True)
-    # concatenate_attrs_county(d, out_csv, out_shp, geo)
-    # concatenate_irrigation_attrs(atts_d, outfile, glob='lcrb_attr')
-    # get_project_totals(irr, out_file=os.path.join(d, 'irrmapper_annual_acres.csv'))
 # ========================= EOF ====================================================================
