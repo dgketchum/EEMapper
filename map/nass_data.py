@@ -35,8 +35,7 @@ DROP = ['SOURCE_DESC', 'SECTOR_DESC', 'GROUP_DESC',
         'COUNTRY_NAME', 'LOCATION_DESC', 'YEAR', 'FREQ_DESC',
         'BEGIN_CODE', 'END_CODE', 'REFERENCE_PERIOD_DESC',
         'WEEK_ENDING', 'LOAD_TIME', 'VALUE', 'AGG_LEVEL_DESC',
-        'CV_%', 'STATE_ANSI', 'STATE_ALPHA', 'STATE_NAME',
-        'COUNTY_CODE', 'COUNTY_NAME']
+        'CV_%', 'STATE_ALPHA', 'STATE_NAME', 'COUNTY_NAME']
 
 
 TSV = {1987: ('DS0041/35206-0041-Data.tsv', 'ITEM01018', 'FLAG01018'),
@@ -171,18 +170,18 @@ if __name__ == '__main__':
     old_data_dir = os.path.join(nass_tables, 'ICPSR_35206')
 
     # get_old_nass(old_data_dir, out_file=old_data)
-    # _files = [os.path.join(nass_tables, x) for x in ['qs.census2002.txt',
-    #                                                  'qs.census2007.txt',
-    #                                                  'qs.census2012.txt',
-    #                                                  'qs.census2017.txt']]
-    # merged = os.path.join(nass_tables, 'nass_merged.csv')
-    # get_nass(_files, merged, old_nass=old_data)
+    _files = [os.path.join(nass_tables, x) for x in ['qs.census2002.txt',
+                                                     'qs.census2007.txt',
+                                                     'qs.census2012.txt',
+                                                     'qs.census2017.txt']]
+    merged = os.path.join(nass_tables, 'nass_merged.csv')
+    get_nass(_files, merged, old_nass=old_data)
 
-    irr = os.path.join(irr_tables, 'irr_merged.csv')
-    nass = os.path.join(nass_tables, 'nass_merged.csv')
-
-    o = os.path.join(irr_tables, 'nass_irrMap.csv')
-
-    merge_nass_irrmapper(nass, irr, o)
+    # irr = os.path.join(irr_tables, 'irr_merged.csv')
+    # nass = os.path.join(nass_tables, 'nass_merged.csv')
+    #
+    # o = os.path.join(irr_tables, 'nass_irrMap.csv')
+    #
+    # merge_nass_irrmapper(nass, irr, o)
 
 # ========================= EOF ====================================================================
