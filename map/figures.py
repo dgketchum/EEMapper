@@ -150,32 +150,46 @@ def irr_time_series_states(csv, fig_name=None):
     plt.xlim(1984, 2020)
     plt.ylim(0.6, 1.5)
     plt.legend(loc='lower center', ncol=6, labelspacing=1)
-    if fig_name:
-        plt.savefig(fig_name.replace('.', '_state.'))
+    # if fig_name:
+    #     plt.savefig(fig_name.replace('.', '_state.'))
     plt.show()
 
 
-def irr_time_series_totals(csv, fig_name):
-    df = read_csv(csv)
+def irr_time_series_totals(irr, nass, fig_name):
+
+    df = read_csv(irr)
     df.drop(['COUNTYFP', 'COUNTYNS', 'LSAD', 'GEOID'], inplace=True, axis=1)
     df = df.groupby(['STATEFP']).sum()
     totals = df.sum(axis=0)
     labels = [x for x in df.columns if 'noCdlMask' in x]
-    years = [x for x in range(1986, 2019)]
+    irr_years = [x for x in range(1986, 2019)]
     totals = totals[labels]
     totals.sort_index(inplace=True)
-    totals.index = years
-    fig, ax = plt.subplots()
-    nass = [(2002, 25441101), (2007, 24849491), (2012, 23692532)]
-    totals = Series(totals.values/1e6, index=years)
-    totals.plot(ax=ax, kind='line', x=years, y=totals)
-    ax.plot(ax=ax, x=[x[0] for x in nass], y=[x[1] for x in nass])
+    totals.index = irr_years
+    totals = totals.values
+
+    nass = read_csv(nass, index_col=[0])
+    nass.dropna(axis=0, subset=['STATE_ANSI'], inplace=True)
+    nass['STATE_ANSI'] = nass['STATE_ANSI'].astype(int)
+    nass = nass.loc[nass['STATE_ANSI'].isin(list(df.index))]
+    cols = [x for x in nass.columns if 'VALUE' in x]
+    nass = nass[cols]
+    nass = nass.sum(axis=0)
+    nass_years = [int(x[-4:]) for x in nass.index]
+    nass.index = nass_years
+    nass_values = nass.values
+
+    plt.plot(irr_years, totals/1e6, label='IrrMapper')
+    plt.scatter(x=nass_years, y=nass_values/1e6, marker='*', color='red', label='NASS')
     plt.title('Total Irrigated Area, Western 11 States \n 1986 - 2018')
+    plt.xlim(1985, 2019)
+    # plt.ylim(20, 30)
     plt.ylabel('Million Acres')
     plt.xlabel('Year')
+    plt.legend()
     if fig_name:
         plt.savefig(fig_name.replace('.', '_totals.'))
-    plt.show()
+    # plt.show()
 
 
 def state_fp_code():
@@ -196,15 +210,16 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
 
     county = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county')
+    nass_merged = os.path.join(county, 'nass_merged.csv')
+
     irr_tables = os.path.join(county, 'counties_v2', 'noCdlMask_minYr5')
+    irr_all = os.path.join(irr_tables, 'irr_merged_ac.csv')
 
-    o = os.path.join(irr_tables, 'nass_irrMap.csv')
-    irr_all = os.path.join(irr_tables, 'irr_v2_noCdlMask_minYr5_25SEPT2019.csv')
-    irr_shp = irr_all.replace('.csv', '.shp')
-    figure = 'figs/irr_totals_timeSeries_24OCT2019.png'
+    figure = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper',
+                          'figures', 'totals_time_series.png')
 
-    compare_nass_irrmapper_scatter(o, figure)
+    # compare_nass_irrmapper_scatter(o, figure)
     # irr_time_series_states(irr_all, fig_name=figure)
     # state_sum(o)
-    # irr_time_series_totals(irr, fig_name=figure)
+    irr_time_series_totals(irr_all, nass_merged, fig_name=figure)
 # ========================= EOF ====================================================================
