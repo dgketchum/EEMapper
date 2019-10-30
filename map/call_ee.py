@@ -135,7 +135,7 @@ YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
          2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
          2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
 
-TEST_YEARS = [2013]
+TEST_YEARS = [x for x in range(1990, 2000)]
 # TEST_YEARS = [x for x in range(2018, 2019)]
 ALL_YEARS = [x for x in range(1986, 2019)]
 
@@ -342,7 +342,7 @@ def export_classification(out_name, asset, export='asset'):
             task = ee.batch.Export.image.toAsset(
                 image=classified_img,
                 description='{}_{}'.format(out_name, yr),
-                assetId=os.path.join(ASSET_ROOT, '{}_{}'.format(out_name, yr)),
+                assetId=os.path.join(ASSET_ROOT_LCRB, '{}_{}'.format(out_name, yr)),
                 fileNamePrefix='{}_{}'.format(yr, out_name),
                 region=mask,
                 scale=30,
