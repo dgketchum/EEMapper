@@ -181,7 +181,7 @@ def irr_time_series_totals(irr, nass, fig_name):
 
     plt.plot(irr_years, totals/1e6, label='IrrMapper')
     plt.scatter(x=nass_years, y=nass_values/1e6, marker='*', color='red', label='NASS')
-    plt.title('Total Irrigated Area, Western 11 States \n 1986 - 2018')
+    # plt.title('Total Irrigated Area, Western 11 States \n 1986 - 2018')
     plt.xlim(1985, 2019)
     # plt.ylim(20, 30)
     plt.ylabel('Million Acres')
