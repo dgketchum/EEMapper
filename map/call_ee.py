@@ -28,9 +28,9 @@ import ee
 from map.assets import list_assets
 
 ROI = 'users/dgketchum/boundaries/western_11_union'
-BOUNDARIES = 'users/dgketchum/boundaries'
+BOUNDARIES = 'users/dgketchum/boundaries/MT'
 
-ASSET_ROOT = 'users/dgketchum/IrrMapper/version_2'
+ASSET_ROOT = 'users/dgketchum/IrrMapper/version_3'
 ASSET_ROOT_LCRB = 'users/dgketchum/IrrMapper/lcrb'
 
 IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
@@ -303,17 +303,18 @@ def export_equipped(roi, description):
     task.start()
 
 
-def export_classification(out_name, asset, export='asset'):
+def export_classification(out_name, asset_root, region, export='asset'):
     """
     Trains a Random Forest classifier using a training table input, creates a stack of raster images of the same
     features, and classifies it.  I run this over a for-loop iterating state by state.
+    :param region:
+    :param asset_root:
     :param out_name:
-    :param asset:
     :param export:
     :return:
     """
     fc = ee.FeatureCollection(TABLE_LCRB)
-    roi = ee.FeatureCollection(asset)
+    roi = ee.FeatureCollection(region)
     mask = roi.geometry().bounds().getInfo()['coordinates']
 
     classifier = ee.Classifier.randomForest(
@@ -331,7 +332,7 @@ def export_classification(out_name, asset, export='asset'):
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
     for yr in TEST_YEARS:
-        input_bands = stack_bands_lcrb(yr, roi)
+        input_bands = stack_bands(yr, roi)
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.classify(trained_model).int().set({
             'system:index': ee.Date('{}-01-01'.format(yr)).format('YYYYMMdd'),
@@ -343,7 +344,7 @@ def export_classification(out_name, asset, export='asset'):
             task = ee.batch.Export.image.toAsset(
                 image=classified_img,
                 description='{}_{}'.format(out_name, yr),
-                assetId=os.path.join(ASSET_ROOT_LCRB, '{}_{}'.format(out_name, yr)),
+                assetId=os.path.join(asset_root, '{}_{}'.format(out_name, yr)),
                 fileNamePrefix='{}_{}'.format(yr, out_name),
                 region=mask,
                 scale=30,
@@ -584,10 +585,10 @@ def stack_bands(yr, roi):
     end_date = '{}-01-01'.format(yr + 1)
     water_year_start = '{}-10-01'.format(yr - 1)
 
-    spring_s, spring_e = '{}-01-01'.format(yr), '{}-03-01'.format(yr),
-    late_spring_s, late_spring_e = '{}-03-01'.format(yr), '{}-06-01'.format(yr)
-    summer_s, summer_e = '{}-06-01'.format(yr), '{}-09-01'.format(yr)
-    fall_s, fall_e = '{}-09-01'.format(yr), '{}-12-01'.format(yr)
+    spring_s, spring_e = '{}-03-01'.format(yr), '{}-05-01'.format(yr),
+    late_spring_s, late_spring_e = '{}-05-01'.format(yr), '{}-07-01'.format(yr)
+    summer_s, summer_e = '{}-07-01'.format(yr), '{}-09-01'.format(yr)
+    fall_s, fall_e = '{}-09-01'.format(yr), '{}-11-01'.format(yr)
 
     l5_coll = ee.ImageCollection('LANDSAT/LT05/C01/T1_SR').filterBounds(
         roi).filterDate(start, end_date).map(ls5_edge_removal).map(ls57mask)
@@ -797,5 +798,5 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    filter_irrigated(filter_type='filter_high')
+    export_classification(out_name='MT_v3', asset_root=ASSET_ROOT, region=BOUNDARIES)
 # ========================= EOF ====================================================================
