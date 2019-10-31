@@ -77,47 +77,47 @@ ID_IRR = {
 }
 
 IRR_TEST = {
-    # 'MT': ('ft:1wfJrtnDjBZqSzWq41veY_VrWROQ0kI-5NCko6xF3', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
-    # 'MT_v2': ('ft:1OGof1MiB-KPEbqgq5ePiRmGyFWxk0Mqq4pNXKsGQ', [2009], 0.5),
-    # 'NV_v2': ('ft:1bTsbFB-cOHPGFbbzGl36Zqe7I7II6WJ5HoGpuYZk', [2015], 0.5),
-    'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2015, 2016)], 0.5),
-    # 'WY_v2': ('ft:1_KxgTHOb6rm_3t3-Wc7RBIFnVubcOYt3COkkL6Po', [1998, 2003, 2006, 2013, 2016], 0.5),
+    'MT': ('ft:1wfJrtnDjBZqSzWq41veY_VrWROQ0kI-5NCko6xF3', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
+    'MT_v2': ('ft:1OGof1MiB-KPEbqgq5ePiRmGyFWxk0Mqq4pNXKsGQ', [2003, 2008, 2009, 2010, 2011, 2012, 2013, 2015], 0.5),
+    'NV_v2': ('ft:1bTsbFB-cOHPGFbbzGl36Zqe7I7II6WJ5HoGpuYZk', [x for x in range(2011, 2016)], 0.5),
+    # 'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2013, 2016)], 0.5),
+    'WY_v2': ('ft:1_KxgTHOb6rm_3t3-Wc7RBIFnVubcOYt3COkkL6Po', [1998, 2003, 2006, 2013, 2016], 0.5),
 }
 
 IRR = {
-    # 'Acequias': ('ft:1j_Z6exiBQy5NlVLZUe25AsFp-jSfCHn_HAWGT06D', [1987, 2001, 2004, 2007, 2016], 0.5),
-    # 'AZ': ('ft:1ZwRYaGmMc7oJuDTrKbrZm3oL7yBYdeKjEa05n5oX', [2001, 2003, 2004, 2007, 2016], 0.5),
-    # 'AZ_v2': ('ft:1O19WW5lOlEfVo4gp3ZJ8etHXwYDieC1eoscfIAXW', [2001, 2003, 2004, 2007, 2016], 0.5),
-    # 'CO_DIV1': ('ft:1wRNUsKChMUb9rUWDbxOeGeTaNWNZUA0YHXSLXPv2', [1998, 2003, 2006, 2013, 2016], 0.5),
-    # 'CO_SanLuis': ('ft:1mcBXyFw1PoVOoAGibDpZjCgb001jA_Mj_hyd-h92', [1998, 2003, 2006, 2013, 2016], 0.5),
-    # 'CA': ('ft:1oadWhheDKaonOPhIJ9lJVCwnOt5g0G644p3FC9oy', [1995, 1998, 2000, 2007, 2014], 0.5),
+    'Acequias': ('ft:1j_Z6exiBQy5NlVLZUe25AsFp-jSfCHn_HAWGT06D', [1987, 2001, 2004, 2007, 2016], 0.5),
+    'AZ': ('ft:1ZwRYaGmMc7oJuDTrKbrZm3oL7yBYdeKjEa05n5oX', [2001, 2003, 2004, 2007, 2016], 0.5),
+    'AZ_v2': ('ft:1O19WW5lOlEfVo4gp3ZJ8etHXwYDieC1eoscfIAXW', [2001, 2003, 2004, 2007, 2016], 0.5),
+    'CO_DIV1': ('ft:1wRNUsKChMUb9rUWDbxOeGeTaNWNZUA0YHXSLXPv2', [1998, 2003, 2006, 2013, 2016], 0.5),
+    'CO_SanLuis': ('ft:1mcBXyFw1PoVOoAGibDpZjCgb001jA_Mj_hyd-h92', [1998, 2003, 2006, 2013, 2016], 0.5),
+    'CA': ('ft:1oadWhheDKaonOPhIJ9lJVCwnOt5g0G644p3FC9oy', [1995, 1998, 2000, 2007, 2014], 0.5),
     'CA_v2': ('ft:1LRHed3EWaa1UNKTU1e3jIHqwldMP-MGN6_xB_YjK', [1998, 2000, 2007, 2014, 2016], 0.5),
     'CA_Sonoma': ('ft:10Faop_14Dthnpa-qAHSScpjv5SkEZJ6RnVfVDy-L', [1998, 2000, 2007, 2014, 2016], 0.5),
-    # 'EastStates': ('ft:1AZUak3iuAtah1SHpkLfw0IRk_U5ei23VsPzBWxpD', [1987, 2001, 2004, 2007, 2016], 0.5),
-    # 'ID_Bonner': ('ft:1kkaQomLStq-zf8Dpg2eTIrRdn_2Aw5g6lagZrdiK', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
-    # 'ID': ('ft:1jDB3C181w1PGVamr64-ewpJVDQkzJc4Bvd1IPAFg', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
-    # 'KS': ('ft:1pdOquA_LM1jzQwTbMkgGUbKMssJfCHvqQCezI4-7', [2002, 2006, 2009, 2013, 2016], 0.5),
+    'EastStates': ('ft:1AZUak3iuAtah1SHpkLfw0IRk_U5ei23VsPzBWxpD', [1987, 2001, 2004, 2007, 2016], 0.5),
+    'ID_Bonner': ('ft:1kkaQomLStq-zf8Dpg2eTIrRdn_2Aw5g6lagZrdiK', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
+    'ID': ('ft:1jDB3C181w1PGVamr64-ewpJVDQkzJc4Bvd1IPAFg', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
+    'KS': ('ft:1pdOquA_LM1jzQwTbMkgGUbKMssJfCHvqQCezI4-7', [2002, 2006, 2009, 2013, 2016], 0.5),
     'MT_Turner': ('ft:1PpvhFdLDG4oCh7OsVcjJX6vg8FNB0FWUIFqRKYxO', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
-    'MT': ('ft:1wfJrtnDjBZqSzWq41veY_VrWROQ0kI-5NCko6xF3', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
-    'MT_v2': ('ft:1OGof1MiB-KPEbqgq5ePiRmGyFWxk0Mqq4pNXKsGQ', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
-    # 'ND': ('ft:1Q3-umUl4nm-btFAL09SkYFjqFKIaVxZBqNvlVTxN', [2012, 2013, 2014, 2015, 2016], 0.5),
-    # 'NE': ('ft:1789J-j1dq8_Ez6wfObJxGSJaxRkuJsZMFLeeiwPo', [2003, 2006, 2009, 2013, 2016], 0.5),
-    # 'NE_v2': ('ft:19Q1EqxZGa--5d_SUQ1UBLw3SttOmkkv73_gnVx1M', [2003, 2009, 2013, 2016], 0.5),
-    # 'NM_SanJuan': ('ft:1_-haRl7-ppkBYWBN-cPzItftKQC7yWI7sfgoVx1R', [1987, 2001, 2004, 2007, 2016], 0.5),
-    # 'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2011, 2016)], 0.5),
+    # 'MT': ('ft:1wfJrtnDjBZqSzWq41veY_VrWROQ0kI-5NCko6xF3', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
+    # 'MT_v2': ('ft:1OGof1MiB-KPEbqgq5ePiRmGyFWxk0Mqq4pNXKsGQ', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
+    'ND': ('ft:1Q3-umUl4nm-btFAL09SkYFjqFKIaVxZBqNvlVTxN', [2012, 2013, 2014, 2015, 2016], 0.5),
+    'NE': ('ft:1789J-j1dq8_Ez6wfObJxGSJaxRkuJsZMFLeeiwPo', [2003, 2006, 2009, 2013, 2016], 0.5),
+    'NE_v2': ('ft:19Q1EqxZGa--5d_SUQ1UBLw3SttOmkkv73_gnVx1M', [2003, 2009, 2013, 2016], 0.5),
+    'NM_SanJuan': ('ft:1_-haRl7-ppkBYWBN-cPzItftKQC7yWI7sfgoVx1R', [1987, 2001, 2004, 2007, 2016], 0.5),
+    'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2011, 2016)], 0.5),
     # 'NV_v2': ('ft:1bTsbFB-cOHPGFbbzGl36Zqe7I7II6WJ5HoGpuYZk', [x for x in range(2001, 2010, 2)], 0.5),
     'NW_OR': ('ft:1kXr3oMe9Ybsd3N7tyBBDCTweAxb4c8GBz6B8_ELm', [1994, 1996, 1997, 2001, 2011, 2013], 0.5),
-    # 'OK': ('ft:1EjuYeilOTU3el9GsYZZXCi6sNC7z_jJ6mGa2wHIe', [2006, 2007, 2011, 2013, 2015], 0.5),
-    # 'OK_v2': ('ft:1294qsu79AiUMShQmaxFB3ysCOXaAIPpLFG52m7Un', [2006, 2007, 2011, 2013, 2015], 0.5),
-    # 'OR_Jackson': ('ft:1xk-uM9RoxJvtYYiFnurQodRUcmZRCHLMGHouff0K', [1994, 1996, 1997, 2001, 2011, 2013], 0.5),
+    'OK': ('ft:1EjuYeilOTU3el9GsYZZXCi6sNC7z_jJ6mGa2wHIe', [2006, 2007, 2011, 2013, 2015], 0.5),
+    'OK_v2': ('ft:1294qsu79AiUMShQmaxFB3ysCOXaAIPpLFG52m7Un', [2006, 2007, 2011, 2013, 2015], 0.5),
+    'OR_Jackson': ('ft:1xk-uM9RoxJvtYYiFnurQodRUcmZRCHLMGHouff0K', [1994, 1996, 1997, 2001, 2011, 2013], 0.5),
     'OR_v2': ('ft:16WRkwd-tRZAKLdexaGt7boAKc5hTK8vk82tInioj', [1994, 1996, 1997, 2001, 2011, 2013], 0.5),
-    # 'SD': ('ft:14lyo0o9NzN-deK1LJbMt3XFRQPVBYOgs5TI0-2Zb', [2007, 2008, 2009, 2013, 2016], 0.5),
-    # 'TX': ('ft:1N_99CtM8JN2fQ_LJSjZzHlwHfHElZWJeSSACRHln', [2005, 2006, 2009, 2011, 2016], 0.5),
-    # 'UT': ('ft:1oA0v3UUBQj3qn9sa_pDJ8bwsAphfRZUlwwPWpFrT', [1998, 2003, 2006, 2013, 2016], 0.5),
-    # 'UT_CO': ('ft:1Av2WlcPRBd7JZqYOU73VCLOJ-b5q6H5u6Bboebdv', [1998, 2003, 2006, 2013, 2016], 0.5),
-    # 'WA': ('ft:1tGN7UdKijI7gZgna19wJ-cKMumSKRwsfEQQZNQjl', [1988, 1996, 1997, 1998, 2001, 2006], 0.5),
-    # 'WY': ('ft:1nB1Tg_CcmuhXtbnCE3wKVan0ERqV0jann4P2rvDh', [1998, 2003, 2006, 2013, 2016], 0.5),
-    # 'WY_v2': ('ft:1_KxgTHOb6rm_3t3-Wc7RBIFnVubcOYt3COkkL6Po', [1998, 2003, 2006, 2013, 2016], 0.5),
+    'SD': ('ft:14lyo0o9NzN-deK1LJbMt3XFRQPVBYOgs5TI0-2Zb', [2007, 2008, 2009, 2013, 2016], 0.5),
+    'TX': ('ft:1N_99CtM8JN2fQ_LJSjZzHlwHfHElZWJeSSACRHln', [2005, 2006, 2009, 2011, 2016], 0.5),
+    'UT': ('ft:1oA0v3UUBQj3qn9sa_pDJ8bwsAphfRZUlwwPWpFrT', [1998, 2003, 2006, 2013, 2016], 0.5),
+    'UT_CO': ('ft:1Av2WlcPRBd7JZqYOU73VCLOJ-b5q6H5u6Bboebdv', [1998, 2003, 2006, 2013, 2016], 0.5),
+    'WA': ('ft:1tGN7UdKijI7gZgna19wJ-cKMumSKRwsfEQQZNQjl', [1988, 1996, 1997, 1998, 2001, 2006], 0.5),
+    'WY': ('ft:1nB1Tg_CcmuhXtbnCE3wKVan0ERqV0jann4P2rvDh', [1998, 2003, 2006, 2013, 2016], 0.5),
+    'WY_v2': ('ft:1_KxgTHOb6rm_3t3-Wc7RBIFnVubcOYt3COkkL6Po', [1998, 2003, 2006, 2013, 2016], 0.5),
 }
 
 CO_IRR = {
@@ -372,7 +372,7 @@ def filter_irrigated(filter_type='filter_low'):
             likely irrigated), filter_high filters out high-ndvi feilds, leaving likely fallowed fields
     :return:
     """
-    for k, v in IRR.items():
+    for k, v in IRR_TEST.items():
         plots = ee.FeatureCollection(v[0])
 
         for year in v[1]:
@@ -427,7 +427,7 @@ def filter_irrigated(filter_type='filter_low'):
                                                              reducer=ee.Reducer.mean(),
                                                              scale=30.0)
 
-                filt_fc = early_int_mean.filter(ee.Filter.And(ee.Filter.lt('mean', 0.5), ee.Filter.eq('mode', 1)))
+                filt_fc = early_int_mean.filter(ee.Filter.And(ee.Filter.lt('mean', 0.65), ee.Filter.eq('mode', 1)))
 
             else:
                 raise NotImplementedError('must choose from filter_low or filter_high')
@@ -796,6 +796,5 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    export_classification(out_name='lcrb', asset=LCRB)
-    # request_band_extract(file_prefix='lcrb', filter_bounds=True)
+    filter_irrigated(filter_type='filter_high')
 # ========================= EOF ====================================================================
