@@ -46,7 +46,7 @@ STATES = ['AZ', 'CA', 'NV', 'CO', 'ID', 'MT', 'NM', 'OR', 'UT', 'WA', 'WY']  #
 EDIT_STATES = ['KS', 'ND', 'NE', 'OK', 'SD', 'TX']
 TARGET_STATES = ['AZ', 'CA', 'NM', 'NV', 'UT']
 
-POINTS_MT = 'ft:1quoEOgOl5dTQtYjyHZs9BxX8CZz1Leqv5qqFYLml'
+POINTS_MT = 'ft:1J6XOjoWYW0wlANgGDD1PKe2E6-_F8cwpG1kU1AI6'
 POINTS = 'ft:11GT2ikIkgqzYLb0R9tICu8PW7-lo7d-0GFutcywX'
 
 POINTS_15JUL = 'ft:1B9ZLnB_3RnC5b_QXC8TJtwMZdhr0FtJZ_X99VnBV'
@@ -61,7 +61,8 @@ TABLE_V1 = 'ft:1RbKio5wW2T7t8Gcg7xhMcL6xjOSoGhZdgeqeZ0Xf'
 # bands_15JUL_v2_kw; we used this one!
 TABLE_V2 = 'ft:16eZpSZExa2S-4n3kS0A1Vf84gKppCAONb0_nqIwG'
 TABLE_LCRB = 'ft:1EtepJLpjCOZd7r51_8lijNisomv0tDYmpVkr_RR4'
-TABLE_MT = 'ft:1KA1oeMG9z-atuP3htSh2NtdJvbWO9St5F1xTdW7-'
+# Montana version 3; MT_31OCT.csv for Chaffin
+TABLE_MT = 'ft:1-2IMLOk64CGhr1Lz53am02pnFw4-ReDioNSKTYU-'
 
 # this dict is where we keep Fusion Table IDs from kml files waiting to be filtered
 
@@ -136,7 +137,7 @@ YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
          2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
          2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
 
-TEST_YEARS = [x for x in range(1990, 2000)]
+TEST_YEARS = [x for x in range(1986, 2019) if x != 2013]
 # TEST_YEARS = [x for x in range(2018, 2019)]
 ALL_YEARS = [x for x in range(1986, 2019)]
 
@@ -487,18 +488,20 @@ def request_validation_extract(file_prefix='validation'):
         print(yr)
 
 
-def request_band_extract(file_prefix, filter_bounds=False):
+def request_band_extract(file_prefix, points_layer, region, filter_bounds=False):
     """
     Extract raster values from a points kml file in Fusion Tables. Send annual extracts .csv to GCS wudr bucket.
     Concatenate them using map.tables.concatenate_band_extract().
+    :param region:
+    :param points_layer:
     :param file_prefix:
     :param filter_bounds: Restrict extract to within a geographic extent.
     :return:
     """
-    roi = ee.FeatureCollection(ROI)
-    plots = ee.FeatureCollection(POINTS_15JUL)
-    for yr in ALL_YEARS:
-        stack = stack_bands_lcrb(yr, roi)
+    roi = ee.FeatureCollection(region)
+    plots = ee.FeatureCollection(points_layer)
+    for yr in TEST_YEARS:
+        stack = stack_bands(yr, roi)
         start = '{}-01-01'.format(yr)
         d = datetime.strptime(start, '%Y-%m-%d')
         epoch = datetime.utcfromtimestamp(0)
@@ -799,4 +802,5 @@ def is_authorized():
 if __name__ == '__main__':
     is_authorized()
     export_classification(out_name='MT_v3', asset_root=ASSET_ROOT, region=BOUNDARIES)
+    # request_band_extract(file_prefix='MT_31OCT', points_layer=POINTS_MT, region=BOUNDARIES, filter_bounds=True)
 # ========================= EOF ====================================================================
