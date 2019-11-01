@@ -16,13 +16,12 @@
 
 import os
 import sys
-from datetime import datetime
 from pprint import pprint
 from time import time
 
 import tensorflow as tf
 from numpy import dot, mean, flatnonzero
-from pandas import read_csv
+from pandas import read_csv, concat
 from scipy.stats import randint as sp_randint
 from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestClassifier
@@ -32,6 +31,8 @@ from sklearn.preprocessing import StandardScaler
 
 abspath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(abspath)
+
+INT_COLS = ['POINT_TYPE', 'YEAR', 'classification']
 
 
 def consumer(arr):
@@ -249,15 +250,37 @@ def random_hyperparameter_search(csv):
     report(grid_search.cv_results_)
 
 
-def get_confusion_matrix(csv):
+def get_confusion_matrix(csv, spec=None):
 
     df = read_csv(csv, engine='python')
+
+    if spec:
+        for c in df.columns:
+            if c in INT_COLS:
+                df[c] = df[c].astype(int, copy=True)
+            else:
+                df[c] = df[c].astype(float, copy=True)
+
+        counts = df['POINT_TYPE'].value_counts()
+        _min = min(counts.values)
+        for i, j in spec:
+            if i == 0:
+                ndf = df[df['POINT_TYPE'] == i].sample(n=j)
+            else:
+                ndf = concat([ndf, df[df['POINT_TYPE'] == i].sample(n=j)], sort=False)
+        sample_counts = ndf['POINT_TYPE'].value_counts()
+        print('original set: {}\n sampled set: {}'.format(counts, sample_counts))
+        df = ndf
+
     y_true, y_pred = df['POINT_TYPE'].values, df['classification'].values
+
+    print('\nclassifcation...')
     cf = confusion_matrix(y_true, y_pred)
     pprint(cf)
     producer(cf)
     consumer(cf)
 
+    print('\nbinary classification ...')
     pt = [1 if x in [1, 2, 3] else 0 for x in df['POINT_TYPE'].values]
     cls = [1 if x in [1, 2, 3] else 0 for x in df['classification'].values]
     cf = confusion_matrix(pt, cls)
@@ -268,6 +291,8 @@ def get_confusion_matrix(csv):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    bands = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated', 'lcrb.csv')
+    vals = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'validation_tables', 'validation_12AUG2019.csv')
+    # get_confusion_matrix(vals, ((0, 185), (1, 38), (2, 8740), (3, 1037)))
+    bands = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated', 'bands_15JUL_v2_kw_USEDINPAPER.csv')
     random_forest(bands, binary=True)
 # ========================= EOF ====================================================================
