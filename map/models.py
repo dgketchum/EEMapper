@@ -293,6 +293,6 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     vals = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'validation_tables', 'validation_12AUG2019.csv')
     # get_confusion_matrix(vals, ((0, 185), (1, 38), (2, 8740), (3, 1037)))
-    bands = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated', 'bands_15JUL_v2_kw_USEDINPAPER.csv')
+    bands = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated', 'MT_31OCT.csv')
     random_forest(bands, binary=True)
 # ========================= EOF ====================================================================
