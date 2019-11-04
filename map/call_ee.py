@@ -349,7 +349,7 @@ def export_classification(out_name, asset_root, region, export='asset'):
                 fileNamePrefix='{}_{}'.format(yr, out_name),
                 region=mask,
                 scale=30,
-                maxPixels=1e10)
+                maxPixels=1e13)
         elif export == 'cloud':
             task = ee.batch.Export.image.toCloudStorage(
                 image=classified_img,
@@ -358,7 +358,7 @@ def export_classification(out_name, asset_root, region, export='asset'):
                 fileNamePrefix='{}_{}'.format(yr, out_name),
                 region=mask,
                 scale=30,
-                maxPixels=1e10)
+                maxPixels=1e13)
         else:
             raise NotImplementedError('choose asset or cloud for export')
 
@@ -500,7 +500,7 @@ def request_band_extract(file_prefix, points_layer, region, filter_bounds=False)
     """
     roi = ee.FeatureCollection(region)
     plots = ee.FeatureCollection(points_layer)
-    for yr in TEST_YEARS:
+    for yr in ALL_YEARS:
         stack = stack_bands(yr, roi)
         start = '{}-01-01'.format(yr)
         d = datetime.strptime(start, '%Y-%m-%d')
@@ -801,6 +801,6 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    export_classification(out_name='MT_v3', asset_root=ASSET_ROOT, region=BOUNDARIES)
+    # export_classification(out_name='MT_v3', asset_root=ASSET_ROOT, region=BOUNDARIES)
     # request_band_extract(file_prefix='MT_31OCT', points_layer=POINTS_MT, region=BOUNDARIES, filter_bounds=True)
 # ========================= EOF ====================================================================
