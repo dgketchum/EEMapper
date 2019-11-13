@@ -275,26 +275,26 @@ def export_raster(roi, description):
         print(yr)
 
 
-def export_equipped(roi, description):
+def export_special(roi, description):
     fc = ee.FeatureCollection(roi)
     roi_mask = fc.geometry().bounds().getInfo()['coordinates']
     image_list = list_assets('users/dgketchum/IrrMapper/version_2')
-    years = [str(x) for x in range(1986, 1991)]
 
-    target_images = [x for x in image_list if x.endswith(years[0])]
-    target = ee.ImageCollection(target_images)
-    target = target.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
+    # years = [str(x) for x in range(1986, 1991)]
+    # target_images = [x for x in image_list if x.endswith(years[0])]
+    # target = ee.ImageCollection(image_list)
+    # target = target.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
+    # range_images = [x for x in image_list if x.endswith(tuple(years))]
 
-    range_images = [x for x in image_list if x.endswith(tuple(years))]
-    coll = ee.ImageCollection(range_images)
+    coll = ee.ImageCollection(image_list)
     sum = ee.ImageCollection(coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum()
     sum_mask = sum.lt(3)
 
-    img = target.mask(sum_mask)
+    img = sum.mask(sum_mask)
 
     task = ee.batch.Export.image.toDrive(
         img,
-        description='IrrMapper_V2_end_first',
+        description='IrrMapper_V2_sum_years',
         # folder='Irrigation',
         region=roi_mask,
         scale=30,
@@ -803,4 +803,5 @@ if __name__ == '__main__':
     is_authorized()
     # export_classification(out_name='MT_v3', asset_root=ASSET_ROOT, region=BOUNDARIES)
     # request_band_extract(file_prefix='MT_31OCT', points_layer=POINTS_MT, region=BOUNDARIES, filter_bounds=True)
+    export_special(ROI, description=None)
 # ========================= EOF ====================================================================
