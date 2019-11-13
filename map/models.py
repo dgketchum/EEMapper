@@ -89,6 +89,7 @@ def random_forest(csv, binary=False):
                                             random_state=None)
 
     rf = RandomForestClassifier(n_estimators=100,
+                                min_samples_split=11,
                                 n_jobs=-1,
                                 bootstrap=False)
 
@@ -116,6 +117,7 @@ def find_rf_variable_importance(csv):
     for x in range(10):
         print('model iteration {}'.format(x))
         rf = RandomForestClassifier(n_estimators=100,
+                                    min_samples_split=11,
                                     n_jobs=-1,
                                     bootstrap=False)
 
@@ -293,6 +295,6 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     vals = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'validation_tables', 'validation_12AUG2019.csv')
     # get_confusion_matrix(vals, ((0, 185), (1, 38), (2, 8740), (3, 1037)))
-    bands = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated', 'MT_31OCT.csv')
+    bands = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated', 'bands_15JUL_v2_kw_USEDINPAPER.csv')
     random_forest(bands, binary=True)
 # ========================= EOF ====================================================================

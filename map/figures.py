@@ -17,7 +17,7 @@
 import os
 
 import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid.inset_locator import InsetPosition
+from mpl_toolkits.axes_grid1.inset_locator import InsetPosition
 from numpy import logical_not, isnan, array
 from pandas import read_csv, Series
 from sklearn import linear_model
@@ -65,7 +65,7 @@ def compare_nass_irrmapper_scatter(csv, fig_name):
 
     df = read_csv(csv)
     s = array([0, 1e6])
-    fig, ax = plt.subplots(2, 4)
+    fig, ax = plt.subplots(2, 4, figsize=(8, 6))
     rows, cols = [0, 0, 0, 0, 1, 1, 1, 1], [0, 1, 2, 3, 0, 1, 2, 3]
 
     for r, c, year in zip(rows, cols, range(1987, 2022, 5)):
@@ -74,6 +74,7 @@ def compare_nass_irrmapper_scatter(csv, fig_name):
         a = ax[r, c]
 
         ydf = df[[n, i]]
+        ydf = ydf / 247.105
 
         nass, irr = ydf[n].values, ydf[i].values
         nass, irr = nass[logical_not(isnan(nass))], irr[logical_not(isnan(nass))]
@@ -83,16 +84,15 @@ def compare_nass_irrmapper_scatter(csv, fig_name):
 
         a.plot(s, s, linewidth=1, linestyle='--', color='k', alpha=0.5, label='_nolegend_')
 
-        # y = [(m * x + _int)[0] for x in s]
-        # a.loglog(s, y, linestyle='--', color='blue', linewidth=1)
-
-        ydf.plot(n, i, xlim=(1e2, 1e6), ylim=(1e2, 1e6), loglog=True, color='k', alpha=0.3,
+        ydf.plot(n, i, xlim=(1, 1e6), ylim=(1, 1e6), loglog=True, color='b', alpha=0.25,
                  kind='scatter', ax=a, marker='o', s=3)
 
         a.set(adjustable='box')
         a.set_title(str(year), size=10)
 
-        a.text(0.05, 0.9, '$r^2$={0:.4f}'.format(r2), transform=a.transAxes,
+        a.text(0.05, 0.9, '$r^2$={0:.3f}'.format(r2), transform=a.transAxes,
+               size=7)
+        a.text(0.05, 0.85, '$m$={0:.2f}'.format(m), transform=a.transAxes,
                size=7)
 
         if c > 0:
@@ -102,14 +102,19 @@ def compare_nass_irrmapper_scatter(csv, fig_name):
 
         x_axis = a.xaxis
         x_axis.label.set_visible(False)
-        a.set_xlim(1e2, 1e6)
+        a.set_xlim(1, 1e4)
 
         y_axis = a.yaxis
         y_axis.label.set_visible(False)
-        a.set_ylim(1e2, 1e6)
+        a.set_ylim(1, 1e4)
 
     fig.delaxes(ax[1, 3])
+    # plt.subplots_adjust(wspace=0.1, hspace=0.1)
     plt.tight_layout()
+    x_txt = 'NASS Irrigated Area ($\mathregular{km^2}$)'
+    y_txt = 'IrrMapper Irrigated Area ($\mathregular{km^2}$)'
+    fig.text(0.5, 0.0, x_txt, ha='center')
+    fig.text(0.0, 0.5, y_txt, va='center', rotation='vertical')
     # plt.show()
     plt.savefig(fig_name)
     # plt.close()
@@ -129,7 +134,7 @@ def get_correlations(a, b):
 def irr_time_series_states(csv, fig_name=None):
     #  this uses pixel counts still
     df = read_csv(csv)
-    yrs = [x for x in df.columns if 'Ct_' in x]
+    yrs = [x for x in df.columns if 'noCdlMask_' in x]
     df = df.groupby(['STATEFP']).sum()
     df = df[yrs]
     df = df.div(df.mean(axis=1), axis=0)
@@ -145,14 +150,14 @@ def irr_time_series_states(csv, fig_name=None):
 
     z_totals.name = 'All'
     z_totals.plot(ax=ax, kind='line', color='k', alpha=0.7, x=linear, y=z_totals.values)
-    plt.title('Normalized Irrigated Area')
+    # plt.title('Normalized Irrigated Area')
     ax.axvspan(2011.5, 2012.5, alpha=0.5, color='red')
     plt.xlim(1984, 2020)
-    plt.ylim(0.6, 1.5)
-    plt.legend(loc='lower center', ncol=6, labelspacing=1)
-    # if fig_name:
-    #     plt.savefig(fig_name.replace('.', '_state.'))
-    plt.show()
+    plt.ylim(0.4, 1.6)
+    plt.legend(loc='lower center', ncol=5, labelspacing=0.5)
+    if fig_name:
+        plt.savefig(fig_name)
+    # plt.show()
 
 
 def irr_time_series_totals(irr, nass, fig_name):
@@ -166,7 +171,7 @@ def irr_time_series_totals(irr, nass, fig_name):
     totals = totals[labels]
     totals.sort_index(inplace=True)
     totals.index = irr_years
-    totals = totals.values
+    totals = totals.values / 247.105
 
     nass = read_csv(nass, index_col=[0])
     nass.dropna(axis=0, subset=['STATE_ANSI'], inplace=True)
@@ -174,22 +179,24 @@ def irr_time_series_totals(irr, nass, fig_name):
     nass = nass.loc[nass['STATE_ANSI'].isin(list(df.index))]
     cols = [x for x in nass.columns if 'VALUE' in x]
     nass = nass[cols]
+    nass = nass / 247.105
     nass = nass.sum(axis=0)
     nass_years = [int(x[-4:]) for x in nass.index]
     nass.index = nass_years
     nass_values = nass.values
 
-    plt.plot(irr_years, totals/1e6, label='IrrMapper')
-    plt.scatter(x=nass_years, y=nass_values/1e6, marker='*', color='red', label='NASS')
+    plt.plot(irr_years, totals, label='IrrMapper', zorder=1)
+    plt.scatter(x=nass_years, y=nass_values, marker='*', color='red', label='NASS', zorder=2)
     # plt.title('Total Irrigated Area, Western 11 States \n 1986 - 2018')
     plt.xlim(1985, 2019)
     # plt.ylim(20, 30)
-    plt.ylabel('Million Acres')
+    plt.ylabel('Thousand $\mathregular{km^2}$')
     plt.xlabel('Year')
+    plt.tight_layout()
     plt.legend()
     if fig_name:
         plt.savefig(fig_name.replace('.', '_totals.'))
-    # plt.show()
+    # plt.show()`
 
 
 def state_fp_code():
@@ -211,15 +218,22 @@ if __name__ == '__main__':
 
     county = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county')
     nass_merged = os.path.join(county, 'nass_merged.csv')
-
     irr_tables = os.path.join(county, 'counties_v2', 'noCdlMask_minYr5')
-    irr_all = os.path.join(irr_tables, 'irr_merged_ac.csv')
 
-    figure = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper',
+    irrmapper_all = os.path.join(irr_tables, 'irr_merged.csv')
+    totals_figure = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper',
                           'figures', 'totals_time_series.png')
 
-    # compare_nass_irrmapper_scatter(o, figure)
-    # irr_time_series_states(irr_all, fig_name=figure)
+    nass_irrmapper = os.path.join(irr_tables, 'nass_irrMap.csv')
+    scatter_figure = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper',
+                                  'figures', 'comparison_scatter_13NOV2019.png')
+
+    state_irrmapper = os.path.join(irr_tables, 'irrmapper_annual_acres_state.csv')
+    state_normalized_figure = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper',
+                                           'figures', 'states_normalized.png')
+
+    # compare_nass_irrmapper_scatter(nass_irrmapper, scatter_figure)
+    # irr_time_series_states(state_irrmapper, fig_name=state_normalized_figure)
     # state_sum(o)
-    irr_time_series_totals(irr_all, nass_merged, fig_name=figure)
+    irr_time_series_totals(irrmapper_all, nass_merged, fig_name=totals_figure)
 # ========================= EOF ====================================================================
