@@ -290,7 +290,7 @@ def export_special(roi, description):
     sum = ee.ImageCollection(coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum()
     sum_mask = sum.lt(3)
 
-    img = sum.mask(sum_mask)
+    img = sum.mask(sum_mask).toDouble()
 
     task = ee.batch.Export.image.toDrive(
         img,
