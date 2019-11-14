@@ -109,6 +109,7 @@ def find_rf_variable_importance(csv):
     first = True
     master = {}
     df = read_csv(csv, engine='python')
+    labels = df['POINT_TYPE'].values
     df.drop(columns=['YEAR', 'POINT_TYPE'], inplace=True)
     df.dropna(axis=1, inplace=True)
     data = df.values
@@ -121,7 +122,7 @@ def find_rf_variable_importance(csv):
                                     n_jobs=-1,
                                     bootstrap=False)
 
-        rf.fit(data, names)
+        rf.fit(data, labels)
         _list = [(f, v) for f, v in zip(names, rf.feature_importances_)]
         imp = sorted(_list, key=lambda x: x[1], reverse=True)
 
@@ -133,6 +134,8 @@ def find_rf_variable_importance(csv):
             for (k, v) in imp:
                 master[k] += v
 
+    master = list(master.items())
+    master = sorted(master, key=lambda x: x[1], reverse=True)
     pprint(master)
 
 
@@ -296,5 +299,5 @@ if __name__ == '__main__':
     vals = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'validation_tables', 'validation_12AUG2019.csv')
     # get_confusion_matrix(vals, ((0, 185), (1, 38), (2, 8740), (3, 1037)))
     bands = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated', 'bands_15JUL_v2_kw_USEDINPAPER.csv')
-    random_forest(bands, binary=True)
+    find_rf_variable_importance(bands)
 # ========================= EOF ====================================================================
