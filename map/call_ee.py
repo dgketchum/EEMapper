@@ -287,13 +287,13 @@ def export_special(roi, description):
     # range_images = [x for x in image_list if x.endswith(tuple(years))]
 
     coll = ee.ImageCollection(image_list)
-    sum = ee.ImageCollection(coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum()
+    sum = ee.ImageCollection(coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum().toDouble()
     sum_mask = sum.lt(3)
 
     img = sum.mask(sum_mask).toDouble()
 
     task = ee.batch.Export.image.toDrive(
-        img,
+        sum,
         description='IrrMapper_V2_sum_years',
         # folder='Irrigation',
         region=roi_mask,
@@ -791,7 +791,7 @@ def period_stat(collection, start, end):
 
 def is_authorized():
     try:
-        ee.Initialize()
+        ee.Initialize()  # investigate (use_cloud_api=True)
         print('Authorized')
         return True
     except Exception as e:
