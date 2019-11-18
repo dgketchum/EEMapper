@@ -185,8 +185,8 @@ def irr_time_series_totals(irr, nass, fig_name):
     nass.index = nass_years
     nass_values = nass.values
 
-    plt.plot(irr_years, totals, label='IrrMapper', zorder=1)
-    plt.scatter(x=nass_years, y=nass_values, marker='*', color='red', label='NASS', zorder=2)
+    plt.plot(irr_years, totals / 1000., label='IrrMapper', zorder=1)
+    plt.scatter(x=nass_years, y=nass_values / 1000., marker='*', color='red', label='NASS', zorder=2)
     # plt.title('Total Irrigated Area, Western 11 States \n 1986 - 2018')
     plt.xlim(1985, 2019)
     # plt.ylim(20, 30)
@@ -220,7 +220,7 @@ if __name__ == '__main__':
     nass_merged = os.path.join(county, 'nass_merged.csv')
     irr_tables = os.path.join(county, 'counties_v2', 'noCdlMask_minYr5')
 
-    irrmapper_all = os.path.join(irr_tables, 'irr_merged.csv')
+    irrmapper_all = os.path.join(irr_tables, 'irr_merged_ac.csv')
     totals_figure = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper',
                           'figures', 'totals_time_series.png')
 
@@ -234,6 +234,5 @@ if __name__ == '__main__':
 
     # compare_nass_irrmapper_scatter(nass_irrmapper, scatter_figure)
     # irr_time_series_states(state_irrmapper, fig_name=state_normalized_figure)
-    # state_sum(o)
     irr_time_series_totals(irrmapper_all, nass_merged, fig_name=totals_figure)
 # ========================= EOF ====================================================================
