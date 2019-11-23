@@ -22,11 +22,11 @@ from pandas import DataFrame, read_csv, concat
 # from rasterstats import zonal_stats
 from shapely.geometry import Polygon, Point, mapping, MultiPolygon
 
-CLU_UNNEEDED = ['ca', 'nv', 'ut', 'wa']
+CLU_UNNEEDED = ['ca', 'nv', 'ut', 'wa', 'wy']
 CLU_USEFUL = ['az', 'co', 'id', 'mt', 'nm', 'or']
 CLU_ONLY = ['ne', 'ks', 'nd', 'ok', 'sd', 'tx']
 
-irrmapper_states = CLU_USEFUL + CLU_UNNEEDED + ['wy']
+irrmapper_states = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
 
 SHAPE_COMPILATION = {
     # 'AZ': (
@@ -129,53 +129,52 @@ def count_acres(shp):
         print(acres)
 
 
-def count_features(container, features):
-    with fiona.open(container, 'r') as cont:
-        poly = [c for c in cont][0]['geometry']
-        ct = 0
-
-        try:
-            shape = MultiPolygon([Polygon(p) for p in poly['coordinates']])
-        except ValueError:
-            try:
-                shape = Polygon(poly['coordinates'][0])
-            except ValueError:
-                print(container, 'failed')
-                return None
-
-        with fiona.open(features, 'r') as feats:
-            for f in feats:
-                try:
-                    feature = Polygon(f['geometry']['coordinates'][0])
-                    if feature.intersects(shape):
-                        ct += 1
-                except (ValueError, AssertionError):
-                    pass
-
-        print(ct, os.path.basename(container), os.path.basename(features))
-
-
-def get_area(shp):
+def get_area(shp, intersect_shape=None, add_duplicate_area=True):
     """use AEA conical for sq km result"""
 
-    print(shp)
-    area = 0.0
-    geos = []
-    dupes = 0
-    unq = 0
-    with fiona.open(shp, 'r') as s:
-        for feat in s:
+    if intersect_shape:
+        with fiona.open(intersect_shape, 'r') as inter:
+            poly = [c for c in inter][0]['geometry']
+            try:
+                polys = [Polygon(p[0]) for p in poly['coordinates']]
+                areas = [p.area for p in polys]
+                shape = polys[areas.index(max(areas))]
+            except (ValueError, TypeError):
+                try:
+                    shape = Polygon(poly['coordinates'][0])
+                except ValueError:
+                    print(intersect_shape, 'failed')
+                    return None
 
+    with fiona.open(shp, 'r') as s:
+        area = 0.0
+        geos = []
+        dupes = 0
+        unq = 0
+        ct = 0
+        for feat in s:
             if feat['geometry']['type'] == 'Polygon':
                 coords = feat['geometry']['coordinates'][0]
 
                 if 'irrigated' in shp and coords not in geos or 'irrigated' not in shp:
                     geos.append(coords)
-                    a = Polygon(coords).area / 1e6
-                    area += a
-                    unq += 1
+                    p = Polygon(coords)
+                    if intersect_shape:
+                        if p.intersects(shape):
+                            a = p.area / 1e6
+                            area += a
+                            ct += 1
+                            unq += 1
                 elif 'irrigated' in shp and coords in geos:
                     dupes += 1
+                    if add_duplicate_area:
+                        geos.append(coords)
+                        p = Polygon(coords)
+                        if intersect_shape:
+                            if p.intersects(shape):
+                                a = p.area / 1e6
+                                area += a
+                                ct += 1
                 else:
                     raise TypeError
 
@@ -184,17 +183,34 @@ def get_area(shp):
                     coords = l_ring[0]
                     if 'irrigated' in shp and coords not in geos or 'irrigated' not in shp:
                         geos.append(coords)
-                        a = Polygon(coords).area / 1e6
+                        p = Polygon(coords)
+                        if intersect_shape:
+                            if not p.intersects(shape):
+                                break
+                        a = p.area / 1e6
                         area += a
                         unq += 1
+                        ct += 1
                     elif 'irrigated' in shp and coords in geos:
                         dupes += 1
+                        if add_duplicate_area:
+                            geos.append(coords)
+                            p = Polygon(coords)
+                            if intersect_shape:
+                                if not p.intersects(shape):
+                                    break
+                            a = p.area / 1e6
+                            area += a
+                            ct += 1
                     else:
                         raise TypeError
             else:
                 raise TypeError
-        print(area)
-        print(area * 247.105)
+
+        if intersect_shape:
+            print(ct, area, os.path.basename(shp), os.path.basename(intersect_shape))
+        else:
+            print(area)
 
 
 def get_centroids(in_shape, out_shape):
@@ -838,11 +854,11 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     gis = os.path.join(home, 'IrrigationGIS')
     bounds = os.path.join(gis, 'boundaries', 'states')
-    state_bounds = [os.path.join(bounds, x) for x in os.listdir(bounds) if x.endswith('WGS.shp')]
+    state_bounds = [os.path.join(bounds, '{}_AEA.shp'.format(x)) for x in irrmapper_states]
     irrmapper_wgs = os.path.join(gis, 'paper_irrmapper', 'shapefiles')
-    shapes = ['wetlands.shp', 'irrigated.shp', 'uncultivated.shp', 'dryland.shp']
+    shapes = ['wetlands_AEA.shp', 'irrigated_AEA.shp', 'uncultivated_AEA.shp', 'dryland_AEA.shp']
     wgs_inputs = [os.path.join(irrmapper_wgs, x) for x in shapes]
     for state in state_bounds:
         for shp in wgs_inputs:
-            count_features(state, shp)
+            get_area(shp, intersect_shape=state, add_duplicate_area=True)
 # ========================= EOF ====================================================================
