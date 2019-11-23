@@ -19,12 +19,14 @@ from collections import OrderedDict
 import fiona
 from geopandas import GeoDataFrame, read_file
 from pandas import DataFrame, read_csv, concat
-from rasterstats import zonal_stats
-from shapely.geometry import Polygon, Point, mapping
+# from rasterstats import zonal_stats
+from shapely.geometry import Polygon, Point, mapping, MultiPolygon
 
 CLU_UNNEEDED = ['ca', 'nv', 'ut', 'wa']
 CLU_USEFUL = ['az', 'co', 'id', 'mt', 'nm', 'or']
 CLU_ONLY = ['ne', 'ks', 'nd', 'ok', 'sd', 'tx']
+
+irrmapper_states = CLU_USEFUL + CLU_UNNEEDED + ['wy']
 
 SHAPE_COMPILATION = {
     # 'AZ': (
@@ -125,6 +127,32 @@ def count_acres(shp):
             a = feat['properties']['ACRES']
             acres += a
         print(acres)
+
+
+def count_features(container, features):
+    with fiona.open(container, 'r') as cont:
+        poly = [c for c in cont][0]['geometry']
+        ct = 0
+
+        try:
+            shape = MultiPolygon([Polygon(p) for p in poly['coordinates']])
+        except ValueError:
+            try:
+                shape = Polygon(poly['coordinates'][0])
+            except ValueError:
+                print(container, 'failed')
+                return None
+
+        with fiona.open(features, 'r') as feats:
+            for f in feats:
+                try:
+                    feature = Polygon(f['geometry']['coordinates'][0])
+                    if feature.intersects(shape):
+                        ct += 1
+                except (ValueError, AssertionError):
+                    pass
+
+        print(ct, os.path.basename(container), os.path.basename(features))
 
 
 def get_area(shp):
@@ -809,27 +837,12 @@ def sample_shp(in_shp, out_shp, n):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     gis = os.path.join(home, 'IrrigationGIS')
-    # _in = os.path.join(gis, 'openET', 'ID', 'ID_ESPA_fields.shp')
-    # _out = os.path.join(gis, 'openET', 'centroids', 'ID_ESPA_fields_cent.shp')
-    # get_centroids(_in, _out)
-
-    for k, v in SHAPE_COMPILATION.items():
-        out = os.path.join(home, 'IrrigationGIS', 'openET', 'state_reprioritization', '{}_addCLU_v2.shp'.format(k))
-        compile_shapes(out, *v)
-
-    # _dir = clu = os.path.join(home, 'IrrigationGIS', 'clu', 'shapefiles')
-    # cdl_dir = os.path.join(home, 'IrrigationGIS', 'cdl')
-    # _shapes = [os.path.join(_dir, x) for x in os.listdir(_dir) if x.endswith('.shp')]
-    # states = [x[:2] for x in os.listdir(_dir) if x.endswith('.shp')]
-    # for shape, state in zip(_shapes, states):
-    #     if state in CLU_USEFUL:
-    #         cdl = os.path.join(cdl_dir, 'CDL_2017_{}.tif'.format(state.upper()))
-    #         out_ = os.path.join(home, 'IrrigationGIS', 'clu', 'crop_vector_v2', '{}_cropped.shp'.format(state))
-    #         if not os.path.exists(out_):
-    #             print(out_)
-    #             zonal_cdl(shape, cdl, out_)
-
-    # table = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'validation_points', 'points_9JUL_validation.shp')
-    # out = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'validation_points', 'validation_pts_samp40k.shp')
-    # sample_shp(table, out, n=10000)
+    bounds = os.path.join(gis, 'boundaries', 'states')
+    state_bounds = [os.path.join(bounds, x) for x in os.listdir(bounds) if x.endswith('WGS.shp')]
+    irrmapper_wgs = os.path.join(gis, 'paper_irrmapper', 'shapefiles')
+    shapes = ['wetlands.shp', 'irrigated.shp', 'uncultivated.shp', 'dryland.shp']
+    wgs_inputs = [os.path.join(irrmapper_wgs, x) for x in shapes]
+    for state in state_bounds:
+        for shp in wgs_inputs:
+            count_features(state, shp)
 # ========================= EOF ====================================================================
