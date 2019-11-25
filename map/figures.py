@@ -18,7 +18,7 @@ import os
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import InsetPosition
-from numpy import logical_not, isnan, array
+from numpy import logical_not, isnan, array, where, abs, max, min
 from pandas import read_csv, Series
 from sklearn import linear_model
 from sklearn.metrics import r2_score
@@ -213,6 +213,43 @@ def state_fp_code():
             56: 'WY'}
 
 
+def irrigated_years_precip_anomaly(csv):
+    df = read_csv(csv, skip_blank_lines=True).dropna()
+    means = df.groupby(by=['State']).mean().drop(columns=['Year', 'Anomaly Inches', 'Anomaly mm'])
+
+    n_cols, n_rows = 2, 6
+    fig, axes = plt.subplots(n_rows, n_cols, sharex=True,
+                             sharey=False, figsize=(24, 16))
+    pos = []
+    for c in range(n_cols):
+        for r in range(n_rows):
+            pos.append((c, r))
+
+    for i, p in enumerate(pos[0:len(means.index)]):
+        ax = axes[p[1], p[0]]
+        d = df[df['State'] == means.iloc[i].name]
+        a = d['Anomaly mm'].values
+        mean_ = means.iloc[i]['Mean mm']
+        bottoms = where(a < 0.0, mean_ + a, mean_)
+        height = abs(a)
+        x = d['Year'].values
+
+        ax.bar(x, height=height, bottom=bottoms, width=0.75, align='center')
+
+        plt.xlim([1986, 2018])
+        plt.ylim([min(bottoms) - mean_ * 0.1, max(a + mean_) + mean_ * 0.1])
+
+        ax.spines['left'].set_position(('data', 1986))
+        ax.spines['right'].set_position(('data', 2018))
+        ax.spines['bottom'].set_position(('data', mean_))
+        # ax.spines['left'].set_smart_bounds(True)
+        # ax.spines['bottom'].set_smart_bounds(True)
+        ax.xaxis.set_ticks_position('bottom')
+        ax.yaxis.set_ticks_position('left')
+
+    plt.show()
+
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
 
@@ -232,7 +269,10 @@ if __name__ == '__main__':
     state_normalized_figure = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper',
                                            'figures', 'states_normalized.png')
 
+    irr_precip = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'IrrMapper_Irrigation_Years_PrecipAnom.csv')
+    irrigated_years_precip_anomaly(irr_precip)
+
     # compare_nass_irrmapper_scatter(nass_irrmapper, scatter_figure)
     # irr_time_series_states(state_irrmapper, fig_name=state_normalized_figure)
-    irr_time_series_totals(irrmapper_all, nass_merged, fig_name=totals_figure)
+    # irr_time_series_totals(irrmapper_all, nass_merged, fig_name=totals_figure)
 # ========================= EOF ====================================================================
