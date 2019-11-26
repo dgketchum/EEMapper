@@ -208,7 +208,7 @@ def get_area(shp, intersect_shape=None, add_duplicate_area=True):
                 raise TypeError
 
         if intersect_shape:
-            print(ct, area, os.path.basename(shp), os.path.basename(intersect_shape))
+            print(ct, unq, area, os.path.basename(shp), os.path.basename(intersect_shape))
         else:
             print(area)
 
@@ -860,5 +860,5 @@ if __name__ == '__main__':
     wgs_inputs = [os.path.join(irrmapper_wgs, x) for x in shapes]
     for state in state_bounds:
         for shp in wgs_inputs:
-            get_area(shp, intersect_shape=state, add_duplicate_area=True)
+            get_area(shp, intersect_shape=state, add_duplicate_area=False)
 # ========================= EOF ====================================================================
