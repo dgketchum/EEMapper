@@ -17,6 +17,8 @@
 import os
 
 import matplotlib.pyplot as plt
+from matplotlib import cm
+from matplotlib.ticker import MultipleLocator, FormatStrFormatter, AutoMinorLocator
 from mpl_toolkits.axes_grid1.inset_locator import InsetPosition
 from numpy import logical_not, isnan, array, where, abs, max, min
 from pandas import read_csv, Series
@@ -213,13 +215,13 @@ def state_fp_code():
             56: 'WY'}
 
 
-def irrigated_years_precip_anomaly(csv):
+def irrigated_years_precip_anomaly(csv, save_fig=None):
     df = read_csv(csv, skip_blank_lines=True).dropna()
     means = df.groupby(by=['State']).mean().drop(columns=['Year', 'Anomaly Inches', 'Anomaly mm'])
 
     n_cols, n_rows = 2, 6
     fig, axes = plt.subplots(n_rows, n_cols, sharex=True,
-                             sharey=False, figsize=(24, 16))
+                             sharey=False, figsize=(12, 10))
     pos = []
     for c in range(n_cols):
         for r in range(n_rows):
@@ -227,17 +229,26 @@ def irrigated_years_precip_anomaly(csv):
 
     for i, p in enumerate(pos[0:len(means.index)]):
         ax = axes[p[1], p[0]]
-        d = df[df['State'] == means.iloc[i].name]
+        name = means.iloc[i].name
+        d = df[df['State'] == name]
         a = d['Anomaly mm'].values
         mean_ = means.iloc[i]['Mean mm']
         bottoms = where(a < 0.0, mean_ + a, mean_)
         height = abs(a)
         x = d['Year'].values
 
-        ax.bar(x, height=height, bottom=bottoms, width=0.75, align='center')
+        data_color = [(a[i] - a.min())/(a.max() - a.min()) for i, _ in enumerate(a)]
+        cmap = cm.get_cmap('RdYlGn')
+        color = cmap(data_color)
+        ax.bar(x, height=height, bottom=bottoms, width=0.75, align='center', color=color)
 
         plt.xlim([1986, 2018])
         plt.ylim([min(bottoms) - mean_ * 0.1, max(a + mean_) + mean_ * 0.1])
+        ax.set_title(name, size=12, y=0.9)
+        ax.xaxis.set_major_locator(MultipleLocator(5))
+        ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
+        ax.xaxis.set_minor_locator(MultipleLocator(1))
+        ax.tick_params(which='minor', length=1.5)
 
         ax.spines['left'].set_position(('data', 1986))
         ax.spines['right'].set_position(('data', 2018))
@@ -246,7 +257,14 @@ def irrigated_years_precip_anomaly(csv):
         # ax.spines['bottom'].set_smart_bounds(True)
         ax.xaxis.set_ticks_position('bottom')
         ax.yaxis.set_ticks_position('left')
+        ax.spines['right'].set_color('none')
+        ax.spines['top'].set_color('none')
 
+    fig.delaxes(axes[5, 1])
+    if save_fig:
+        plt.tight_layout()
+        plt.savefig(save_fig)
+        return None
     plt.show()
 
 
@@ -270,7 +288,8 @@ if __name__ == '__main__':
                                            'figures', 'states_normalized.png')
 
     irr_precip = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'IrrMapper_Irrigation_Years_PrecipAnom.csv')
-    irrigated_years_precip_anomaly(irr_precip)
+    precip_fig = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'figures', 'IrrYears_precipAnomaly.png')
+    irrigated_years_precip_anomaly(irr_precip, precip_fig)
 
     # compare_nass_irrmapper_scatter(nass_irrmapper, scatter_figure)
     # irr_time_series_states(state_irrmapper, fig_name=state_normalized_figure)
