@@ -29,6 +29,7 @@ from map.assets import list_assets
 
 ROI = 'users/dgketchum/boundaries/western_11_union'
 BOUNDARIES = 'users/dgketchum/boundaries/MT'
+IWRS = 'users/dgketchum/boundaries/IWRS_reservations'
 
 ASSET_ROOT = 'users/dgketchum/IrrMapper/version_3'
 ASSET_ROOT_LCRB = 'users/dgketchum/IrrMapper/lcrb'
@@ -156,8 +157,16 @@ def reduce_classification(tables, years=None, description=None, cdl_mask=False, 
     :param min_years:
     :return:
     """
+
     sum_mask = None
     image_list = list_assets('users/dgketchum/IrrMapper/version_2')
+    alt_image_list = list_assets('users/dpendergraph/IrrMapper_v3')
+    removal = []
+    for i in image_list:
+        if 'MT_' in i:
+            removal.append(i)
+    [image_list.remove(r) for r in removal]
+    image_list = image_list + alt_image_list
     fc = ee.FeatureCollection(tables)
 
     if min_years > 0:
@@ -165,41 +174,39 @@ def reduce_classification(tables, years=None, description=None, cdl_mask=False, 
         sum = ee.ImageCollection(coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum()
         sum_mask = sum.lt(min_years)
 
-    # first = True
     for yr in years:
-        if yr not in [2002, 2007, 2012]:
-            yr_img = [x for x in image_list if x.endswith(str(yr))]
-            coll = ee.ImageCollection(yr_img)
-            tot = coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
+        yr_img = [x for x in image_list if x.endswith(str(yr))]
+        coll = ee.ImageCollection(yr_img)
+        tot = coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
 
-            if cdl_mask and min_years > 0:
-                # cultivated/uncultivated band only available 2013 to 2017
-                cdl = ee.Image('USDA/NASS/CDL/2013')
-                cultivated = cdl.select('cultivated')
-                cdl_crop_mask = cultivated.eq(2)
-                tot = tot.mask(cdl_crop_mask).mask(sum_mask)
+        if cdl_mask and min_years > 0:
+            # cultivated/uncultivated band only available 2013 to 2017
+            cdl = ee.Image('USDA/NASS/CDL/2013')
+            cultivated = cdl.select('cultivated')
+            cdl_crop_mask = cultivated.eq(2)
+            tot = tot.mask(cdl_crop_mask).mask(sum_mask)
 
-            elif min_years > 0:
-                tot = tot.mask(sum_mask)
+        elif min_years > 0:
+            tot = tot.mask(sum_mask)
 
-            elif cdl_mask:
-                cdl = ee.Image('USDA/NASS/CDL/2013')
-                cultivated = cdl.select('cultivated')
-                cdl_crop_mask = cultivated.eq(2)
-                tot = tot.mask(cdl_crop_mask)
+        elif cdl_mask:
+            cdl = ee.Image('USDA/NASS/CDL/2013')
+            cultivated = cdl.select('cultivated')
+            cdl_crop_mask = cultivated.eq(2)
+            tot = tot.mask(cdl_crop_mask)
 
-            tot = tot.multiply(ee.Image.pixelArea())
-            reduce = tot.reduceRegions(collection=fc,
-                                       reducer=ee.Reducer.sum(),
-                                       scale=30)
-            task = ee.batch.Export.table.toCloudStorage(
-                reduce,
-                description='{}_area_{}_'.format(description, yr),
-                bucket='wudr',
-                fileNamePrefix='{}_area_{}_'.format(description, yr),
-                fileFormat='CSV')
-            task.start()
-            print(yr)
+        tot = tot.multiply(ee.Image.pixelArea())
+        reduce = tot.reduceRegions(collection=fc,
+                                   reducer=ee.Reducer.sum(),
+                                   scale=30)
+        task = ee.batch.Export.table.toCloudStorage(
+            reduce,
+            description='{}_area_{}_'.format(description, yr),
+            bucket='wudr',
+            fileNamePrefix='{}_area_{}_'.format(description, yr),
+            fileFormat='CSV')
+        task.start()
+        print(yr)
 
 
 def get_ndvi_stats(tables, years, out_name):
@@ -805,5 +812,5 @@ if __name__ == '__main__':
     # export_classification(out_name='MT_v3', asset_root=ASSET_ROOT, region=BOUNDARIES)
     # request_band_extract(file_prefix='MT_31OCT', points_layer=POINTS_MT, region=BOUNDARIES, filter_bounds=True)
     # filter_irrigated(filter_type='filter_low')
-    filter_irrigated(filter_type='filter_high')
+    reduce_classification(IWRS, years=ALL_YEARS, description='iwrs', min_years=5)
 # ========================= EOF ====================================================================
