@@ -234,46 +234,66 @@ def irrigated_years_precip_anomaly(csv, save_fig=None):
     df = read_csv(csv, skip_blank_lines=True).dropna()
     means = df.groupby(by=['State']).mean().drop(columns=['Year', 'Anomaly Inches', 'Anomaly mm'])
 
-    n_cols, n_rows = 2, 6
+    n_cols, n_rows = 3, 4
     fig, axes = plt.subplots(n_rows, n_cols, sharex=True,
-                             sharey=False, figsize=(12, 10))
-    pos = []
-    for c in range(n_cols):
-        for r in range(n_rows):
-            pos.append((c, r))
+                             sharey=False, figsize=(12, 6))
 
-    for i, p in enumerate(pos[0:len(means.index)]):
+    pos = [(0, 0), (0, 1), (0, 2), (0, 3),
+           (1, 0), (1, 1), (1, 2), (1, 3),
+           (2, 0), (2, 1), (2, 2), (2, 3)]
+
+    for i, p in enumerate(pos):
+
         ax = axes[p[1], p[0]]
-        name = means.iloc[i].name
-        d = df[df['State'] == name]
-        a = d['Anomaly mm'].values
-        mean_ = means.iloc[i]['Mean mm']
-        bottoms = where(a < 0.0, mean_ + a, mean_)
-        height = abs(a)
-        x = d['Year'].values
 
-        data_color = [(a[i] - a.min())/(a.max() - a.min()) for i, _ in enumerate(a)]
-        cmap = cm.get_cmap('RdYlGn')
-        color = cmap(data_color)
-        ax.bar(x, height=height, bottom=bottoms, width=0.75, align='center', color=color)
+        if p == (2, 3):
+            yrs_ = [_ for _ in range(1986, 2019)]
+            d = [0 for _ in yrs_]
+            ax.bar(d, height=d, bottom=d, width=0.75, align='center')
+            ax.set(xlabel='Time')
+            plt.xlim([1986, 2019])
+            plt.ylim([0, 1])
+            ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
+            ax.spines['left'].set_position(('data', 1986))
+            ax.spines['right'].set_position(('data', 2018))
+            ax.spines['left'].set_color('none')
+            ax.spines['bottom'].set_position(('data', 0.45))
+            ax.spines['right'].set_color('none')
+            ax.spines['top'].set_color('none')
+            ax.tick_params(axis='y', which='major', length=0, labelleft=False, labelright=False)
 
-        plt.xlim([1986, 2018])
-        plt.ylim([min(bottoms) - mean_ * 0.1, max(a + mean_) + mean_ * 0.1])
-        ax.set_title(name, size=12, y=0.9)
-        ax.xaxis.set_major_locator(MultipleLocator(5))
-        ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
-        ax.xaxis.set_minor_locator(MultipleLocator(1))
-        ax.tick_params(which='minor', length=1.5)
+        else:
+            name = means.iloc[i].name
+            d = df[df['State'] == name]
+            a = d['Anomaly mm'].values
+            mean_ = means.iloc[i]['Mean mm']
+            bottoms = where(a < 0.0, mean_ + a, mean_)
+            height = abs(a)
+            x = d['Year'].values
 
-        ax.spines['left'].set_position(('data', 1986))
-        ax.spines['right'].set_position(('data', 2018))
-        ax.spines['bottom'].set_position(('data', mean_))
-        ax.xaxis.set_ticks_position('bottom')
-        ax.yaxis.set_ticks_position('left')
-        ax.spines['right'].set_color('none')
-        ax.spines['top'].set_color('none')
+            data_color = [(a[i] - a.min())/(a.max() - a.min()) for i, _ in enumerate(a)]
+            cmap = cm.get_cmap('RdYlGn')
+            color = cmap(data_color)
+            ax.bar(x, height=height, bottom=bottoms, width=0.75, align='center', color=color)
 
-    fig.delaxes(axes[5, 1])
+            plt.xlim([1986, 2018])
+            plt.ylim([min(bottoms) - mean_ * 0.1, max(a + mean_) + mean_ * 0.1])
+            ax.set_title(name, size=12, y=0.9)
+            ax.xaxis.set_major_locator(MultipleLocator(5))
+            ax.xaxis.set_major_formatter(FormatStrFormatter(''))
+            ax.xaxis.set_minor_locator(MultipleLocator(1))
+            ax.tick_params(which='minor', length=1.5)
+
+            ax.spines['left'].set_position(('data', 1986))
+            ax.spines['right'].set_position(('data', 2018))
+            ax.spines['bottom'].set_position(('data', mean_))
+            ax.xaxis.set_ticks_position('bottom')
+            ax.yaxis.set_ticks_position('left')
+            ax.spines['right'].set_color('none')
+            ax.spines['top'].set_color('none')
+            ax.tick_params(axis='x', which='major', bottom=True, top=False, labelbottom=False)
+
+    # fig.delaxes(axes[5, 1])
     if save_fig:
         plt.tight_layout()
         plt.savefig(save_fig)
@@ -289,47 +309,67 @@ def state_bar_plots(csv, save_fig=None):
     df = df[year_sums] / 247.105
 
     n_cols, n_rows = 2, 6
-    fig, axes = plt.subplots(n_rows, n_cols, sharex=True,
+    fig, axes = plt.subplots(n_rows, n_cols, sharex=False,
                              sharey=False, figsize=(12, 10))
-    pos = []
-    for c in range(n_cols):
-        for r in range(n_rows):
-            pos.append((c, r))
 
-    for p, (k, v) in zip(pos[0:len(df.index)], state_fp_code_full_name().items()):
+    pos = [(0, 0), (0, 1), (0, 2), (0, 3), (0, 4), (0, 5),
+           (1, 0), (1, 1), (1, 2), (1, 3), (1, 4)]
+
+    for p, (k, v) in zip(pos, state_fp_code_abv().items()):
+
         ax = axes[p[1], p[0]]
-        name = v
-        d = df[df.index == k]
-        yrs = [int(x.replace('noCdlMask_', '')) for x in d.columns]
-        d.columns = yrs
-        mean_ = d.values.mean()
-        a = d.values - mean_
-        bottoms = where(a < 0.0, mean_ + a, mean_)[0, :]
-        height = abs(a)[0, :]
 
-        data_color = [(a[i] - a.min())/(a.max() - a.min()) for i, _ in enumerate(a)][0]
-        cmap = cm.get_cmap('RdBu')
-        color = cmap(data_color)
-        ax.bar(yrs, height=height, bottom=bottoms, width=0.75, align='center', color=color)
-        plt.xlim([1986, 2018])
-        plt.ylim([min(bottoms) - mean_ * 0.1, max(a + mean_) + mean_ * 0.1])
-        ax.set_title(name, size=12, y=0.9)
-        ax.xaxis.set_major_locator(MultipleLocator(5))
-        ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
-        ax.xaxis.set_minor_locator(MultipleLocator(1))
-        ax.tick_params(which='minor', length=1.5)
+        if p == (0, 5):
+            yrs = [_ for _ in range(1986, 2019)]
+            d = [0 for _ in yrs]
+            ax.bar(yrs, height=d, bottom=d, width=0.75, align='center')
+            ax.set(xlabel='Time')
+            plt.xlim([1986, 2019])
+            ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
+            ax.spines['left'].set_position(('data', 1984))
+            ax.spines['right'].set_position(('data', 2018))
+            ax.spines['left'].set_color('none')
+            ax.spines['bottom'].set_position(('data', 0.06))
+            ax.spines['right'].set_color('none')
+            ax.spines['top'].set_color('none')
+            ax.yaxis.set_major_formatter(FormatStrFormatter(''))
+            ax.tick_params(axis='y', which='major', length=0, labelleft=False, labelright=False)
+            ax.tick_params(axis='x', which='major', bottom=True, top=False, labelbottom=True)
+            # plt.xticks(plt.xticks()[0], [str(x) for x in plt.xticks()[0]])
 
-        ax.spines['left'].set_position(('data', 1986))
-        ax.spines['right'].set_position(('data', 2018))
-        ax.spines['bottom'].set_position(('data', mean_))
-        ax.xaxis.set_ticks_position('bottom')
-        ax.yaxis.set_ticks_position('left')
-        ax.spines['right'].set_color('none')
-        ax.spines['top'].set_color('none')
+
+        else:
+            name = v
+            d = df[df.index == k]
+            yrs = [int(x.replace('noCdlMask_', '')) for x in d.columns]
+            d.columns = yrs
+            mean_ = d.values.mean()
+            a = d.values - mean_
+            bottoms = where(a < 0.0, mean_ + a, mean_)[0, :]
+            height = abs(a)[0, :]
+
+            data_color = [(a[i] - a.min())/(a.max() - a.min()) for i, _ in enumerate(a)][0]
+            cmap = cm.get_cmap('RdBu')
+            color = cmap(data_color)
+            ax.bar(yrs, height=height, bottom=bottoms, width=0.75, align='center', color=color)
+            plt.xlim([1986, 2019])
+            plt.ylim([min(bottoms) - mean_ * 0.1, max(a + mean_) + mean_ * 0.1])
+            ax.set_title(name, size=10, y=0.9, x=0.1)
+            ax.tick_params(which='minor', length=1.5, labelbottom=False, labeltop=False)
+            ax.xaxis.set_minor_locator(MultipleLocator(1))
+            ax.xaxis.set_major_formatter(FormatStrFormatter(''))
+            ax.spines['left'].set_position(('data', 1984))
+            ax.spines['right'].set_position(('data', 2018))
+            ax.spines['bottom'].set_position(('data', mean_))
+            ax.yaxis.set_ticks_position('left')
+            ax.spines['right'].set_color('none')
+            ax.spines['top'].set_color('none')
 
     fig.delaxes(axes[5, 1])
+    fig.text(0.37, 0.5, 'Annual Irrigated Area, $\mathregular{km^2}$', va='center', rotation='vertical')
+    plt.subplots_adjust(left=0.44, bottom=None, right=None,
+                        top=None, wspace=None, hspace=None)
     if save_fig:
-        plt.tight_layout()
         plt.savefig(save_fig)
         return None
     plt.show()
@@ -344,7 +384,7 @@ if __name__ == '__main__':
 
     irrmapper_all = os.path.join(irr_tables, 'irr_merged_ac.csv')
     totals_figure = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper',
-                          'figures', 'totals_time_series.png')
+                                 'figures', 'totals_time_series.png')
 
     nass_irrmapper = os.path.join(irr_tables, 'nass_irrMap.csv')
     scatter_figure = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper',
@@ -356,10 +396,10 @@ if __name__ == '__main__':
 
     irr_precip = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'IrrMapper_Irrigation_Years_PrecipAnom.csv')
     precip_fig = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'figures', 'IrrYears_precipAnomaly.png')
-    # irrigated_years_precip_anomaly(irr_precip, precip_fig)
+    irrigated_years_precip_anomaly(irr_precip, save_fig=None)
 
-    state_bars = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'figures', 'state_bars.png')
-    state_bar_plots(state_irrmapper, state_bars)
+    # state_bars = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'figures', 'state_bars.png')
+    # state_bar_plots(state_irrmapper, save_fig=None)
 
     # compare_nass_irrmapper_scatter(nass_irrmapper, scatter_figure)
     # irr_time_series_states(state_irrmapper, fig_name=state_normalized_figure)
