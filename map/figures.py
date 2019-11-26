@@ -18,7 +18,7 @@ import os
 
 import matplotlib.pyplot as plt
 from matplotlib import cm
-from matplotlib.ticker import MultipleLocator, FormatStrFormatter, AutoMinorLocator
+from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 from mpl_toolkits.axes_grid1.inset_locator import InsetPosition
 from numpy import logical_not, isnan, array, where, abs, max, min
 from pandas import read_csv, Series
@@ -134,8 +134,8 @@ def get_correlations(a, b):
 
 
 def irr_time_series_states(csv, fig_name=None):
-    #  this uses pixel counts still
     df = read_csv(csv)
+    df = df.sort_index(axis=1)
     yrs = [x for x in df.columns if 'noCdlMask_' in x]
     df = df.groupby(['STATEFP']).sum()
     df = df[yrs]
@@ -147,7 +147,7 @@ def irr_time_series_states(csv, fig_name=None):
     fig, ax = plt.subplots()
     for i, r in df.iterrows():
         r.index = linear
-        r.name = state_fp_code()[r.name]
+        r.name = state_fp_code_abv()[r.name]
         ax = r.plot(ax=ax, kind='line', x=linear, y=r.values, alpha=0.6)
 
     z_totals.name = 'All'
@@ -159,7 +159,8 @@ def irr_time_series_states(csv, fig_name=None):
     plt.legend(loc='lower center', ncol=5, labelspacing=0.5)
     if fig_name:
         plt.savefig(fig_name)
-    # plt.show()
+        return None
+    plt.show()
 
 
 def irr_time_series_totals(irr, nass, fig_name):
@@ -201,7 +202,7 @@ def irr_time_series_totals(irr, nass, fig_name):
     # plt.show()`
 
 
-def state_fp_code():
+def state_fp_code_abv():
     return {4: 'AZ',
             6: 'CA',
             8: 'CO',
@@ -213,6 +214,20 @@ def state_fp_code():
             49: 'UT',
             53: 'WA',
             56: 'WY'}
+
+
+def state_fp_code_full_name():
+    return {4: 'Arizona',
+            6: 'California',
+            8: 'Colorado',
+            16: 'Idaho',
+            30: 'Montana',
+            32: 'Nevada',
+            35: 'New Mexico',
+            41: 'Oregon',
+            49: 'Utah',
+            53: 'Washington',
+            56: 'Wyoming'}
 
 
 def irrigated_years_precip_anomaly(csv, save_fig=None):
@@ -253,8 +268,60 @@ def irrigated_years_precip_anomaly(csv, save_fig=None):
         ax.spines['left'].set_position(('data', 1986))
         ax.spines['right'].set_position(('data', 2018))
         ax.spines['bottom'].set_position(('data', mean_))
-        # ax.spines['left'].set_smart_bounds(True)
-        # ax.spines['bottom'].set_smart_bounds(True)
+        ax.xaxis.set_ticks_position('bottom')
+        ax.yaxis.set_ticks_position('left')
+        ax.spines['right'].set_color('none')
+        ax.spines['top'].set_color('none')
+
+    fig.delaxes(axes[5, 1])
+    if save_fig:
+        plt.tight_layout()
+        plt.savefig(save_fig)
+        return None
+    plt.show()
+
+
+def state_bar_plots(csv, save_fig=None):
+    df = read_csv(csv)
+    df = df.sort_index(axis=1)
+    year_sums = [x for x in df.columns if 'noCdlMask_' in x]
+    df = df.groupby(['STATEFP']).sum()
+    df = df[year_sums] / 247.105
+
+    n_cols, n_rows = 2, 6
+    fig, axes = plt.subplots(n_rows, n_cols, sharex=True,
+                             sharey=False, figsize=(12, 10))
+    pos = []
+    for c in range(n_cols):
+        for r in range(n_rows):
+            pos.append((c, r))
+
+    for p, (k, v) in zip(pos[0:len(df.index)], state_fp_code_full_name().items()):
+        ax = axes[p[1], p[0]]
+        name = v
+        d = df[df.index == k]
+        yrs = [int(x.replace('noCdlMask_', '')) for x in d.columns]
+        d.columns = yrs
+        mean_ = d.values.mean()
+        a = d.values - mean_
+        bottoms = where(a < 0.0, mean_ + a, mean_)[0, :]
+        height = abs(a)[0, :]
+
+        data_color = [(a[i] - a.min())/(a.max() - a.min()) for i, _ in enumerate(a)][0]
+        cmap = cm.get_cmap('RdBu')
+        color = cmap(data_color)
+        ax.bar(yrs, height=height, bottom=bottoms, width=0.75, align='center', color=color)
+        plt.xlim([1986, 2018])
+        plt.ylim([min(bottoms) - mean_ * 0.1, max(a + mean_) + mean_ * 0.1])
+        ax.set_title(name, size=12, y=0.9)
+        ax.xaxis.set_major_locator(MultipleLocator(5))
+        ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
+        ax.xaxis.set_minor_locator(MultipleLocator(1))
+        ax.tick_params(which='minor', length=1.5)
+
+        ax.spines['left'].set_position(('data', 1986))
+        ax.spines['right'].set_position(('data', 2018))
+        ax.spines['bottom'].set_position(('data', mean_))
         ax.xaxis.set_ticks_position('bottom')
         ax.yaxis.set_ticks_position('left')
         ax.spines['right'].set_color('none')
@@ -289,7 +356,10 @@ if __name__ == '__main__':
 
     irr_precip = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'IrrMapper_Irrigation_Years_PrecipAnom.csv')
     precip_fig = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'figures', 'IrrYears_precipAnomaly.png')
-    irrigated_years_precip_anomaly(irr_precip, precip_fig)
+    # irrigated_years_precip_anomaly(irr_precip, precip_fig)
+
+    state_bars = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'figures', 'state_bars.png')
+    state_bar_plots(state_irrmapper, state_bars)
 
     # compare_nass_irrmapper_scatter(nass_irrmapper, scatter_figure)
     # irr_time_series_states(state_irrmapper, fig_name=state_normalized_figure)
