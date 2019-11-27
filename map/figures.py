@@ -133,6 +133,33 @@ def get_correlations(a, b):
     return coeff_det, slope, intercept
 
 
+def irr_time_series_iwrs(csv, fig_name=None):
+    df = read_csv(csv, index_col='GNIS_Name1')
+    df = df.sort_index(axis=1)
+    yrs = [x for x in df.columns if 'irr_' in x]
+    df = df[yrs]
+    df = df.div(df.mean(axis=1), axis=0)
+    linear = [x for x in range(1986, 2019)]
+    totals = df.sum(axis=0)
+    z_totals = totals.div(totals.mean(), totals.values)
+    z_totals.index = linear
+    for i, r in df.iterrows():
+        fig, ax = plt.subplots()
+        r.index = linear
+        ax = r.plot(ax=ax, kind='line', x=linear, y=r.values, alpha=0.6)
+        z_totals.name = 'All'
+        z_totals.plot(ax=ax, kind='line', color='k', alpha=0.7, x=linear, y=z_totals.values)
+        # plt.title('Normalized Irrigated Area')
+        ax.axvspan(2011.5, 2012.5, alpha=0.5, color='red')
+        plt.xlim(1984, 2020)
+        plt.ylim(0.0, 2.5)
+        plt.legend(loc='lower center')
+        if fig_name:
+            plt.savefig('{}_{}.png'.format(fig_name, r.name[:10]))
+        else:
+            plt.show()
+
+
 def irr_time_series_states(csv, fig_name=None):
     df = read_csv(csv)
     df = df.sort_index(axis=1)
@@ -396,12 +423,16 @@ if __name__ == '__main__':
 
     irr_precip = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'IrrMapper_Irrigation_Years_PrecipAnom.csv')
     precip_fig = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'figures', 'IrrYears_precipAnomaly.png')
-    irrigated_years_precip_anomaly(irr_precip, save_fig=None)
+    # irrigated_years_precip_anomaly(irr_precip, save_fig=None)
+
+    iwr_irrmapper = os.path.join(home, 'IrrigationGIS', 'time_series', 'iwrs', 'iwrs_irr_merged.csv')
+    iwr_normalized_figure = os.path.join(home, 'IrrigationGIS', 'reservations', 'iwrs_normalized')
+    irr_time_series_iwrs(iwr_irrmapper, fig_name=iwr_normalized_figure)
 
     # state_bars = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'figures', 'state_bars.png')
     # state_bar_plots(state_irrmapper, save_fig=None)
 
-    # compare_nass_irrmapper_scatter(nass_irrmapper, scatter_figure)
     # irr_time_series_states(state_irrmapper, fig_name=state_normalized_figure)
+    # compare_nass_irrmapper_scatter(nass_irrmapper, scatter_figure)
     # irr_time_series_totals(irrmapper_all, nass_merged, fig_name=totals_figure)
 # ========================= EOF ====================================================================

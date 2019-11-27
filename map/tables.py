@@ -59,12 +59,14 @@ COLS = ['SCENE_ID',
 
 DROP_COUNTY = ['system:index', 'AFFGEOID', 'COUNTYFP', 'COUNTYNS', 'GEOID', 'LSAD', 'STATEFP', '.geo']
 
-DROP_IWRS = ['system:index', 'ADMIN2', 'ADMIN3', 'FEATURE2', 'FEATURE3', 'GNIS_ID2', 'GNIS_ID3',
+DROP_IWRS = ['system:index', 'ADMIN2', 'ADMIN3', 'FEATURE1', 'FEATURE2', 'FEATURE3', 'GNIS_ID2', 'GNIS_ID3',
              'GNIS_Name2', 'GNIS_Name3', 'Indlanp010', 'OBJECTID_1', 'ORIG_NAME', 'PERIMETER', 'SHAPE_Leng',
              'Shape_Area', 'Shape_Le_1', 'URL', 'AREA', '.geo']
 
+IWRS_GROUP_SUM = ['AREA_SQ_KM', 'GIS_ACRES', 'AREA_SQ_KM']
 
-def concatenate_iwrs_data(folder, out_file, glob='counties', acres=False):
+
+def concatenate_iwrs_data(folder, out_file, glob='counties'):
     df = None
     base_names = [x for x in os.listdir(folder)]
     _files = [os.path.join(folder, x) for x in base_names if x.startswith(glob)]
@@ -90,7 +92,15 @@ def concatenate_iwrs_data(folder, out_file, glob='counties', acres=False):
             assert c.shape[0] == shape
             df = concat([df, c], axis=1)
 
-    df.to_csv(out_file, index=False)
+    cols = list(df.columns)
+    areas = df[[x for x in cols if x.startswith('irr')] + ['GNIS_Name1']].groupby(by='GNIS_Name1').sum()
+    states = df[['GNIS_Name1', 'STATE', 'STATE_FIPS']].groupby(by='GNIS_Name1').agg(lambda x: x.value_counts().index[0])
+
+    df = concat([states, areas], axis=1)
+    idx = where((df.mean(axis=1).values > 10.) & (df.min(axis=1).values > 10.))
+    df = df.iloc[idx]
+    df.to_csv(out_file, index=True)
+
     print('saved {}'.format(out_file))
 
 
@@ -425,6 +435,6 @@ if __name__ == '__main__':
 
     iwrs = os.path.join(home, 'IrrigationGIS', 'time_series', 'iwrs', )
     d = os.path.join(iwrs, 'irrmap_reduced')
-    irr = os.path.join(d, 'iwrs_irr_merged.csv')
-    concatenate_iwrs_data(d, out_file=irr, glob='iwrs_area', acres=False)
+    irr = os.path.join(iwrs, 'iwrs_irr_merged.csv')
+    concatenate_iwrs_data(d, out_file=irr, glob='iwrs_area')
 # ========================= EOF ====================================================================
