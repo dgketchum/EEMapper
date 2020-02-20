@@ -22,6 +22,7 @@
 
 import os
 from datetime import datetime
+from pprint import pprint
 
 import ee
 
@@ -37,13 +38,15 @@ COUNTIES = 'users/dgketchum/boundaries/western_counties'
 STATES = ['AZ', 'CA', 'NV', 'CO', 'ID', 'MT', 'NM', 'OR', 'UT', 'WA', 'WY']  #
 TARGET_STATES = ['AZ', 'CA', 'NM', 'NV', 'UT']
 
-POINTS_MT = 'ft:1J6XOjoWYW0wlANgGDD1PKe2E6-_F8cwpG1kU1AI6'
+POINTS_MT = 'users/dgketchum/point_sample/points_rdgp_20FEB2020'
 TABLE_MT = 'ft:1-2IMLOk64CGhr1Lz53am02pnFw4-ReDioNSKTYU-'
 
 # list of years we have verified irrigated fields
 YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
          2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
          2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
+
+RDGP_YEARS = [2002, 2003, 2008, 2009, 2010, 2011, 2012, 2013, 2015, 2016]
 
 TEST_YEARS = [2013]
 # TEST_YEARS = [x for x in range(2018, 2019)]
@@ -146,7 +149,7 @@ def attribute_irrigation():
     field polygon coverages.
     :return:
     """
-    fc = ee.FeatureCollection(LCRB)
+    fc = ee.FeatureCollection(None)
     for state in TARGET_STATES:
         for yr in range(1986, 2019):
             images = os.path.join(ASSET_ROOT, '{}_{}'.format(state, yr))
@@ -414,33 +417,36 @@ def request_band_extract(file_prefix, points_layer, region, filter_bounds=False)
     """
     roi = ee.FeatureCollection(region)
     plots = ee.FeatureCollection(points_layer)
-    for yr in ALL_YEARS:
+    print(plots.size().getInfo())
+    for yr in RDGP_YEARS:
         stack = stack_bands(yr, roi)
-        start = '{}-01-01'.format(yr)
-        d = datetime.strptime(start, '%Y-%m-%d')
-        epoch = datetime.utcfromtimestamp(0)
-        start_millisec = (d - epoch).total_seconds() * 1000
 
         if filter_bounds:
             plots = plots.filterBounds(roi)
 
-        filtered = plots.filter(ee.Filter.eq('YEAR', ee.Number(start_millisec)))
+        filtered = plots.filter(ee.Filter.eq('YEAR', yr))
+        print(filtered.size().getInfo())
 
         plot_sample_regions = stack.sampleRegions(
             collection=filtered,
             properties=['POINT_TYPE', 'YEAR'],
             scale=30,
             tileScale=2)
-
-        task = ee.batch.Export.table.toCloudStorage(
-            plot_sample_regions,
-            description='{}_{}'.format(file_prefix, yr),
-            bucket='wudr',
-            fileNamePrefix='{}_{}'.format(file_prefix, yr),
-            fileFormat='CSV')
-
-        task.start()
-        print(yr)
+        
+        if not plot_sample_regions.first().getInfo():
+            print('none for ', yr)
+            pass
+        
+        else:
+            task = ee.batch.Export.table.toCloudStorage(
+                plot_sample_regions,
+                description='{}_{}'.format(file_prefix, yr),
+                bucket='wudr',
+                fileNamePrefix='{}_{}'.format(file_prefix, yr),
+                fileFormat='CSV')
+    
+            task.start()
+            pprint(yr)
 
 
 def get_ndvi_series(years, roi):
@@ -715,8 +721,6 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    # export_classification(out_name='MT_v3', asset_root=ASSET_ROOT, region=BOUNDARIES)
-    # request_band_extract(file_prefix='MT_31OCT', points_layer=POINTS_MT, region=BOUNDARIES, filter_bounds=True)
-    # filter_irrigated(filter_type='filter_low')
-    reduce_classification(IWRS, years=ALL_YEARS, description='iwrs', min_years=5)
+    request_band_extract(file_prefix='RDGP_19FEB2020', points_layer=POINTS_MT,
+                         region=ROI, filter_bounds=False)
 # ========================= EOF ====================================================================
