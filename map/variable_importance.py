@@ -1,5 +1,5 @@
 # ===============================================================================
-# Copyright 2018 dgketchum
+# Copyright 2020 dgketchum
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 
 def variable_importance():
-        
+    
     return [('CDL', 0.0634524752804307),
             ('NLCD', 0.05690229985097357),
             ('Near Infrared Late Spring', 0.04846799523587754),
@@ -286,10 +286,6 @@ def original_names():
             'precip_total_wy_espr_1',
             'aspect']
 
-
-from pprint import pprint
-
-pprint([x[0] for x in variable_importance()])
 
 if __name__ == '__main__':
     pass

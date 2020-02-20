@@ -24,17 +24,17 @@ from shapely.geometry import shape, Point, mapping
 
 from map.call_ee import YEARS
 
-training = os.path.join(os.path.expanduser('~'), 'IrrigationGIS', 'EE_sample')
+training = os.path.join('/media', 'research', 'IrrigationGIS', 'EE_sample')
 
-WETLAND = os.path.join(training, 'wetlands_8NOV.shp')
-UNCULTIVATED = os.path.join(training, 'uncultivated_4APR.shp')
-IRRIGATED = os.path.join(training, 'irrigated_15JUL.shp')
-UNIRRIGATED = os.path.join(training, 'unirrigated_9JUL.shp')
+WETLAND = os.path.join(training, 'wetlands_15JUL_mt.shp')
+UNCULTIVATED = os.path.join(training, 'uncultivated_30APR_mt.shp')
+IRRIGATED = os.path.join(training, 'irrigated_RDGP_19FEB2020.shp')
+UNIRRIGATED = os.path.join(training, 'unirrigated_9JUL_mt.shp')
 FALLOW = os.path.join(training, 'fallow_11FEB.shp')
 
 
 class PointsRunspec(object):
-
+    
     def __init__(self, root, buffer, **kwargs):
         self.root = root
         self.features = []
@@ -42,15 +42,21 @@ class PointsRunspec(object):
         self.year = None
         self.crs = None
         self.extracted_points = DataFrame(columns=['FID', 'X', 'Y', 'POINT_TYPE', 'YEAR'])
-
+        
         self.buffer = buffer
-
+        
         self.irr_path = IRRIGATED
         self.unirr_path = UNIRRIGATED
         self.uncult_path = UNCULTIVATED
         self.wetland_path = WETLAND
         self.fallow_path = FALLOW
-
+        
+        for path in [IRRIGATED, UNIRRIGATED, UNCULTIVATED, WETLAND]:
+            if not os.path.exists(path):
+                raise FileNotFoundError
+            else:
+                print('{} exists'.format(path))
+        
         if 'fallowed' in kwargs.keys():
             self.fallowed(kwargs['fallowed'])
         if 'irrigated' in kwargs.keys():
@@ -192,17 +198,18 @@ class PointsRunspec(object):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    data = os.path.join(home, 'IrrigationGIS', 'EE_sample')
-    extract = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'point_shp')
+    data = os.path.join('/media', 'research', 'IrrigationGIS', 'EE_sample')
+    extract = os.path.join('/media', 'research', 'IrrigationGIS', 'EE_extracts', 'point_shp')
 
     kwargs = {
         'irrigated': 40000,
-        'wetlands': 60000,
-        'uncultivated': 40000,
-        'unirrigated': 40000,
+        'wetlands': 10000,
+        'uncultivated': 10000,
+        'unirrigated': 10000,
+        # 'fallowed': 10000,
     }
 
     prs = PointsRunspec(data, buffer=-20, **kwargs)
-    prs.save_sample_points(os.path.join(extract, 'points_17JUL_val.shp'.format()))
+    prs.save_sample_points(os.path.join(extract, 'points_rdgp_19FEB2020.shp'.format()))
 
 # ========================= EOF ====================================================================

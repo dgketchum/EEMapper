@@ -19,7 +19,7 @@ import os
 from copy import deepcopy
 
 from geopandas import GeoDataFrame
-from numpy import nan
+from numpy import nan, nanmean, inf
 from pandas import read_table, read_csv, DataFrame, Series, concat
 from pandas.io.json import json_normalize
 
@@ -157,6 +157,13 @@ def merge_nass_irrmapper(nass, irrmapper, out_name):
 
     df = concat([ndf, idf], axis=1)
     df.dropna(axis=0, thresh=8, inplace=True)
+    
+    idf, ndf = df[idf.columns].values, df[ndf.columns].values
+    i_over_n = idf / ndf
+    mean_diff = nanmean(i_over_n, axis=1)
+    df['i_to_n'] = mean_diff
+    df = df.replace([inf, -inf], nan)
+    df.dropna(axis=0, subset=['i_to_n'], inplace=True)
     df.to_csv(out_name)
 
 
@@ -175,13 +182,13 @@ if __name__ == '__main__':
                                                      'qs.census2012.txt',
                                                      'qs.census2017.txt']]
     merged = os.path.join(nass_tables, 'nass_merged.csv')
-    get_nass(_files, merged, old_nass=old_data)
+    # get_nass(_files, merged, old_nass=old_data)
 
-    # irr = os.path.join(irr_tables, 'irr_merged.csv')
-    # nass = os.path.join(nass_tables, 'nass_merged.csv')
-    #
-    # o = os.path.join(irr_tables, 'nass_irrMap.csv')
-    #
-    # merge_nass_irrmapper(nass, irr, o)
+    irr = os.path.join(irr_tables, 'irr_merged.csv')
+    nass = os.path.join(nass_tables, 'nass_merged.csv')
+
+    o = os.path.join(irr_tables, 'nass_irrMap_6FEB2020.csv')
+
+    merge_nass_irrmapper(nass, irr, o)
 
 # ========================= EOF ====================================================================

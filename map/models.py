@@ -369,9 +369,9 @@ def multilayer_perceptron(x, weights, biases):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    vals = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'validation_tables', 'validation_12AUG2019.csv')
+    # vals = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'validation_tables', 'validation_12AUG2019.csv')
     # get_confusion_matrix(vals, ((0, 185), (1, 38), (2, 8740), (3, 1037)))
     bands = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated', 'bands_15JUL_v2_kw_USEDINPAPER.csv')
-    # find_rf_variable_importance(bands)
-    mlp(bands)
+    find_rf_variable_importance(bands)
+    # mlp(bands)
 # ========================= EOF ====================================================================

@@ -29,110 +29,16 @@ from map.assets import list_assets
 
 ROI = 'users/dgketchum/boundaries/western_11_union'
 BOUNDARIES = 'users/dgketchum/boundaries/MT'
-IWRS = 'users/dgketchum/boundaries/IWRS_reservations'
 
-ASSET_ROOT = 'users/dgketchum/IrrMapper/version_3'
-ASSET_ROOT_LCRB = 'users/dgketchum/IrrMapper/lcrb'
-
+ASSET_ROOT = 'projects/ee-dgketchum/IrrMapper/version_3'
 IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
-
-HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
-HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
 COUNTIES = 'users/dgketchum/boundaries/western_counties'
 
-UCRB = 'users/dgketchum/boundaries/UCRB'
-LCRB = 'users/dgketchum/boundaries/lcrb'
-
 STATES = ['AZ', 'CA', 'NV', 'CO', 'ID', 'MT', 'NM', 'OR', 'UT', 'WA', 'WY']  #
-EDIT_STATES = ['KS', 'ND', 'NE', 'OK', 'SD', 'TX']
 TARGET_STATES = ['AZ', 'CA', 'NM', 'NV', 'UT']
 
 POINTS_MT = 'ft:1J6XOjoWYW0wlANgGDD1PKe2E6-_F8cwpG1kU1AI6'
-POINTS = 'ft:11GT2ikIkgqzYLb0R9tICu8PW7-lo7d-0GFutcywX'
-
-POINTS_15JUL = 'ft:1B9ZLnB_3RnC5b_QXC8TJtwMZdhr0FtJZ_X99VnBV'
-POINTS_15JUL_LCRB = 'ft:1EqYW6f6Bs0Eq__15u0VtIje1KgoWABU3Z1RKFHCa'
-
-VALIDATION_POINTS = 'ft:1FQr4nFmTOVTBOv_GeTYniHQKeXg2lnQohHM8l7iZ'
-TABLE = 'ft:1wLrSEoQie6u7wTPl1bJ7rLEq20OLvQncecM3_HeH'
-
-# bands_15JUL_v1_kw
-TABLE_V1 = 'ft:1RbKio5wW2T7t8Gcg7xhMcL6xjOSoGhZdgeqeZ0Xf'
-
-# bands_15JUL_v2_kw; we used this one!
-TABLE_V2 = 'ft:16eZpSZExa2S-4n3kS0A1Vf84gKppCAONb0_nqIwG'
-TABLE_LCRB = 'ft:1EtepJLpjCOZd7r51_8lijNisomv0tDYmpVkr_RR4'
-# Montana version 3; MT_31OCT.csv for Chaffin
 TABLE_MT = 'ft:1-2IMLOk64CGhr1Lz53am02pnFw4-ReDioNSKTYU-'
-
-# this dict is where we keep Fusion Table IDs from kml files waiting to be filtered
-
-ID_IRR = {
-
-    'ID_1986': ('ft:1rAO90xDcSyR1GTKjAN4Z12vf2mVy8iKRr7vorhLr', [1986], 0.5),
-    'ID_1996': ('ft:1Injcz-Q3HgQ_gip9ZEMqUAmihqbjTOEYHThuoGmL', [1996], 0.5),
-    'ID_2002': ('ft:14pePO5Wr7Hcbz_VHuUYd_f5ReblXtvUFS3BrCpI2', [2002], 0.5),
-    'ID_2006': ('ft:1NM9NsQJfdNAEwmZXyo5o78ha4PhgsErWzfttfZM1', [2006], 0.5),
-    'ID_2008': ('ft:1VK5sWEgD35fz4pNNbg9sy6nlBD_lIl_t-ELyWbC9', [2008], 0.5),
-    'ID_2009': ('ft:1RtW_lu3hFcpzZ_UUT_xPUsHarAZoenV4AibeFeBz', [2009], 0.5),
-    'ID_2010': ('ft:1BSxEsy_oDUnWsWsQYJFRPaEvKsF-H_bDNE_gpBS7', [2010], 0.5),
-    'ID_2011': ('ft:1NxN6aOViiJBklaUEEeGJJo6Kpy-QB10f_yGWOUyC', [2011], 0.5),
-}
-
-IRR_TEST = {
-    'MT': ('ft:1wfJrtnDjBZqSzWq41veY_VrWROQ0kI-5NCko6xF3', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
-    'MT_v2': ('ft:1OGof1MiB-KPEbqgq5ePiRmGyFWxk0Mqq4pNXKsGQ', [2003, 2008, 2009, 2010, 2011, 2012, 2013, 2015], 0.5),
-    'NV_v2': ('ft:1bTsbFB-cOHPGFbbzGl36Zqe7I7II6WJ5HoGpuYZk', [x for x in range(2011, 2016)], 0.5),
-    # 'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2013, 2016)], 0.5),
-    'WY_v2': ('ft:1_KxgTHOb6rm_3t3-Wc7RBIFnVubcOYt3COkkL6Po', [1998, 2003, 2006, 2013, 2016], 0.5),
-}
-
-IRR = {
-    # 'Acequias': ('ft:1j_Z6exiBQy5NlVLZUe25AsFp-jSfCHn_HAWGT06D', [1987, 2001, 2004, 2007, 2016], 0.5),
-    # 'AZ': ('ft:1ZwRYaGmMc7oJuDTrKbrZm3oL7yBYdeKjEa05n5oX', [2001, 2003, 2004, 2007, 2016], 0.5),
-    # 'AZ_v2': ('ft:1O19WW5lOlEfVo4gp3ZJ8etHXwYDieC1eoscfIAXW', [2001, 2003, 2004, 2007, 2016], 0.5),
-    # 'CO_DIV1': ('ft:1wRNUsKChMUb9rUWDbxOeGeTaNWNZUA0YHXSLXPv2', [1998, 2003, 2006, 2013, 2016], 0.5),
-    # 'CO_SanLuis': ('ft:1mcBXyFw1PoVOoAGibDpZjCgb001jA_Mj_hyd-h92', [1998, 2003, 2006, 2013, 2016], 0.5),
-    # 'CA': ('ft:1oadWhheDKaonOPhIJ9lJVCwnOt5g0G644p3FC9oy', [1995, 1998, 2000, 2007, 2014], 0.5),
-    # 'CA_v2': ('ft:1LRHed3EWaa1UNKTU1e3jIHqwldMP-MGN6_xB_YjK', [1998, 2000, 2007, 2014, 2016], 0.5),
-    # 'CA_Sonoma': ('ft:10Faop_14Dthnpa-qAHSScpjv5SkEZJ6RnVfVDy-L', [1998, 2000, 2007, 2014, 2016], 0.5),
-    # 'EastStates': ('ft:1AZUak3iuAtah1SHpkLfw0IRk_U5ei23VsPzBWxpD', [1987, 2001, 2004, 2007, 2016], 0.5),
-    # 'ID_Bonner': ('ft:1kkaQomLStq-zf8Dpg2eTIrRdn_2Aw5g6lagZrdiK', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
-    # 'ID': ('ft:1jDB3C181w1PGVamr64-ewpJVDQkzJc4Bvd1IPAFg', [1988, 1998, 2001, 2006, 2009, 2017], 0.5),
-    # 'KS': ('ft:1pdOquA_LM1jzQwTbMkgGUbKMssJfCHvqQCezI4-7', [2002, 2006, 2009, 2013, 2016], 0.5),
-    # 'MT_Turner': ('ft:1PpvhFdLDG4oCh7OsVcjJX6vg8FNB0FWUIFqRKYxO', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
-    # 'MT': ('ft:1wfJrtnDjBZqSzWq41veY_VrWROQ0kI-5NCko6xF3', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
-    'MT_OE': ('ft:1f8TqNMwDLWlb1bgDkgF1A4H77jG8kb18tGlM7Vsu', [2003, 2015], 0.5),
-    # 'MT_v2': ('ft:1OGof1MiB-KPEbqgq5ePiRmGyFWxk0Mqq4pNXKsGQ', [2008, 2009, 2010, 2011, 2012, 2013], 0.5),
-    # 'ND': ('ft:1Q3-umUl4nm-btFAL09SkYFjqFKIaVxZBqNvlVTxN', [2012, 2013, 2014, 2015, 2016], 0.5),
-    # 'NE': ('ft:1789J-j1dq8_Ez6wfObJxGSJaxRkuJsZMFLeeiwPo', [2003, 2006, 2009, 2013, 2016], 0.5),
-    # 'NE_v2': ('ft:19Q1EqxZGa--5d_SUQ1UBLw3SttOmkkv73_gnVx1M', [2003, 2009, 2013, 2016], 0.5),
-    # 'NM_SanJuan': ('ft:1_-haRl7-ppkBYWBN-cPzItftKQC7yWI7sfgoVx1R', [1987, 2001, 2004, 2007, 2016], 0.5),
-    # 'NV': ('ft:1DUcSDaruwvXMIyBEYd2_rCYo8w6D6v4nHTs5nsTR', [x for x in range(2011, 2016)], 0.5),
-    # 'NV_v2': ('ft:1bTsbFB-cOHPGFbbzGl36Zqe7I7II6WJ5HoGpuYZk', [x for x in range(2001, 2010, 2)], 0.5),
-    # 'NW_OR': ('ft:1kXr3oMe9Ybsd3N7tyBBDCTweAxb4c8GBz6B8_ELm', [1994, 1996, 1997, 2001, 2011, 2013], 0.5),
-    # 'OK': ('ft:1EjuYeilOTU3el9GsYZZXCi6sNC7z_jJ6mGa2wHIe', [2006, 2007, 2011, 2013, 2015], 0.5),
-    # 'OK_v2': ('ft:1294qsu79AiUMShQmaxFB3ysCOXaAIPpLFG52m7Un', [2006, 2007, 2011, 2013, 2015], 0.5),
-    # 'OR_Jackson': ('ft:1xk-uM9RoxJvtYYiFnurQodRUcmZRCHLMGHouff0K', [1994, 1996, 1997, 2001, 2011, 2013], 0.5),
-    # 'OR_v2': ('ft:16WRkwd-tRZAKLdexaGt7boAKc5hTK8vk82tInioj', [1994, 1996, 1997, 2001, 2011, 2013], 0.5),
-    # 'SD': ('ft:14lyo0o9NzN-deK1LJbMt3XFRQPVBYOgs5TI0-2Zb', [2007, 2008, 2009, 2013, 2016], 0.5),
-    # 'TX': ('ft:1N_99CtM8JN2fQ_LJSjZzHlwHfHElZWJeSSACRHln', [2005, 2006, 2009, 2011, 2016], 0.5),
-    # 'UT': ('ft:1oA0v3UUBQj3qn9sa_pDJ8bwsAphfRZUlwwPWpFrT', [1998, 2003, 2006, 2013, 2016], 0.5),
-    # 'UT_CO': ('ft:1Av2WlcPRBd7JZqYOU73VCLOJ-b5q6H5u6Bboebdv', [1998, 2003, 2006, 2013, 2016], 0.5),
-    # 'WA': ('ft:1tGN7UdKijI7gZgna19wJ-cKMumSKRwsfEQQZNQjl', [1988, 1996, 1997, 1998, 2001, 2006], 0.5),
-    # 'WY': ('ft:1nB1Tg_CcmuhXtbnCE3wKVan0ERqV0jann4P2rvDh', [1998, 2003, 2006, 2013, 2016], 0.5),
-    # 'WY_v2': ('ft:1_KxgTHOb6rm_3t3-Wc7RBIFnVubcOYt3COkkL6Po', [1998, 2003, 2006, 2013, 2016], 0.5),
-}
-
-CO_IRR = {
-    'CO_Div2': ('ft:1wRNCuexIGBwIH7gc6ZTx3Ia68aNYolgVfsxKeDuh', [1998, 2003, 2006, 2013, 2016], 0.5),
-    'CO_Div3': ('ft:1Tv8Nei94QP1421iD-CkkZNoOXG9G8rgyh6zrW0JN', [1998, 2003, 2006, 2013, 2016], 0.5),
-    'CO_Div4': ('ft:1W5zQHQR6oiiK556LuEONO2fPRKnrA9fySoWwD_fz', [1998, 2003, 2006, 2013, 2016], 0.5),
-    'CO_Div5': ('ft:1Sj6gJOfwjfCV9sYyninX-fXdzzwE4yNC-Qxb3t-n', [1998, 2003, 2006, 2013, 2016], 0.5),
-    'CO_Div6': ('ft:1BnJJuow6rgOOTZOimCeu4PbHaraY7fEjfvv-BzgP', [1998, 2003, 2006, 2013, 2016], 0.5),
-    'CO_Div7': ('ft:1E1mD5M6gnpMMvEtUF4wtiG4EeeeAeqw9rmZTaMn4', [1998, 2003, 2006, 2013, 2016], 0.5),
-    'CO_Repu': ('ft:133QsXytF1R6k3SDwGwTPcv3KBz6Eb9r-dB3EoxwI', [1998, 2003, 2006, 2013, 2016], 0.5),
-}
 
 # list of years we have verified irrigated fields
 YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,

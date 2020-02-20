@@ -21,9 +21,11 @@ from matplotlib import cm
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 from mpl_toolkits.axes_grid1.inset_locator import InsetPosition
 from numpy import logical_not, isnan, array, where, abs, max, min
-from pandas import read_csv, Series
+from pandas import read_csv, Series, DataFrame
 from sklearn import linear_model
 from sklearn.metrics import r2_score
+
+from map.variable_importance import variable_importance
 
 
 def state_sum(csv):
@@ -400,6 +402,21 @@ def state_bar_plots(csv, save_fig=None):
         plt.savefig(save_fig)
         return None
     plt.show()
+    
+    
+def variable_importance_barh(savefig=False):
+    # the top 20 variables add to 0.54
+    vi = variable_importance()[:20]
+    n = 'Variable'
+    d = 'Importance'
+    df = DataFrame.from_records(data=vi, columns=[n, d])
+    df = df.sort_values(by='Importance', ascending=True)
+    df.plot(n, d, kind='barh')
+    if savefig:
+        plt.tight_layout()
+        plt.savefig(savefig)
+        return None
+    plt.show()
 
 
 if __name__ == '__main__':
@@ -425,9 +442,9 @@ if __name__ == '__main__':
     precip_fig = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'figures', 'IrrYears_precipAnomaly.png')
     # irrigated_years_precip_anomaly(irr_precip, save_fig=None)
 
-    iwr_irrmapper = os.path.join(home, 'IrrigationGIS', 'time_series', 'iwrs', 'iwrs_irr_merged.csv')
-    iwr_normalized_figure = os.path.join(home, 'IrrigationGIS', 'reservations', 'iwrs_normalized')
-    irr_time_series_iwrs(iwr_irrmapper, fig_name=iwr_normalized_figure)
+    # iwr_irrmapper = os.path.join(home, 'IrrigationGIS', 'time_series', 'iwrs', 'iwrs_irr_merged.csv')
+    # iwr_normalized_figure = os.path.join(home, 'IrrigationGIS', 'reservations', 'iwrs_normalized')
+    # irr_time_series_iwrs(iwr_irrmapper, fig_name=iwr_normalized_figure)
 
     # state_bars = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'figures', 'state_bars.png')
     # state_bar_plots(state_irrmapper, save_fig=None)
@@ -435,4 +452,7 @@ if __name__ == '__main__':
     # irr_time_series_states(state_irrmapper, fig_name=state_normalized_figure)
     # compare_nass_irrmapper_scatter(nass_irrmapper, scatter_figure)
     # irr_time_series_totals(irrmapper_all, nass_merged, fig_name=totals_figure)
+    
+    variable_imp_fig = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'figures', 'variable_import_5FEB2020.png')
+    variable_importance_barh(variable_imp_fig)
 # ========================= EOF ====================================================================

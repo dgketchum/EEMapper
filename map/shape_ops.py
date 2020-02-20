@@ -851,14 +851,9 @@ def sample_shp(in_shp, out_shp, n):
 
 
 if __name__ == '__main__':
-    home = os.path.expanduser('~')
-    gis = os.path.join(home, 'IrrigationGIS')
-    bounds = os.path.join(gis, 'boundaries', 'states')
-    state_bounds = [os.path.join(bounds, '{}_AEA.shp'.format(x)) for x in irrmapper_states]
-    irrmapper_wgs = os.path.join(gis, 'paper_irrmapper', 'shapefiles')
-    shapes = ['wetlands_AEA.shp', 'irrigated_AEA.shp', 'uncultivated_AEA.shp', 'dryland_AEA.shp']
-    wgs_inputs = [os.path.join(irrmapper_wgs, x) for x in shapes]
-    for state in state_bounds:
-        for shp in wgs_inputs:
-            get_area(shp, intersect_shape=state, add_duplicate_area=False)
+    gis = os.path.join('/media', 'research', 'IrrigationGIS')
+    irr = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
+    ins = [os.path.join(irr, x) for x in os.listdir(irr) if x.endswith('.shp')]
+    smp = os.path.join(gis, 'EE_Sample', 'irrigated_19FEB2020.shp')
+    fiona_merge_attribute(smp, ins)
 # ========================= EOF ====================================================================

@@ -433,8 +433,8 @@ def get_project_totals(csv, out_file):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
 
-    iwrs = os.path.join(home, 'IrrigationGIS', 'time_series', 'iwrs', )
-    d = os.path.join(iwrs, 'irrmap_reduced')
-    irr = os.path.join(iwrs, 'iwrs_irr_merged.csv')
-    concatenate_iwrs_data(d, out_file=irr, glob='iwrs_area')
+    data = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county', 'counties_v2')
+    dst = os.path.join(home, 'IrrigationGIS', 'time_series', 'shapefiles')
+    irr = os.path.join(dst, 'irrigation_5FEB2020.csv')
+    concatenate_iwrs_data(data, out_file=irr, glob='iwrs_area')
 # ========================= EOF ====================================================================
