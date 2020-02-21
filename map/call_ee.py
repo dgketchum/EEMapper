@@ -31,7 +31,7 @@ from map.assets import list_assets
 ROI = 'users/dgketchum/boundaries/western_11_union'
 BOUNDARIES = 'users/dgketchum/boundaries/MT'
 
-ASSET_ROOT = 'projects/ee-dgketchum/IrrMapper/version_3'
+ASSET_ROOT = 'projects/ee-dgketchum/assets/IrrMapper_RDGP'
 IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
 COUNTIES = 'users/dgketchum/boundaries/western_counties'
 
@@ -39,7 +39,7 @@ STATES = ['AZ', 'CA', 'NV', 'CO', 'ID', 'MT', 'NM', 'OR', 'UT', 'WA', 'WY']  #
 TARGET_STATES = ['AZ', 'CA', 'NM', 'NV', 'UT']
 
 POINTS_MT = 'users/dgketchum/point_sample/points_rdgp_20FEB2020'
-TABLE_MT = 'ft:1-2IMLOk64CGhr1Lz53am02pnFw4-ReDioNSKTYU-'
+TABLE_MT = 'projects/ee-dgketchum/assets/bands/RDGP_20FEB2020'
 
 # list of years we have verified irrigated fields
 YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
@@ -50,7 +50,7 @@ RDGP_YEARS = [2002, 2003, 2008, 2009, 2010, 2011, 2012, 2013, 2015, 2016]
 
 TEST_YEARS = [2013]
 # TEST_YEARS = [x for x in range(2018, 2019)]
-ALL_YEARS = [x for x in range(1986, 2019)]
+ALL_YEARS = [x for x in range(1986, 2020)]
 
 
 def reduce_classification(tables, years=None, description=None, cdl_mask=False, min_years=0):
@@ -249,7 +249,7 @@ def export_classification(out_name, asset_root, region, export='asset'):
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
-    for yr in TEST_YEARS:
+    for yr in ALL_YEARS:
         input_bands = stack_bands(yr, roi)
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.classify(trained_model).int().set({
@@ -425,7 +425,6 @@ def request_band_extract(file_prefix, points_layer, region, filter_bounds=False)
             plots = plots.filterBounds(roi)
 
         filtered = plots.filter(ee.Filter.eq('YEAR', yr))
-        print(filtered.size().getInfo())
 
         plot_sample_regions = stack.sampleRegions(
             collection=filtered,
@@ -433,20 +432,15 @@ def request_band_extract(file_prefix, points_layer, region, filter_bounds=False)
             scale=30,
             tileScale=2)
         
-        if not plot_sample_regions.first().getInfo():
-            print('none for ', yr)
-            pass
-        
-        else:
-            task = ee.batch.Export.table.toCloudStorage(
-                plot_sample_regions,
-                description='{}_{}'.format(file_prefix, yr),
-                bucket='wudr',
-                fileNamePrefix='{}_{}'.format(file_prefix, yr),
-                fileFormat='CSV')
-    
-            task.start()
-            pprint(yr)
+        task = ee.batch.Export.table.toCloudStorage(
+            plot_sample_regions,
+            description='{}_{}'.format(file_prefix, yr),
+            bucket='wudr',
+            fileNamePrefix='{}_{}'.format(file_prefix, yr),
+            fileFormat='CSV')
+
+        task.start()
+        pprint(yr, filtered.size().getInfo())
 
 
 def get_ndvi_series(years, roi):
@@ -721,6 +715,7 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    request_band_extract(file_prefix='RDGP_19FEB2020', points_layer=POINTS_MT,
-                         region=ROI, filter_bounds=False)
+    # request_band_extract(file_prefix='RDGP_20FEB2020', points_layer=POINTS_MT,
+    #                      region=ROI, filter_bounds=False)
+    export_classification('IrrMapper_RDGP', asset_root=ASSET_ROOT, region=BOUNDARIES)
 # ========================= EOF ====================================================================

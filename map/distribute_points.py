@@ -22,7 +22,7 @@ from numpy.random import shuffle, choice
 from pandas import DataFrame
 from shapely.geometry import shape, Point, mapping
 
-from map.call_ee import YEARS
+from map.call_ee import RDGP_YEARS
 
 training = os.path.join('/media', 'research', 'IrrigationGIS', 'EE_sample')
 
@@ -104,7 +104,7 @@ class PointsRunspec(object):
             if attribute:
                 self.year = years[i]
             else:
-                self.year = choice(YEARS)
+                self.year = choice(RDGP_YEARS)
 
             if self.buffer:
                 buf_poly = poly.buffer(self.buffer, resolution=128)
@@ -210,6 +210,6 @@ if __name__ == '__main__':
     }
 
     prs = PointsRunspec(data, buffer=-20, **kwargs)
-    prs.save_sample_points(os.path.join(extract, 'points_rdgp_19FEB2020.shp'.format()))
+    prs.save_sample_points(os.path.join(extract, 'points_rdgp_20FEB2020.shp'.format()))
 
 # ========================= EOF ====================================================================
