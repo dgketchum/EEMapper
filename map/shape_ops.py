@@ -20,7 +20,7 @@ import fiona
 from geopandas import GeoDataFrame, read_file
 from pandas import DataFrame, read_csv, concat
 # from rasterstats import zonal_stats
-from shapely.geometry import Polygon, Point, mapping, MultiPolygon
+from shapely.geometry import Polygon, Point, mapping, MultiPolygon, shape
 
 CLU_UNNEEDED = ['ca', 'nv', 'ut', 'wa', 'wy']
 CLU_USEFUL = ['az', 'co', 'id', 'mt', 'nm', 'or']
@@ -86,16 +86,23 @@ def fiona_merge_attribute(out_shp, file_list):
         [('YEAR', 'int:9'), ('SOURCE', 'str:80')]), 'geometry': 'Polygon'}
     with fiona.open(out_shp, 'w', **meta) as output:
         ct = 0
+        invalid_ct = 0
+        null_ct = 0
         for s in file_list:
             year, source = int(s.split('.')[0][-4:]), os.path.basename(s.split('.')[0][:-5])
             if year not in years:
                 years.append(year)
             for feat in fiona.open(s):
-                feat = {'type': 'Feature', 'properties': {'SOURCE': source, 'YEAR': year},
-                        'geometry': feat['geometry']}
-                output.write(feat)
-                ct += 1
-        print(sorted(years))
+                if not feat['geometry']:
+                    null_ct += 1
+                elif not shape(feat['geometry']).is_valid:
+                    invalid_ct += 1
+                else:
+                    feat = {'type': 'Feature', 'properties': {'SOURCE': source, 'YEAR': year},
+                            'geometry': feat['geometry']}
+                    output.write(feat)
+                    ct += 1
+        print(ct, 'valid', invalid_ct, 'invalid', null_ct, 'null')
 
 
 def fiona_merge_no_attribute(out_shp, file_list):
@@ -854,6 +861,6 @@ if __name__ == '__main__':
     gis = os.path.join('/media', 'research', 'IrrigationGIS')
     irr = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
     ins = [os.path.join(irr, x) for x in os.listdir(irr) if x.endswith('.shp')]
-    smp = os.path.join(gis, 'EE_Sample', 'irrigated_19FEB2020.shp')
+    smp = os.path.join(gis, 'EE_Sample', 'irrigated_26MAR2020.shp')
     fiona_merge_attribute(smp, ins)
 # ========================= EOF ====================================================================
