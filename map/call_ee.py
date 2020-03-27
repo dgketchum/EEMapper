@@ -38,7 +38,7 @@ COUNTIES = 'users/dgketchum/boundaries/western_counties'
 STATES = ['AZ', 'CA', 'NV', 'CO', 'ID', 'MT', 'NM', 'OR', 'UT', 'WA', 'WY']  #
 TARGET_STATES = ['AZ', 'CA', 'NM', 'NV', 'UT']
 
-POINTS_MT = 'users/dgketchum/point_sample/points_rdgp_20FEB2020'
+POINTS_MT = 'users/dgketchum/point_sample/points_rdgp_noFallow_26MAR2020'
 TABLE_MT = 'projects/ee-dgketchum/assets/bands/RDGP_20FEB2020'
 
 # list of years we have verified irrigated fields
@@ -586,12 +586,12 @@ def stack_bands(yr, roi):
     tpi_150 = elev.subtract(elev.focal_mean(150, 'circle', 'meters')).add(0.5).rename('tpi_150')
     static_input_bands = coords.addBands([temp_perc, wd_estimate, terrain, tpi_1250, tpi_250, tpi_150, world_climate])
 
-    nlcd = ee.Image('USGS/NLCD/NLCD2011').select('landcover').reproject(crs=proj['crs'], scale=30).rename('nlcd')
-    cdl = ee.Image('USDA/NASS/CDL/2017').select('cultivated').remap([1, 2], [0, 1]).reproject(crs=proj['crs'],
-                                                                                              scale=30).rename('cdl')
-    static_input_bands = static_input_bands.addBands([nlcd, cdl])
+    # nlcd = ee.Image('USGS/NLCD/NLCD2011').select('landcover').reproject(crs=proj['crs'], scale=30).rename('nlcd')
+    # cdl = ee.Image('USDA/NASS/CDL/2017').select('cultivated').remap([1, 2], [0, 1]).reproject(crs=proj['crs'],
+    #                                                                                           scale=30).rename('cdl')
+    # static_input_bands = static_input_bands.addBands([nlcd, cdl])
 
-    input_bands = input_bands.addBands(static_input_bands).clip(roi)
+    # input_bands = input_bands.addBands(static_input_bands).clip(roi)
 
     # standardize names to match EE javascript output
     standard_names = []
@@ -715,7 +715,7 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    # request_band_extract(file_prefix='RDGP_20FEB2020', points_layer=POINTS_MT,
-    #                      region=ROI, filter_bounds=False)
-    export_classification('IrrMapper_RDGP', asset_root=ASSET_ROOT, region=BOUNDARIES)
+    request_band_extract(file_prefix='rdgp_26MAR2020', points_layer=POINTS_MT,
+                         region=ROI, filter_bounds=False)
+    # export_classification('IrrMapper_RDGP', asset_root=ASSET_ROOT, region=BOUNDARIES)
 # ========================= EOF ====================================================================

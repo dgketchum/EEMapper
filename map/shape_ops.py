@@ -110,11 +110,21 @@ def fiona_merge_no_attribute(out_shp, file_list):
     meta['schema'] = {'type': 'Feature', 'properties': OrderedDict(
         []), 'geometry': 'Polygon'}
     with fiona.open(out_shp, 'w', **meta) as output:
+        ct = 0
+        invalid_ct = 0
+        null_ct = 0
         for s in file_list:
             for feat in fiona.open(s):
-                feat = {'type': 'Feature', 'properties': {},
-                        'geometry': feat['geometry']}
-                output.write(feat)
+                if not feat['geometry']:
+                    null_ct += 1
+                elif not shape(feat['geometry']).is_valid:
+                    invalid_ct += 1
+                else:
+                    feat = {'type': 'Feature', 'properties': {},
+                            'geometry': feat['geometry']}
+                    output.write(feat)
+                    ct += 1
+        print(ct, 'valid', invalid_ct, 'invalid', null_ct, 'null')
 
 
 def get_list(_dir):
@@ -859,8 +869,8 @@ def sample_shp(in_shp, out_shp, n):
 
 if __name__ == '__main__':
     gis = os.path.join('/media', 'research', 'IrrigationGIS')
-    irr = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
+    irr = os.path.join(gis, 'training_data', 'fallow', 'inspected')
     ins = [os.path.join(irr, x) for x in os.listdir(irr) if x.endswith('.shp')]
-    smp = os.path.join(gis, 'EE_Sample', 'irrigated_26MAR2020.shp')
+    smp = os.path.join(gis, 'EE_Sample', 'wgs', 'fallow_26MAR2020.shp')
     fiona_merge_attribute(smp, ins)
 # ========================= EOF ====================================================================

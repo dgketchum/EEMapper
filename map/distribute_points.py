@@ -24,13 +24,13 @@ from shapely.geometry import shape, Point, mapping
 
 from map.call_ee import RDGP_YEARS
 
-training = os.path.join('/media', 'research', 'IrrigationGIS', 'EE_sample')
+training = os.path.join('/media', 'research', 'IrrigationGIS', 'EE_sample', 'rdgp')
 
-WETLAND = os.path.join(training, 'wetlands_15JUL_mt.shp')
-UNCULTIVATED = os.path.join(training, 'uncultivated_30APR_mt.shp')
-IRRIGATED = os.path.join(training, 'irrigated_RDGP_19FEB2020.shp')
-UNIRRIGATED = os.path.join(training, 'unirrigated_9JUL_mt.shp')
-FALLOW = os.path.join(training, 'fallow_11FEB.shp')
+WETLAND = os.path.join(training, 'rdgp_wetlands_16MAR2020.shp')
+UNCULTIVATED = os.path.join(training, 'rdgp_uncultivated_26MAR2020.shp')
+IRRIGATED = os.path.join(training, 'rdgp_irrigated_26MAR2020.shp')
+UNIRRIGATED = os.path.join(training, 'rdgp_dryland_18MAR2020.shp')
+FALLOW = os.path.join(training, 'rdgp_fallow_26MAR2020.shp')
 
 
 class PointsRunspec(object):
@@ -84,9 +84,9 @@ class PointsRunspec(object):
         print('irrigated: {}'.format(n))
         self.create_sample_points(n, self.irr_path, code=0, attribute='YEAR')
 
-    # def fallowed(self, n):
-    #     print('fallow: {}'.format(n))
-    #     self.create_sample_points(n, self.fallow_path, code=4, attribute='YEAR')
+    def fallowed(self, n):
+        print('fallow: {}'.format(n))
+        self.create_sample_points(n, self.fallow_path, code=4, attribute='YEAR')
 
     def create_sample_points(self, n, shp, code, attribute=None):
 
@@ -198,18 +198,18 @@ class PointsRunspec(object):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    data = os.path.join('/media', 'research', 'IrrigationGIS', 'EE_sample')
+    data = os.path.join('/media', 'research', 'IrrigationGIS', 'EE_sample', 'rdgp')
     extract = os.path.join('/media', 'research', 'IrrigationGIS', 'EE_extracts', 'point_shp')
 
     kwargs = {
-        'irrigated': 40000,
-        'wetlands': 10000,
-        'uncultivated': 10000,
-        'unirrigated': 10000,
-        # 'fallowed': 10000,
+        'irrigated': 15000,
+        'wetlands': 5000,
+        'uncultivated': 5000,
+        'unirrigated': 5000,
+        # 'fallowed': 15000,
     }
 
     prs = PointsRunspec(data, buffer=-20, **kwargs)
-    prs.save_sample_points(os.path.join(extract, 'points_rdgp_20FEB2020.shp'.format()))
+    prs.save_sample_points(os.path.join(extract, 'points_rdgp_noFallow_26MAR2020.shp'.format()))
 
 # ========================= EOF ====================================================================
