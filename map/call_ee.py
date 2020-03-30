@@ -12,12 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-## UCRB is going with the pure state input data for now.
-# 'UCRB_WY': ('ft:1M0GDErc0dgoYajU_HStZBkp-hBL4kUiZufFdtWHG', [1989, 1996, 2010, 2013, 2016], 0.5),  # a.k.a. 2000
-# 'UCRB_UT_CO': ('ft:1Av2WlcPRBd7JZqYOU73VCLOJ-b5q6H5u6Bboebdv', [1998, 2003, 2006, 2013, 2016], 0.5),  # a.k.a. 2005
-# 'UCRB_UT': ('ft:144ymxhlcv8lj1u_BYQFEC1ITmiISW52q5JvxSVyk', [1998, 2003, 2006, 2013, 2016], 0.5),  # a.k.a. 2006
-# 'UCRB_NM': ('ft:1pBSJDPdFDHARbdc5vpT5FzRek-3KXLKjNBeVyGdR', [1987, 2001, 2004, 2007, 2016], 0.4),  # a.k.a. 2009
 # ===============================================================================
 
 import os
@@ -40,6 +34,8 @@ TARGET_STATES = ['AZ', 'CA', 'NM', 'NV', 'UT']
 
 POINTS_MT = 'users/dgketchum/point_sample/points_rdgp_noFallow_26MAR2020'
 TABLE_MT = 'projects/ee-dgketchum/assets/bands/RDGP_20FEB2020'
+
+INDICES = 'users/dgketchum/indices/{}_14_c1t1_001'
 
 # list of years we have verified irrigated fields
 YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
@@ -585,13 +581,15 @@ def stack_bands(yr, roi):
     tpi_250 = elev.subtract(elev.focal_mean(250, 'circle', 'meters')).add(0.5).rename('tpi_250')
     tpi_150 = elev.subtract(elev.focal_mean(150, 'circle', 'meters')).add(0.5).rename('tpi_150')
     static_input_bands = coords.addBands([temp_perc, wd_estimate, terrain, tpi_1250, tpi_250, tpi_150, world_climate])
+    input_bands = input_bands.addBands(static_input_bands)
 
     # nlcd = ee.Image('USGS/NLCD/NLCD2011').select('landcover').reproject(crs=proj['crs'], scale=30).rename('nlcd')
     # cdl = ee.Image('USDA/NASS/CDL/2017').select('cultivated').remap([1, 2], [0, 1]).reproject(crs=proj['crs'],
     #                                                                                           scale=30).rename('cdl')
     # static_input_bands = static_input_bands.addBands([nlcd, cdl])
 
-    # input_bands = input_bands.addBands(static_input_bands).clip(roi)
+    indices = INDICES.format(yr)
+    input_bands = input_bands.addBands(indices).clip(roi)
 
     # standardize names to match EE javascript output
     standard_names = []
