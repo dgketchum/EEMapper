@@ -19,7 +19,7 @@ import sys
 from pprint import pprint
 from time import time
 
-import tensorflow as tf
+# import tensorflow as tf
 from numpy import dot, mean, flatnonzero, unique
 from numpy.random import randint
 from pandas import read_csv, concat, get_dummies, DataFrame
@@ -371,7 +371,11 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     # vals = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'validation_tables', 'validation_12AUG2019.csv')
     # get_confusion_matrix(vals, ((0, 185), (1, 38), (2, 8740), (3, 1037)))
-    bands = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated', 'bands_15JUL_v2_kw_USEDINPAPER.csv')
-    find_rf_variable_importance(bands)
+    # bands = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated', 'bands_15JUL_v2_kw_USEDINPAPER.csv')
+    # find_rf_variable_importance(bands)
+    bands = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated', 'rdgp_fallow_1APR2020.csv')
+    random_forest(bands)
+    bands = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated', 'rdgp_31MAR2020.csv')
+    random_forest(bands)
     # mlp(bands)
 # ========================= EOF ====================================================================

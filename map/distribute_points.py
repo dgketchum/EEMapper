@@ -202,14 +202,14 @@ if __name__ == '__main__':
     extract = os.path.join('/media', 'research', 'IrrigationGIS', 'EE_extracts', 'point_shp')
 
     kwargs = {
-        'irrigated': 15000,
-        'wetlands': 5000,
-        'uncultivated': 5000,
-        'unirrigated': 5000,
-        # 'fallowed': 15000,
+        'irrigated': 10000,
+        # 'wetlands': 5000,
+        # 'uncultivated': 5000,
+        # 'unirrigated': 5000,
+        'fallowed': 10000,
     }
 
     prs = PointsRunspec(data, buffer=-20, **kwargs)
-    prs.save_sample_points(os.path.join(extract, 'points_rdgp_noFallow_26MAR2020.shp'.format()))
+    prs.save_sample_points(os.path.join(extract, 'points_rdgp_Fallow_1APR2020.shp'.format()))
 
 # ========================= EOF ====================================================================

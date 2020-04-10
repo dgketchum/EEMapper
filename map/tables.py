@@ -23,7 +23,7 @@ from numpy import where, sum, nan, std, array, min, max, mean
 from pandas import read_csv, concat, errors, Series, DataFrame
 from pandas import to_datetime
 from pandas.io.json import json_normalize
-from shapely.geometry import Polygon
+from shapely.geometry import Polygon, Point
 
 INT_COLS = ['POINT_TYPE', 'YEAR']
 
@@ -104,7 +104,8 @@ def concatenate_iwrs_data(folder, out_file, glob='counties'):
     print('saved {}'.format(out_file))
 
 
-def concatenate_band_extract(root, out_dir, glob='None', sample=None, n=None, spec=None):
+def concatenate_band_extract(root, out_dir, glob='None', sample=None,
+                             n=None, spec=None, save_shp=False):
     l = [os.path.join(root, x) for x in os.listdir(root) if glob in x]
     l.sort()
     first = True
@@ -121,7 +122,7 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, n=None, sp
         except errors.EmptyDataError:
             print('{} is empty'.format(csv))
             pass
-
+    geo = [Point(x, y) for x, y in zip(df['Lon_GCS'].values,  df['LAT_GCS'].values)]
     df.drop(columns=['system:index', '.geo'], inplace=True)
     try:
         df.drop(columns=['nd_max_p1', 'nd_max_p2'], inplace=True)
@@ -163,7 +164,15 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, n=None, sp
 
     print('size: {}'.format(df.shape))
     print('file: {}'.format(out_file))
+    df = df.reindex(sorted(df.columns), axis=1)
     df.to_csv(out_file, index=False)
+    if save_shp:
+        out_dir = out_dir.replace('concatenated', 'band_extract_points')
+        out_file = os.path.join(out_dir, '{}.shp'.format(glob))
+        gdf = GeoDataFrame(data=df, geometry=geo)
+        gdf.to_file(filename=out_file)
+
+    return None
 
 
 def concatenate_irrigation_attrs(_dir, out_filename, glob):
@@ -433,8 +442,8 @@ def get_project_totals(csv, out_file):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
 
-    d = os.path.join('/media', 'research', 'IrrigationGIS', 'EE_extracts', 'to_concatenate')
-    o = os.path.join('/media', 'research', 'IrrigationGIS', 'EE_extracts', 'concatenated')
-    glob = 'RDGP_20FEB2020'
-    concatenate_band_extract(d, o, glob=glob)
+    d = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'to_concatenate')
+    o = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated')
+    glob = 'rdgp_fallow_1APR2020'
+    concatenate_band_extract(d, o, glob=glob, save_shp=True)
 # ========================= EOF ====================================================================

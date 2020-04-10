@@ -26,6 +26,7 @@ ROI = 'users/dgketchum/boundaries/western_11_union'
 BOUNDARIES = 'users/dgketchum/boundaries/MT'
 
 ASSET_ROOT = 'projects/ee-dgketchum/assets/IrrMapper_RDGP'
+ASSET_ROOT_FALLOW = 'projects/ee-dgketchum/assets/IrrMapper_RDGP_Fallow'
 IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
 COUNTIES = 'users/dgketchum/boundaries/western_counties'
 
@@ -33,8 +34,12 @@ STATES = ['AZ', 'CA', 'NV', 'CO', 'ID', 'MT', 'NM', 'OR', 'UT', 'WA', 'WY']  #
 TARGET_STATES = ['AZ', 'CA', 'NM', 'NV', 'UT']
 
 POINTS_MT = 'users/dgketchum/point_sample/points_rdgp_noFallow_26MAR2020'
-TABLE_MT = 'projects/ee-dgketchum/assets/bands/RDGP_20FEB2020'
+POINTS_MT_FALLOW = 'users/dgketchum/point_sample/points_rdgp_Fallow_1APR2020'
 
+TABLE_MT = 'users/dgketchum/point_extract/rdgp_31MAR2020'
+TABLE_MT_FALLOW = 'users/dgketchum/point_extract/rdgp_fallow_1APR2020'
+
+MASK = 'users/dgketchum/IrrMapper/rdgp_irrEqp_mask'
 INDICES = 'users/dgketchum/indices/{}_14_c1t1_001'
 
 # list of years we have verified irrigated fields
@@ -42,7 +47,7 @@ YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
          2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
          2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
 
-RDGP_YEARS = [2002, 2003, 2008, 2009, 2010, 2011, 2012, 2013, 2015, 2016]
+RDGP_YEARS = [2008, 2009, 2010, 2011, 2012, 2013]
 
 TEST_YEARS = [2013]
 # TEST_YEARS = [x for x in range(2018, 2019)]
@@ -217,7 +222,7 @@ def export_special(roi, description):
     task.start()
 
 
-def export_classification(out_name, asset_root, region, export='asset'):
+def export_classification(out_name, asset_root, region, export='asset', mask=None):
     """
     Trains a Random Forest classifier using a training table input, creates a stack of raster images of the same
     features, and classifies it.  I run this over a for-loop iterating state by state.
@@ -225,11 +230,12 @@ def export_classification(out_name, asset_root, region, export='asset'):
     :param asset_root:
     :param out_name:
     :param export:
+    :param mask:
     :return:
     """
-    fc = ee.FeatureCollection(TABLE_MT)
+    fc = ee.FeatureCollection(TABLE_MT_FALLOW)
     roi = ee.FeatureCollection(region)
-    mask = roi.geometry().bounds().getInfo()['coordinates']
+    region = roi.geometry().bounds().getInfo()['coordinates']
 
     classifier = ee.Classifier.randomForest(
         numberOfTrees=100,
@@ -245,9 +251,13 @@ def export_classification(out_name, asset_root, region, export='asset'):
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
-    for yr in ALL_YEARS:
+    for yr in RDGP_YEARS:
         input_bands = stack_bands(yr, roi)
         annual_stack = input_bands.select(input_props)
+
+        if mask:
+            annual_stack = annual_stack.mask(mask)
+
         classified_img = annual_stack.classify(trained_model).int().set({
             'system:index': ee.Date('{}-01-01'.format(yr)).format('YYYYMMdd'),
             'system:time_start': ee.Date('{}-01-01'.format(yr)).millis(),
@@ -259,8 +269,8 @@ def export_classification(out_name, asset_root, region, export='asset'):
                 image=classified_img,
                 description='{}_{}'.format(out_name, yr),
                 assetId=os.path.join(asset_root, '{}_{}'.format(out_name, yr)),
-                fileNamePrefix='{}_{}'.format(yr, out_name),
-                region=mask,
+                # fileNamePrefix='{}_{}'.format(out_name, yr),
+                region=region,
                 scale=30,
                 maxPixels=1e13)
         elif export == 'cloud':
@@ -269,7 +279,7 @@ def export_classification(out_name, asset_root, region, export='asset'):
                 description='{}_{}'.format(out_name, yr),
                 bucket='wudr',
                 fileNamePrefix='{}_{}'.format(yr, out_name),
-                region=mask,
+                region=region,
                 scale=30,
                 maxPixels=1e13)
         else:
@@ -413,7 +423,6 @@ def request_band_extract(file_prefix, points_layer, region, filter_bounds=False)
     """
     roi = ee.FeatureCollection(region)
     plots = ee.FeatureCollection(points_layer)
-    print(plots.size().getInfo())
     for yr in RDGP_YEARS:
         stack = stack_bands(yr, roi)
 
@@ -436,7 +445,7 @@ def request_band_extract(file_prefix, points_layer, region, filter_bounds=False)
             fileFormat='CSV')
 
         task.start()
-        pprint(yr, filtered.size().getInfo())
+        # pprint(yr, filtered.size().getInfo())
 
 
 def get_ndvi_series(years, roi):
@@ -539,9 +548,9 @@ def stack_bands(yr, roi):
                     (late_spring_s, late_spring_e, 'lspr'),
                     (summer_s, summer_e, 'smr'),
                     (fall_s, fall_e, 'fl'),
-                    (water_year_start, spring_e, 'wy_espr'),
-                    (water_year_start, late_spring_e, 'wy_espr'),
-                    (water_year_start, summer_e, 'wy_smr'),
+                    (water_year_start, spring_e, 'wyespr'),
+                    (water_year_start, late_spring_e, 'wylspr'),
+                    (water_year_start, summer_e, 'wysmr'),
                     (water_year_start, fall_e, 'wy')]:
         gridmet = ee.ImageCollection("IDAHO_EPSCOR/GRIDMET").filterBounds(
             roi).filterDate(s, e).select('pr', 'eto', 'tmmn', 'tmmx')
@@ -550,24 +559,24 @@ def stack_bands(yr, roi):
         temp_perc = gridmet.select('tmmn', 'tmmx').reduce(temp_reducer).rename(t_names).resample(
             'bilinear').reproject(crs=proj['crs'], scale=30)
 
-        precip_reducer = ee.Reducer.sum()
-        precip_sum = gridmet.select('pr', 'eto').reduce(precip_reducer).rename(
-            'precip_total_{}'.format(n), 'pet_total_{}'.format(n)).resample('bilinear').reproject(crs=proj['crs'],
+        ppt_reducer = ee.Reducer.sum()
+        ppt_sum = gridmet.select('pr', 'eto').reduce(ppt_reducer).rename(
+            'ppt_{}'.format(n), 'pet_{}'.format(n)).resample('bilinear').reproject(crs=proj['crs'],
                                                                                                   scale=30)
-        wd_estimate = precip_sum.select('precip_total_{}'.format(n)).subtract(precip_sum.select(
-            'pet_total_{}'.format(n))).rename('wd_est_{}'.format(n))
-        input_bands = input_bands.addBands([temp_perc, precip_sum, wd_estimate])
+        wd_estimate = ppt_sum.select('ppt_{}'.format(n)).subtract(ppt_sum.select(
+            'pet_{}'.format(n))).rename('wd_{}'.format(n))
+        input_bands = input_bands.addBands([temp_perc, ppt_sum, wd_estimate])
 
     temp_reducer = ee.Reducer.percentile([10, 50, 90])
-    t_names = ['tmmn_p10_cy', 'tmmn_p50_cy', 'tmmn_p90_cy', 'tmmx_p10_cy', 'tmmx_p50_cy', 'tmmx_p90_cy']
+    t_names = ['tmn_p10_cy', 'tmn_p50_cy', 'tmn_p90_cy', 'tmx_p10_cy', 'tmx_p50_cy', 'tmx_p90_cy']
     temp_perc = gridmet.select('tmmn', 'tmmx').reduce(temp_reducer).rename(t_names).resample(
         'bilinear').reproject(crs=proj['crs'], scale=30)
 
-    precip_reducer = ee.Reducer.sum()
-    precip_sum = gridmet.select('pr', 'eto').reduce(precip_reducer).rename(
-        'precip_total_cy', 'pet_total_cy').resample('bilinear').reproject(crs=proj['crs'], scale=30)
-    wd_estimate = precip_sum.select('precip_total_cy').subtract(precip_sum.select(
-        'pet_total_cy')).rename('wd_est_cy')
+    ppt_reducer = ee.Reducer.sum()
+    ppt_sum = gridmet.select('pr', 'eto').reduce(ppt_reducer).rename(
+        'ppt_tot_cy', 'pet_tot_cy').resample('bilinear').reproject(crs=proj['crs'], scale=30)
+    wd_estimate = ppt_sum.select('ppt_tot_cy').subtract(ppt_sum.select(
+        'pet_tot_cy')).rename('wd_est_cy')
 
     coords = ee.Image.pixelLonLat().rename(['Lon_GCS', 'LAT_GCS']).resample('bilinear').reproject(crs=proj['crs'],
                                                                                                   scale=30)
@@ -609,6 +618,8 @@ def stack_bands(yr, roi):
         elif 'prec' in name and 'prec' in standard_names:
             standard_names.append('prec_{}'.format(prec_ct))
             prec_ct += 1
+        elif '_14' in name:
+            standard_names.append(name.strip('_14'))
         else:
             standard_names.append(name)
 
@@ -713,7 +724,7 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    request_band_extract(file_prefix='rdgp_26MAR2020', points_layer=POINTS_MT,
-                         region=ROI, filter_bounds=False)
-    # export_classification('IrrMapper_RDGP', asset_root=ASSET_ROOT, region=BOUNDARIES)
+    # request_band_extract(file_prefix='rdgp_fallow_1APR2020', points_layer=POINTS_MT_FALLOW,
+    #                      region=ROI, filter_bounds=False)
+    export_classification('IrrMapper_RDGP', asset_root=ASSET_ROOT_FALLOW, region=BOUNDARIES, mask=None)
 # ========================= EOF ====================================================================
