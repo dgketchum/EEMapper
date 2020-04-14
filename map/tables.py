@@ -445,5 +445,7 @@ if __name__ == '__main__':
     d = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'to_concatenate')
     o = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated')
     glob = 'rdgp_fallow_1APR2020'
-    concatenate_band_extract(d, o, glob=glob, save_shp=True)
+    out_file = os.path.join(o, 'rdgp_fallow_val_14APR2020.csv')
+    # concatenate_band_extract(d, o, glob=glob, save_shp=True)
+    concatenate_validation(d, out_file, glob='rdgp_fal_14APR2020')
 # ========================= EOF ====================================================================

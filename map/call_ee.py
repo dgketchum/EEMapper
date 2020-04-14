@@ -38,6 +38,7 @@ POINTS_MT_FALLOW = 'users/dgketchum/point_sample/points_rdgp_Fallow_1APR2020'
 
 TABLE_MT = 'users/dgketchum/point_extract/rdgp_31MAR2020'
 TABLE_MT_FALLOW = 'users/dgketchum/point_extract/rdgp_fallow_1APR2020'
+VALIDATION_POINTS = 'users/dgketchum/point_sample/points_rdgp_validate_14APR2020point_sample'
 
 MASK = 'users/dgketchum/IrrMapper/rdgp_irrEqp_mask'
 INDICES = 'users/dgketchum/indices/{}_14_c1t1_001'
@@ -369,7 +370,7 @@ def filter_irrigated(filter_type='filter_low'):
             print(k, year, filter_type, filt_fc.size().getInfo())
 
 
-def request_validation_extract(file_prefix='validation'):
+def request_validation_extract(asset, file_prefix='validation'):
     """
     This takes a sample points set and extracts the classification result.  This is a roundabout cross-validation.
     Rather than using holdouts in the Random Forest classifier, we just run all the training data to train the
@@ -380,20 +381,16 @@ def request_validation_extract(file_prefix='validation'):
     :param file_prefix:
     :return:
     """
-    roi = ee.FeatureCollection(ROI)
+    roi = ee.FeatureCollection(BOUNDARIES)
     plots = ee.FeatureCollection(VALIDATION_POINTS).filterBounds(roi)
-    image_list = list_assets('users/dgketchum/IrrMapper/version_2')
+    image_list = list_assets(asset)
 
-    for yr in YEARS:
+    for yr in RDGP_YEARS:
         yr_img = [x for x in image_list if x.endswith(str(yr))]
         coll = ee.ImageCollection(yr_img)
         classified = coll.mosaic().select('classification')
 
-        start = '{}-01-01'.format(yr)
-        d = datetime.strptime(start, '%Y-%m-%d')
-        epoch = datetime.utcfromtimestamp(0)
-        start_millisec = (d - epoch).total_seconds() * 1000
-        filtered = plots.filter(ee.Filter.eq('YEAR', ee.Number(start_millisec)))
+        filtered = plots.filter(ee.Filter.eq('YEAR', yr))
 
         plot_sample_regions = classified.sampleRegions(
             collection=filtered,
@@ -726,5 +723,6 @@ if __name__ == '__main__':
     is_authorized()
     # request_band_extract(file_prefix='rdgp_fallow_1APR2020', points_layer=POINTS_MT_FALLOW,
     #                      region=ROI, filter_bounds=False)
-    export_classification('IrrMapper_RDGP', asset_root=ASSET_ROOT_FALLOW, region=BOUNDARIES, mask=None)
+    request_validation_extract(ASSET_ROOT, 'rdgp_irr_14APR2020_validate')
+    request_validation_extract(ASSET_ROOT_FALLOW, 'rdgp_fal_14APR2020_validate')
 # ========================= EOF ====================================================================
