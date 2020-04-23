@@ -44,7 +44,9 @@ POINTS = 'ft:11GT2ikIkgqzYLb0R9tICu8PW7-lo7d-0GFutcywX'
 
 POINTS_15JUL = 'ft:1B9ZLnB_3RnC5b_QXC8TJtwMZdhr0FtJZ_X99VnBV'
 
-VALIDATION_POINTS = 'ft:1FQr4nFmTOVTBOv_GeTYniHQKeXg2lnQohHM8l7iZ'
+# VALIDATION_POINTS = 'ft:1FQr4nFmTOVTBOv_GeTYniHQKeXg2lnQohHM8l7iZ'
+# used for paper:
+VALIDATION_POINTS = 'users/dgketchum/validation/validation_40k_12AUG2019'
 TABLE = 'ft:1wLrSEoQie6u7wTPl1bJ7rLEq20OLvQncecM3_HeH'
 
 # bands_15JUL_v1_kw
@@ -385,15 +387,11 @@ def request_validation_extract(file_prefix='validation'):
         coll = ee.ImageCollection(yr_img)
         classified = coll.mosaic().select('classification')
 
-        start = '{}-01-01'.format(yr)
-        d = datetime.strptime(start, '%Y-%m-%d')
-        epoch = datetime.utcfromtimestamp(0)
-        start_millisec = (d - epoch).total_seconds() * 1000
-        filtered = plots.filter(ee.Filter.eq('YEAR', ee.Number(start_millisec)))
+        filtered = plots.filter(ee.Filter.eq('YEAR', yr))
 
         plot_sample_regions = classified.sampleRegions(
             collection=filtered,
-            properties=['POINT_TYPE', 'YEAR'],
+            properties=['POINT_TYPE', 'YEAR', 'FID'],
             scale=30)
 
         task = ee.batch.Export.table.toCloudStorage(
@@ -787,6 +785,6 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    reduce_classification(COUNTIES, years=ALL_YEARS, description='v2_cdlMask_minYr5', cdl_mask=True, min_years=5)
-    # request_validation_extract()
+    # reduce_classification(COUNTIES, years=ALL_YEARS, description='v2_cdlMask_minYr5', cdl_mask=True, min_years=5)
+    request_validation_extract()
 # ========================= EOF ====================================================================

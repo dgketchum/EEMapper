@@ -342,7 +342,9 @@ def concatenate_validation(_dir, out_file, glob='validation'):
             print('{} is empty'.format(csv))
             pass
     # df = df.sample(n=32000)
-    df.drop(columns=['system:index', '.geo'], inplace=True)
+    df.drop(columns=['system:index', '.geo', '<?xml version="1.0" encoding="UTF-8"?>'], inplace=True)
+    df.dropna(axis=0, inplace=True, how='any')
+    df = df.astype('int32')
     df.to_csv(out_file)
 
 
@@ -411,10 +413,10 @@ def concatenate_attrs_county(_dir, out_csv_filename, out_shp_filename, template_
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    d = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county',
-                     'counties_v2', 'cdlMask_minYr5')
-    out_csv = os.path.join(d, 'irr_v2_CdlMask_minYr5_11SEPT2019.csv')
-    out_shp = out_csv.replace('.csv', '.shp')
-    geo = os.path.join(home, 'IrrigationGIS', 'boundaries', 'counties', 'western_11_states.shp')
-    concatenate_attrs_county(d, out_csv, out_shp, geo)
+    d = os.path.join('/media', 'research', 'IrrigationGIS', 'EE_extracts', 'validation_to_concatenate',
+                     'version_2_forMelton')
+    out = os.path.join('/media', 'research', 'IrrigationGIS', 'EE_extracts', 'validation_tables',
+                       'validation_12AUG2019_Melton.csv')
+    glob = 'validation'
+    concatenate_validation(d, out, glob)
 # ========================= EOF ====================================================================
