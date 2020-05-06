@@ -17,9 +17,14 @@
 import os
 
 import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid.inset_locator import InsetPosition
+from matplotlib import cm
+from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+from mpl_toolkits.axes_grid1.inset_locator import InsetPosition
+from numpy import logical_not, isnan, array, where, abs, max, min
 from pandas import read_csv, Series
-from geopandas import read_file
+from sklearn import linear_model
+from sklearn.metrics import r2_score
+
 
 def state_sum(csv):
     cdf = read_csv(csv)
