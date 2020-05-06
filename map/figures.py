@@ -25,6 +25,8 @@ from pandas import read_csv, Series
 from sklearn import linear_model
 from sklearn.metrics import r2_score
 
+from map.variable_importance import variable_importance
+
 
 def state_sum(csv):
     cdf = read_csv(csv)
@@ -373,6 +375,22 @@ def state_bar_plots(csv, save_fig=None):
         plt.savefig(save_fig)
         return None
     plt.show()
+
+
+def variable_importance_barh(savefig=False):
+    # the top 20 variables add to 0.54
+    vi = variable_importance()[:20]
+    n = 'Variable'
+    d = 'Importance'
+    df = DataFrame.from_records(data=vi, columns=[n, d])
+    df = df.sort_values(by='Importance', ascending=True)
+    df.plot(n, d, kind='barh')
+    if savefig:
+        plt.tight_layout()
+        plt.savefig(savefig)
+        return None
+    plt.show()
+
 
 
 if __name__ == '__main__':
