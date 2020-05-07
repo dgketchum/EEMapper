@@ -20,7 +20,7 @@ from datetime import datetime
 
 from geopandas import GeoDataFrame, read_file
 from numpy import where, sum, nan, std, array, min, max, mean
-from pandas import read_csv, concat, errors, Series, DataFrame
+from pandas import read_csv, concat, errors, Series, merge
 from pandas import to_datetime
 from pandas.io.json import json_normalize
 from shapely.geometry import Polygon
@@ -57,8 +57,10 @@ COLS = ['SCENE_ID',
         'TOTAL_SIZE',
         'BASE_URL']
 
+DROP_COUNTY = ['system:index', 'AFFGEOID', 'COUNTYFP', 'COUNTYNS', 'GEOID', 'LSAD', 'STATEFP', '.geo']
 
-def concatenate_county_data(folder, glob='counties'):
+
+def concatenate_county_data(folder, out_file, glob='counties', acres=False):
     df = None
     base_names = [x for x in os.listdir(folder)]
     _files = [os.path.join(folder, x) for x in base_names if x.startswith(glob) and not 'total_area' in x]
@@ -70,27 +72,40 @@ def concatenate_county_data(folder, glob='counties'):
         print(csv)
         if first:
             df = read_csv(totals_file).sort_values('COUNTYNS')
-            df['total_area'] = df['sum']
+            cty_str = df['COUNTYFP'].map(lambda x: str(int(x)).zfill(3))
+            idx_str = df['STATEFP'].map(lambda x: str(int(x))) + cty_str
+            idx = idx_str.map(int)
+            df['FIPS'] = idx
+            df.index = idx
+            if acres:
+                df['total_area'] = df['sum'] / 4046.86
+            else:
+                df['total_area'] = df['sum']
             df.drop(columns=['sum'], inplace=True)
             first = False
 
-        comps = os.path.basename(csv).split('_')
-        for c in comps:
-            try:
-                year = int(c)
-            except ValueError:
-                pass
+        prefix, year = os.path.basename(csv).split('_')[1], os.path.basename(csv).split('_')[4]
 
-        c = read_csv(csv).sort_values('COUNTYNS')['sum']  # / 4046.86
-        c.name = '{}_{}'.format(comps[1], year)
-        df = concat([df, c], sort=False, axis=1)
+        c = read_csv(csv).sort_values('COUNTYNS')
+        name = '{}_{}'.format(prefix, year)
+        cty_str = c['COUNTYFP'].map(lambda x: str(int(x)).zfill(3))
+        idx_str = c['STATEFP'].map(lambda x: str(int(x))) + cty_str
+        idx = idx_str.map(int)
+        c.index = idx
+        if acres:
+            c[name] = c['sum'] / 4046.86
+        else:
+            c[name] = c['sum']
+
+        df = concat([df, c[name]], axis=1)
         print(c.shape, csv)
 
-    out_file = os.path.join(folder, 'irr_merged.csv'.format(glob))
-
-    print('size: {}'.format(df.shape))
-    # df.drop(columns=['.geo'], inplace=True)
+    # print('size: {}'.format(df.shape))
+    # df = df.reindex(sorted(df.columns), axis=1)
+    df.drop(columns=DROP_COUNTY, inplace=True)
+    df.sort_index(axis=1, inplace=True)
     df.to_csv(out_file, index=False)
+    print('saved {}'.format(out_file))
 
 
 def concatenate_band_extract(root, out_dir, glob='None', sample=None, n=None, spec=None):
@@ -155,11 +170,11 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, n=None, sp
     df.to_csv(out_file, index=False)
 
 
-def concatenate_irrigation_attrs(_dir, out_filename):
-    _files = [os.path.join(_dir, x) for x in os.listdir(_dir) if x.endswith('.csv')]
+def concatenate_irrigation_attrs(_dir, out_filename, glob):
+    _files = [os.path.join(_dir, x) for x in os.listdir(_dir) if glob in x]
     _files.sort()
     first_year = True
-    for year in range(1986, 2017):
+    for year in range(1986, 2019):
         yr_files = [f for f in _files if str(year) in f]
         first_state = True
         for f in yr_files:
@@ -271,22 +286,6 @@ def concatenate_attrs_huc(_dir, out_csv_filename, out_shp_filename, template_geo
     gpd.to_file(out_shp_filename)
 
 
-def add_stats_to_shapefile(shp, out_shp):
-    gdf = read_file(shp).sort_values('huc8', axis=0)
-    geometry = gdf['geometry']
-    gdf.drop(columns=['geometry'], inplace=True)
-    df = DataFrame(gdf)
-    new_cols = [x.replace('Ct_', '') if 'Ct_' in x else x for x in df.columns]
-    df.columns = new_cols
-    e, l = [str(x) for x in range(1986, 1991)], [str(x) for x in range(2012, 2017)]
-    early = df[e].mean(axis=1)
-    late = df[l].mean(axis=1)
-    tot_pix = df['TotalPix']
-    df['delta'] = (early - late) / tot_pix.values
-    gpd = GeoDataFrame(df, crs={'init': 'epsg:4326'}, geometry=geometry)
-    gpd.to_file(out_shp)
-
-
 def to_polygon(j):
     if not isinstance(j, list):
         return nan
@@ -342,9 +341,7 @@ def concatenate_validation(_dir, out_file, glob='validation'):
             print('{} is empty'.format(csv))
             pass
     # df = df.sample(n=32000)
-    df.drop(columns=['system:index', '.geo', '<?xml version="1.0" encoding="UTF-8"?>'], inplace=True)
-    df.dropna(axis=0, inplace=True, how='any')
-    df = df.astype('int32')
+    df.drop(columns=['system:index', '.geo'], inplace=True)
     df.to_csv(out_file)
 
 
@@ -396,8 +393,8 @@ def concatenate_attrs_county(_dir, out_csv_filename, out_shp_filename, template_
 
     early_col = ['Ct_{}'.format(x) for x in range(1986, 1991)]
     late_col = ['Ct_{}'.format(x) for x in range(2014, 2019)]
-    df['early_mean'] = df[early_col].mean(axis=1)
-    df['late_mean'] = df[late_col].mean(axis=1)
+    df['early_mean'] = df[early_col].mean(axis=1) / df['total_area']
+    df['late_mean'] = df[late_col].mean(axis=1) / df['total_area']
     df['delta'] = (df['late_mean'] - df['early_mean']) / df[year_cts].mean(axis=1)
 
     std_ = std(arr, axis=1).reshape(arr.shape[0], 1)
@@ -411,12 +408,40 @@ def concatenate_attrs_county(_dir, out_csv_filename, out_shp_filename, template_
     gpd.to_file(out_shp_filename)
 
 
+def get_project_totals(csv, out_file):
+    df = read_csv(csv)
+    df.drop(['COUNTYFP', 'COUNTYNS', 'LSAD', 'GEOID'], inplace=True, axis=1)
+    df = df.groupby(['STATEFP']).sum()
+    df.to_csv(out_file.replace('.csv', '_state.csv'))
+    s = df.sum()
+    s.to_csv(out_file.replace('.csv', '_totals.csv'))
+    print('project totals, acreas: {}'.format(s))
+
+
+def join_comparison_to_shapefile(csv, shp, out_shape):
+
+    df = read_csv(csv, engine='python')
+    nass_col = [x for x in list(df.columns) if 'NASS' in x]
+    irr_col = [x for x in list(df.columns) if 'IM' in x]
+
+    df['nass_mean'] = (mean(df[nass_col], axis=1))
+    df['irr_mean'] = (mean(df[irr_col], axis=1))
+    df['n_diff'] = ((df['irr_mean'] - df['nass_mean']) / (df['irr_mean'] + df['nass_mean']))
+
+    gdf = read_file(shp)
+    df['GEOID'] = [str(x).zfill(5) for x in df['STCT']]
+    gdf = merge(df, gdf, left_on='GEOID', right_on='GEOID', how='left')
+    out = GeoDataFrame(gdf, geometry='geometry', crs={'init': 'epsg:4326'})
+    out.to_file(out_shape)
+
+
 if __name__ == '__main__':
-    home = os.path.expanduser('~')
-    d = os.path.join('/media', 'research', 'IrrigationGIS', 'EE_extracts', 'validation_to_concatenate',
-                     'version_2_forMelton')
-    out = os.path.join('/media', 'research', 'IrrigationGIS', 'EE_extracts', 'validation_tables',
-                       'validation_12AUG2019_Melton.csv')
-    glob = 'validation'
-    concatenate_validation(d, out, glob)
+
+    d = os.path.join('/media', 'research', 'IrrigationGIS', 'time_series', 'exports_county')
+    no_cdl = os.path.join(d, 'counties_v2', 'noCdlMask_minYr5')
+    irr = os.path.join(no_cdl, 'nass_irrMap.csv')
+    shape = os.path.join('/media', 'research', 'IrrigationGIS', 'boundaries',
+                         'counties', 'western_11_states.shp')
+    out_shape = os.path.join(no_cdl, 'nass_irrmap_join.shp')
+    join_comparison_to_shapefile(irr, shape, out_shape=out_shape)
 # ========================= EOF ====================================================================
