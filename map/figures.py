@@ -275,11 +275,12 @@ def irrigated_years_precip_anomaly(csv, save_fig=None):
            (1, 0), (1, 1), (1, 2), (1, 3),
            (2, 0), (2, 1), (2, 2), (2, 3)]
 
-    for i, p in enumerate(pos):
+    i = 0
+    for p in pos:
 
         ax = axes[p[1], p[0]]
 
-        if p == (2, 3):
+        if p == (0, 3):
             yrs_ = [_ for _ in range(1986, 2019)]
             d = [0 for _ in yrs_]
             ax.bar(d, height=d, bottom=d, width=0.75, align='center')
@@ -289,14 +290,16 @@ def irrigated_years_precip_anomaly(csv, save_fig=None):
             ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
             ax.spines['left'].set_position(('data', 1986))
             ax.spines['right'].set_position(('data', 2018))
-            ax.spines['left'].set_color('none')
-            ax.spines['bottom'].set_position(('data', 0.45))
+            ax.spines['left'].set_color('k')
+            ax.spines['bottom'].set_position(('axes', 0.45))
             ax.spines['right'].set_color('none')
             ax.spines['top'].set_color('none')
             ax.tick_params(axis='y', which='major', length=0, labelleft=False, labelright=False)
 
+
         else:
             name = means.iloc[i].name
+            print(name)
             d = df[df['State'] == name]
             a = d['Anomaly mm'].values
             mean_ = means.iloc[i]['Mean mm']
@@ -326,8 +329,12 @@ def irrigated_years_precip_anomaly(csv, save_fig=None):
             ax.spines['right'].set_color('none')
             ax.spines['top'].set_color('none')
             ax.tick_params(axis='x', which='major', bottom=True, top=False, labelbottom=False)
+            i += 1
 
     # fig.delaxes(axes[5, 1])
+    tick_years = range(1990, 2020, 5)
+    plt.setp(axes, xticks=tick_years, xticklabels=[str(x) for x in tick_years])
+
     if save_fig:
         plt.tight_layout()
         plt.savefig(save_fig)
@@ -434,12 +441,12 @@ if __name__ == '__main__':
     irrmapper_all = os.path.join(irr_tables, 'irr_merged_ac.csv')
     totals_figure = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper',
                                  'figures', 'totals_time_series.pdf')
-    irr_time_series_totals(irrmapper_all, nass_merged)
+    # irr_time_series_totals(irrmapper_all, nass_merged)
 
     nass_irrmapper = os.path.join(irr_tables, 'nass_irrMap.csv')
     scatter_figure = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper',
                                   'figures', 'comparison_scatter_6MAY2020.pdf')
-    compare_nass_irrmapper_scatter(nass_irrmapper)
+    # compare_nass_irrmapper_scatter(nass_irrmapper)
 
     # state_irrmapper = os.path.join(irr_tables, 'irrmapper_annual_acres_state.csv')
     # state_normalized_figure = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper',
@@ -459,7 +466,7 @@ if __name__ == '__main__':
     # state_bars = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'figures', 'state_bars.png')
     # state_bar_plots(state_irrmapper, save_fig=None)
 
-    # irr_precip = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'IrrMapper_Irrigation_Years_PrecipAnom.csv')
-    # precip_fig = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'figures', 'precip_training_years.pdf')
-    # irrigated_years_precip_anomaly(irr_precip, save_fig=precip_fig)
+    irr_precip = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'tables', 'IrrMapper_Irrigation_Years_PrecipAnom.csv')
+    precip_fig = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'figures', 'precip_training_years.pdf')
+    irrigated_years_precip_anomaly(irr_precip, save_fig=precip_fig)
 # ========================= EOF ====================================================================
