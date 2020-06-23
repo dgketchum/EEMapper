@@ -15,15 +15,20 @@
 # ===============================================================================
 
 import os
+from copy import deepcopy
 
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 from mpl_toolkits.axes_grid1.inset_locator import InsetPosition
-from numpy import logical_not, isnan, array, where, abs, max, min
-from pandas import read_csv, Series
+from numpy import logical_not, isnan, array, where, abs, max, min, vstack, hstack
+from pandas import read_csv, Series, DataFrame
 from sklearn import linear_model
 from sklearn.metrics import r2_score
+
+from map.variable_importance import variable_importance
+
+plt.style.use('presentation.mplstyle')
 
 
 def state_sum(csv):
@@ -61,18 +66,18 @@ def state_sum(csv):
     return plt
 
 
-def compare_nass_irrmapper_scatter(csv, fig_name):
-    def get_axis_limits(ax, scale=.9):
-        return ax.get_xlim()[1] * scale, ax.get_ylim()[1] * scale
-
+def compare_nass_irrmapper_scatter(csv, fig_name=None):
     df = read_csv(csv)
     s = array([0, 1e6])
-    fig, ax = plt.subplots(2, 4, figsize=(8, 6))
+    plt.rcParams['figure.constrained_layout.use'] = True
+    fig, ax = plt.subplots(2, 4, figsize=(6, 5), tight_layout=True, sharex=True, sharey=True)
     rows, cols = [0, 0, 0, 0, 1, 1, 1, 1], [0, 1, 2, 3, 0, 1, 2, 3]
+    all_comparison = array([]).reshape((0, 2))
 
     for r, c, year in zip(rows, cols, range(1987, 2022, 5)):
 
         n, i = 'NASS_{}'.format(year), 'IM_{}'.format(year)
+
         a = ax[r, c]
 
         ydf = df[[n, i]]
@@ -82,10 +87,13 @@ def compare_nass_irrmapper_scatter(csv, fig_name):
         nass, irr = nass[logical_not(isnan(nass))], irr[logical_not(isnan(nass))]
         nass, irr = nass.reshape(nass.shape[0], 1), irr.reshape(irr.shape[0], 1)
 
+        print('{} county correlations...'.format(year))
         r2, m, _int = get_correlations(nass, irr)
 
         a.plot(s, s, linewidth=1, linestyle='--', color='k', alpha=0.5, label='_nolegend_')
 
+        ydf[n].name = ''
+        ydf[i].name = ''
         ydf.plot(n, i, xlim=(1, 1e6), ylim=(1, 1e6), loglog=True, color='b', alpha=0.25,
                  kind='scatter', ax=a, marker='o', s=3)
 
@@ -97,10 +105,11 @@ def compare_nass_irrmapper_scatter(csv, fig_name):
         a.text(0.05, 0.85, '$m$={0:.2f}'.format(m), transform=a.transAxes,
                size=7)
 
-        if c > 0:
-            a.set_yticks([])
-        if r == 0 and c < 3:
+        if r == 0 and c == 3:
             a.set_xticks([])
+            a.tick_params(labelsize=10)
+
+        a.tick_params(labelsize=10)
 
         x_axis = a.xaxis
         x_axis.label.set_visible(False)
@@ -109,17 +118,28 @@ def compare_nass_irrmapper_scatter(csv, fig_name):
         y_axis = a.yaxis
         y_axis.label.set_visible(False)
         a.set_ylim(1, 1e4)
+        comp = hstack([irr, nass])
+        all_comparison = vstack([all_comparison, comp])
 
+    print('overall county correlations...')
+    i_c = all_comparison[:, 0].reshape((all_comparison[:, 0].shape[0], 1))
+    n_c = all_comparison[:, 1].reshape((all_comparison[:, 1].shape[0], 1))
+    get_correlations(i_c, n_c)
     fig.delaxes(ax[1, 3])
     # plt.subplots_adjust(wspace=0.1, hspace=0.1)
-    plt.tight_layout()
-    x_txt = 'NASS Irrigated Area ($\mathregular{km^2}$)'
-    y_txt = 'IrrMapper Irrigated Area ($\mathregular{km^2}$)'
-    fig.text(0.5, 0.0, x_txt, ha='center')
-    fig.text(0.0, 0.5, y_txt, va='center', rotation='vertical')
-    # plt.show()
-    plt.savefig(fig_name)
-    # plt.close()
+    plt.tight_layout(pad=1.0, w_pad=1.0, h_pad=1.0)
+
+    x_txt = 'NASS ($\mathregular{km^2}$)'
+    y_txt = 'IrrMapper ($\mathregular{km^2}$)'
+
+    # fig.subplots_adjust(bottom=0.2, left=-0.5)
+    fig.text(0.5, 0.0, x_txt, ha='center', fontsize=10)
+    fig.text(0.0, 0.5, y_txt, va='center', rotation='vertical', fontsize=10)
+    if fig_name:
+        plt.savefig(fig_name, pad_inches=0.25)
+    else:
+        # plt.show()
+        plt.close()
 
 
 def get_correlations(a, b):
@@ -128,7 +148,7 @@ def get_correlations(a, b):
     regr.fit(a, b)
     pred = regr.predict(a)
     slope, intercept = regr.coef_[0][0], regr.intercept_
-    print('regression coeff: {}'.format(slope))
+    # print('regression coeff: {}'.format(slope))
     print('r squared: {}'.format(coeff_det))
     return coeff_det, slope, intercept
 
@@ -163,33 +183,44 @@ def irr_time_series_states(csv, fig_name=None):
     plt.show()
 
 
-def irr_time_series_totals(irr, nass, fig_name):
-
+def irr_time_series_totals(irr, nass, fig_name=None):
     df = read_csv(irr)
     df.drop(['COUNTYFP', 'COUNTYNS', 'LSAD', 'GEOID'], inplace=True, axis=1)
     df = df.groupby(['STATEFP']).sum()
+    state_irr = deepcopy(df)
     totals = df.sum(axis=0)
     labels = [x for x in df.columns if 'noCdlMask' in x]
     irr_years = [x for x in range(1986, 2019)]
-    totals = totals[labels]
-    totals.sort_index(inplace=True)
-    totals.index = irr_years
-    totals = totals.values / 247.105
+    totals_s = totals[labels]
+    irr_nass_years = deepcopy(totals_s)
+    totals_s.sort_index(inplace=True)
+    totals_s.index = irr_years
+    totals = totals_s.values / 247.105
 
     nass = read_csv(nass, index_col=[0])
     nass.dropna(axis=0, subset=['STATE_ANSI'], inplace=True)
     nass['STATE_ANSI'] = nass['STATE_ANSI'].astype(int)
     nass = nass.loc[nass['STATE_ANSI'].isin(list(df.index))]
+    state_nass = deepcopy(nass)
     cols = [x for x in nass.columns if 'VALUE' in x]
+    state_nass = state_nass[cols + ['STATE_ANSI']] / 247.105
+    state_nass = state_nass.groupby(['STATE_ANSI']).sum()
     nass = nass[cols]
     nass = nass / 247.105
-    nass = nass.sum(axis=0)
-    nass_years = [int(x[-4:]) for x in nass.index]
-    nass.index = nass_years
-    nass_values = nass.values
+    nass_s = nass.sum(axis=0)
+    nass_years = [int(x[-4:]) for x in nass_s.index]
+    irr_labels = [x for x in labels if int(x[-4:]) in nass_years]
+    state_irr = state_irr[irr_labels].sort_index() / 247.105
+    nass_s.index = nass_years
+    nass_values = nass_s.values
+
+    print('state-by state correlations...')
+    s_i = state_irr.values.reshape(state_irr.values.size, 1)
+    s_n = state_nass.values.reshape(state_nass.values.size, 1)
+    get_correlations(s_i, s_n)
 
     plt.plot(irr_years, totals / 1000., label='IrrMapper', zorder=1)
-    plt.scatter(x=nass_years, y=nass_values / 1000., marker='*', color='red', label='NASS', zorder=2)
+    plt.scatter(x=nass_years, y=nass_values / 1000., marker='.', color='red', label='NASS', zorder=2)
     # plt.title('Total Irrigated Area, Western 11 States \n 1986 - 2018')
     plt.xlim(1985, 2019)
     # plt.ylim(20, 30)
@@ -198,8 +229,10 @@ def irr_time_series_totals(irr, nass, fig_name):
     plt.tight_layout()
     plt.legend()
     if fig_name:
-        plt.savefig(fig_name.replace('.', '_totals.'))
-    # plt.show()`
+        plt.savefig(fig_name)
+    else:
+        pass
+        # plt.show()
 
 
 def state_fp_code_abv():
@@ -242,11 +275,12 @@ def irrigated_years_precip_anomaly(csv, save_fig=None):
            (1, 0), (1, 1), (1, 2), (1, 3),
            (2, 0), (2, 1), (2, 2), (2, 3)]
 
-    for i, p in enumerate(pos):
+    i = 0
+    for p in pos:
 
         ax = axes[p[1], p[0]]
 
-        if p == (2, 3):
+        if p == (0, 3):
             yrs_ = [_ for _ in range(1986, 2019)]
             d = [0 for _ in yrs_]
             ax.bar(d, height=d, bottom=d, width=0.75, align='center')
@@ -256,14 +290,16 @@ def irrigated_years_precip_anomaly(csv, save_fig=None):
             ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
             ax.spines['left'].set_position(('data', 1986))
             ax.spines['right'].set_position(('data', 2018))
-            ax.spines['left'].set_color('none')
-            ax.spines['bottom'].set_position(('data', 0.45))
+            ax.spines['left'].set_color('k')
+            ax.spines['bottom'].set_position(('axes', 0.45))
             ax.spines['right'].set_color('none')
             ax.spines['top'].set_color('none')
             ax.tick_params(axis='y', which='major', length=0, labelleft=False, labelright=False)
 
+
         else:
             name = means.iloc[i].name
+            print(name)
             d = df[df['State'] == name]
             a = d['Anomaly mm'].values
             mean_ = means.iloc[i]['Mean mm']
@@ -271,8 +307,9 @@ def irrigated_years_precip_anomaly(csv, save_fig=None):
             height = abs(a)
             x = d['Year'].values
 
-            data_color = [(a[i] - a.min())/(a.max() - a.min()) for i, _ in enumerate(a)]
-            cmap = cm.get_cmap('RdYlGn')
+            # data_color = [(a[i] - a.min()) / (a.max() - a.min()) for i, _ in enumerate(a)]
+            data_color = [0.9 if x > 0.0 else 0.1 for x in a]
+            cmap = cm.get_cmap('RdBu')
             color = cmap(data_color)
             ax.bar(x, height=height, bottom=bottoms, width=0.75, align='center', color=color)
 
@@ -292,8 +329,12 @@ def irrigated_years_precip_anomaly(csv, save_fig=None):
             ax.spines['right'].set_color('none')
             ax.spines['top'].set_color('none')
             ax.tick_params(axis='x', which='major', bottom=True, top=False, labelbottom=False)
+            i += 1
 
     # fig.delaxes(axes[5, 1])
+    tick_years = range(1990, 2020, 5)
+    plt.setp(axes, xticks=tick_years, xticklabels=[str(x) for x in tick_years])
+
     if save_fig:
         plt.tight_layout()
         plt.savefig(save_fig)
@@ -323,7 +364,7 @@ def state_bar_plots(csv, save_fig=None):
             yrs = [_ for _ in range(1986, 2019)]
             d = [0 for _ in yrs]
             ax.bar(yrs, height=d, bottom=d, width=0.75, align='center')
-            ax.set(xlabel='Time')
+            ax.set(xlabel='Year')
             plt.xlim([1986, 2019])
             ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
             ax.spines['left'].set_position(('data', 1984))
@@ -348,7 +389,7 @@ def state_bar_plots(csv, save_fig=None):
             bottoms = where(a < 0.0, mean_ + a, mean_)[0, :]
             height = abs(a)[0, :]
 
-            data_color = [(a[i] - a.min())/(a.max() - a.min()) for i, _ in enumerate(a)][0]
+            data_color = [(a[i] - a.min()) / (a.max() - a.min()) for i, _ in enumerate(a)][0]
             cmap = cm.get_cmap('RdBu')
             color = cmap(data_color)
             ax.bar(yrs, height=height, bottom=bottoms, width=0.75, align='center', color=color)
@@ -375,33 +416,57 @@ def state_bar_plots(csv, save_fig=None):
     plt.show()
 
 
-if __name__ == '__main__':
-    home = os.path.expanduser('~')
+def variable_importance_barh(savefig=None):
+    # the top 20 variables add to 0.54
+    vi = variable_importance()[:20]
+    n = 'Variable'
+    d = 'Importance'
+    df = DataFrame.from_records(data=vi, columns=[n, d])
+    df = df.sort_values(by='Importance', ascending=True)
+    df.plot(n, d, kind='barh')
+    if savefig:
+        plt.tight_layout()
+        plt.savefig(savefig)
+        return None
+    plt.show()
 
+
+if __name__ == '__main__':
+    # home = os.path.expanduser('~')
+    home = '/media/research'
     county = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county')
     nass_merged = os.path.join(county, 'nass_merged.csv')
     irr_tables = os.path.join(county, 'counties_v2', 'noCdlMask_minYr5')
 
     irrmapper_all = os.path.join(irr_tables, 'irr_merged_ac.csv')
     totals_figure = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper',
-                                 'figures', 'totals_time_series.png')
+                                 'figures', 'totals_time_series.pdf')
+    # irr_time_series_totals(irrmapper_all, nass_merged)
 
     nass_irrmapper = os.path.join(irr_tables, 'nass_irrMap.csv')
     scatter_figure = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper',
-                                  'figures', 'comparison_scatter_13NOV2019.png')
+                                  'figures', 'comparison_scatter_6MAY2020.pdf')
+    # compare_nass_irrmapper_scatter(nass_irrmapper)
 
-    state_irrmapper = os.path.join(irr_tables, 'irrmapper_annual_acres_state.csv')
-    state_normalized_figure = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper',
-                                           'figures', 'states_normalized.png')
-
-    irr_precip = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'IrrMapper_Irrigation_Years_PrecipAnom.csv')
-    precip_fig = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'figures', 'IrrYears_precipAnomaly.png')
-    irrigated_years_precip_anomaly(irr_precip, save_fig=None)
+    # state_irrmapper = os.path.join(irr_tables, 'irrmapper_annual_acres_state.csv')
+    # state_normalized_figure = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper',
+    #                                        'figures', 'states_normalized.pdf')
+    # irr_time_series_states(state_irrmapper, state_normalized_figure)
+    #
+    # irr_precip = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper',
+    #                           'IrrMapper_Irrigation_Years_PrecipAnom.csv')
+    # precip_fig = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'figures',
+    #                           'IrrYears_precipAnomaly_7MAY2020.pdf')
+    # irrigated_years_precip_anomaly(irr_precip, precip_fig)
+    #
+    # variable_import = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper',
+    #                                'figures', 'variable_importance_6MAY2020.pdf')
+    # variable_importance_barh(savefig=variable_import)
 
     # state_bars = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'figures', 'state_bars.png')
     # state_bar_plots(state_irrmapper, save_fig=None)
 
-    # compare_nass_irrmapper_scatter(nass_irrmapper, scatter_figure)
-    # irr_time_series_states(state_irrmapper, fig_name=state_normalized_figure)
-    # irr_time_series_totals(irrmapper_all, nass_merged, fig_name=totals_figure)
+    irr_precip = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'tables', 'IrrMapper_Irrigation_Years_PrecipAnom.csv')
+    precip_fig = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'figures', 'precip_training_years.pdf')
+    irrigated_years_precip_anomaly(irr_precip, save_fig=precip_fig)
 # ========================= EOF ====================================================================

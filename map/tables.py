@@ -20,7 +20,7 @@ from datetime import datetime
 
 from geopandas import GeoDataFrame, read_file
 from numpy import where, sum, nan, std, array, min, max, mean
-from pandas import read_csv, concat, errors, Series, DataFrame
+from pandas import read_csv, concat, errors, Series, merge
 from pandas import to_datetime
 from pandas.io.json import json_normalize
 from shapely.geometry import Polygon
@@ -286,22 +286,6 @@ def concatenate_attrs_huc(_dir, out_csv_filename, out_shp_filename, template_geo
     gpd.to_file(out_shp_filename)
 
 
-def add_stats_to_shapefile(shp, out_shp):
-    gdf = read_file(shp).sort_values('huc8', axis=0)
-    geometry = gdf['geometry']
-    gdf.drop(columns=['geometry'], inplace=True)
-    df = DataFrame(gdf)
-    new_cols = [x.replace('Ct_', '') if 'Ct_' in x else x for x in df.columns]
-    df.columns = new_cols
-    e, l = [str(x) for x in range(1986, 1991)], [str(x) for x in range(2012, 2017)]
-    early = df[e].mean(axis=1)
-    late = df[l].mean(axis=1)
-    tot_pix = df['TotalPix']
-    df['delta'] = (early - late) / tot_pix.values
-    gpd = GeoDataFrame(df, crs={'init': 'epsg:4326'}, geometry=geometry)
-    gpd.to_file(out_shp)
-
-
 def to_polygon(j):
     if not isinstance(j, list):
         return nan
@@ -434,11 +418,30 @@ def get_project_totals(csv, out_file):
     print('project totals, acreas: {}'.format(s))
 
 
-if __name__ == '__main__':
-    home = os.path.expanduser('~')
+def join_comparison_to_shapefile(csv, shp, out_shape):
 
-    d = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county')
+    df = read_csv(csv, engine='python')
+    nass_col = [x for x in list(df.columns) if 'NASS' in x]
+    irr_col = [x for x in list(df.columns) if 'IM' in x]
+
+    df['nass_mean'] = (mean(df[nass_col], axis=1))
+    df['irr_mean'] = (mean(df[irr_col], axis=1))
+    df['n_diff'] = ((df['irr_mean'] - df['nass_mean']) / (df['irr_mean'] + df['nass_mean']))
+
+    gdf = read_file(shp)
+    df['GEOID'] = [str(x).zfill(5) for x in df['STCT']]
+    gdf = merge(df, gdf, left_on='GEOID', right_on='GEOID', how='left')
+    out = GeoDataFrame(gdf, geometry='geometry', crs={'init': 'epsg:4326'})
+    out.to_file(out_shape)
+
+
+if __name__ == '__main__':
+
+    d = os.path.join('/media', 'research', 'IrrigationGIS', 'time_series', 'exports_county')
     no_cdl = os.path.join(d, 'counties_v2', 'noCdlMask_minYr5')
-    irr = os.path.join(d, 'irr_merged.csv')
-    concatenate_county_data(d, out_file=irr, glob='v2_noCdlMask_minYr5', acres=True)
+    irr = os.path.join(no_cdl, 'nass_irrMap.csv')
+    shape = os.path.join('/media', 'research', 'IrrigationGIS', 'boundaries',
+                         'counties', 'western_11_states.shp')
+    out_shape = os.path.join(no_cdl, 'nass_irrmap_join.shp')
+    join_comparison_to_shapefile(irr, shape, out_shape=out_shape)
 # ========================= EOF ====================================================================

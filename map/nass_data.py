@@ -18,6 +18,7 @@ import json
 import os
 from copy import deepcopy
 
+import matplotlib.pyplot as plt
 from geopandas import GeoDataFrame
 from numpy import nan
 from pandas import read_table, read_csv, DataFrame, Series, concat
@@ -119,24 +120,6 @@ def get_nass(csv, out_file, old_nass=None):
     df.to_csv(out_file)
 
 
-def strip_null(row):
-    if isinstance(row, str):
-        if ',' in row:
-            val = float(row.replace(',', ''))
-        elif 'D' in row:
-            val = nan
-        else:
-            val = float(row)
-    elif isinstance(row, float):
-        val = row
-    elif isinstance(row, int):
-        val = float(row)
-    else:
-        print(row)
-
-    return val
-
-
 def merge_nass_irrmapper(nass, irrmapper, out_name):
     years = [1987, 1992, 1997, 2002, 2007, 2012, 2017]
     year_str = [str(x) for x in years]
@@ -175,13 +158,13 @@ if __name__ == '__main__':
                                                      'qs.census2012.txt',
                                                      'qs.census2017.txt']]
     merged = os.path.join(nass_tables, 'nass_merged.csv')
-    get_nass(_files, merged, old_nass=old_data)
+    # get_nass(_files, merged, old_nass=old_data)
 
-    # irr = os.path.join(irr_tables, 'irr_merged.csv')
-    # nass = os.path.join(nass_tables, 'nass_merged.csv')
-    #
-    # o = os.path.join(irr_tables, 'nass_irrMap.csv')
-    #
-    # merge_nass_irrmapper(nass, irr, o)
+    irr = os.path.join(irr_tables, 'irr_merged.csv')
+    nass = os.path.join(nass_tables, 'nass_merged.csv')
+
+    o = os.path.join(irr_tables, 'nass_irrMap.csv')
+
+    merge_nass_irrmapper(nass, irr, o)
 
 # ========================= EOF ====================================================================

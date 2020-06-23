@@ -28,20 +28,13 @@ import ee
 from map.assets import list_assets
 
 ROI = 'users/dgketchum/boundaries/western_11_union'
-BOUNDARIES = 'users/dgketchum/boundaries/MT'
-IWRS = 'users/dgketchum/boundaries/IWRS_reservations'
-
-ASSET_ROOT = 'users/dgketchum/IrrMapper/version_3'
-ASSET_ROOT_LCRB = 'users/dgketchum/IrrMapper/lcrb'
-
+BOUNDARIES = 'users/dgketchum/boundaries'
+ASSET_ROOT = 'users/dgketchum/IrrMapper/version_2'
 IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
 
 HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
 HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
 COUNTIES = 'users/dgketchum/boundaries/western_counties'
-
-UCRB = 'users/dgketchum/boundaries/UCRB'
-LCRB = 'users/dgketchum/boundaries/lcrb'
 
 STATES = ['AZ', 'CA', 'NV', 'CO', 'ID', 'MT', 'NM', 'OR', 'UT', 'WA', 'WY']  #
 EDIT_STATES = ['KS', 'ND', 'NE', 'OK', 'SD', 'TX']
@@ -53,7 +46,9 @@ POINTS = 'ft:11GT2ikIkgqzYLb0R9tICu8PW7-lo7d-0GFutcywX'
 POINTS_15JUL = 'ft:1B9ZLnB_3RnC5b_QXC8TJtwMZdhr0FtJZ_X99VnBV'
 POINTS_15JUL_LCRB = 'ft:1EqYW6f6Bs0Eq__15u0VtIje1KgoWABU3Z1RKFHCa'
 
-VALIDATION_POINTS = 'ft:1FQr4nFmTOVTBOv_GeTYniHQKeXg2lnQohHM8l7iZ'
+# VALIDATION_POINTS = 'ft:1FQr4nFmTOVTBOv_GeTYniHQKeXg2lnQohHM8l7iZ'
+# used for paper:
+VALIDATION_POINTS = 'users/dgketchum/validation/validation_40k_12AUG2019'
 TABLE = 'ft:1wLrSEoQie6u7wTPl1bJ7rLEq20OLvQncecM3_HeH'
 
 # bands_15JUL_v1_kw
@@ -157,16 +152,8 @@ def reduce_classification(tables, years=None, description=None, cdl_mask=False, 
     :param min_years:
     :return:
     """
-
     sum_mask = None
     image_list = list_assets('users/dgketchum/IrrMapper/version_2')
-    alt_image_list = list_assets('users/dpendergraph/IrrMapper_v3')
-    removal = []
-    for i in image_list:
-        if 'MT_' in i:
-            removal.append(i)
-    [image_list.remove(r) for r in removal]
-    image_list = image_list + alt_image_list
     fc = ee.FeatureCollection(tables)
 
     if min_years > 0:
@@ -174,10 +161,12 @@ def reduce_classification(tables, years=None, description=None, cdl_mask=False, 
         sum = ee.ImageCollection(coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum()
         sum_mask = sum.lt(min_years)
 
+    # first = True
     for yr in years:
-        yr_img = [x for x in image_list if x.endswith(str(yr))]
-        coll = ee.ImageCollection(yr_img)
-        tot = coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
+        if yr not in [2002, 2007, 2012]:
+            yr_img = [x for x in image_list if x.endswith(str(yr))]
+            coll = ee.ImageCollection(yr_img)
+            tot = coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
 
         if cdl_mask and min_years > 0:
             # cultivated/uncultivated band only available 2013 to 2017
@@ -210,6 +199,7 @@ def reduce_classification(tables, years=None, description=None, cdl_mask=False, 
 
 
 def get_ndvi_stats(tables, years, out_name):
+
     fc = ee.FeatureCollection(tables)
     i = get_ndvi_series(years, fc)
     image_list = list_assets('users/dgketchum/IrrMapper/version_2')
@@ -240,7 +230,7 @@ def attribute_irrigation():
     field polygon coverages.
     :return:
     """
-    fc = ee.FeatureCollection(LCRB)
+    fc = ee.FeatureCollection(IRRIGATION_TABLE)
     for state in TARGET_STATES:
         for yr in range(1986, 2019):
             images = os.path.join(ASSET_ROOT, '{}_{}'.format(state, yr))
@@ -252,9 +242,9 @@ def attribute_irrigation():
 
             task = ee.batch.Export.table.toCloudStorage(
                 means,
-                description='lcrb_{}_{}'.format(state, yr),
+                description='{}_{}'.format(state, yr),
                 bucket='wudr',
-                fileNamePrefix='lcrb_attr_{}_{}'.format(state, yr),
+                fileNamePrefix='attr_{}_{}'.format(state, yr),
                 fileFormat='CSV')
 
             print(state, yr)
@@ -319,6 +309,7 @@ def export_classification(out_name, asset_root, region, export='asset'):
     :param region:
     :param asset_root:
     :param out_name:
+    :param asset:
     :param export:
     :return:
     """
@@ -474,15 +465,11 @@ def request_validation_extract(file_prefix='validation'):
         coll = ee.ImageCollection(yr_img)
         classified = coll.mosaic().select('classification')
 
-        start = '{}-01-01'.format(yr)
-        d = datetime.strptime(start, '%Y-%m-%d')
-        epoch = datetime.utcfromtimestamp(0)
-        start_millisec = (d - epoch).total_seconds() * 1000
-        filtered = plots.filter(ee.Filter.eq('YEAR', ee.Number(start_millisec)))
+        filtered = plots.filter(ee.Filter.eq('YEAR', yr))
 
         plot_sample_regions = classified.sampleRegions(
             collection=filtered,
-            properties=['POINT_TYPE', 'YEAR'],
+            properties=['POINT_TYPE', 'YEAR', 'FID'],
             scale=30)
 
         task = ee.batch.Export.table.toCloudStorage(
@@ -812,5 +799,6 @@ if __name__ == '__main__':
     # export_classification(out_name='MT_v3', asset_root=ASSET_ROOT, region=BOUNDARIES)
     # request_band_extract(file_prefix='MT_31OCT', points_layer=POINTS_MT, region=BOUNDARIES, filter_bounds=True)
     # filter_irrigated(filter_type='filter_low')
-    reduce_classification(IWRS, years=ALL_YEARS, description='iwrs', min_years=5)
+    # reduce_classification(COUNTIES, years=ALL_YEARS, description='v2_cdlMask_minYr5', cdl_mask=True, min_years=5)
+    request_validation_extract()
 # ========================= EOF ====================================================================
