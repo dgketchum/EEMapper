@@ -18,6 +18,8 @@ import os
 
 import ee
 
+from datetime import date, datetime, timedelta
+from pprint import pprint
 
 def add_doy(image):
     """ Add day-of-year image """
@@ -37,6 +39,41 @@ def get_world_climate(proj):
                                                                                                 scale=30) for m, p in
          combinations]
     # not sure how to do this without initializing the image with a constant
+    i = ee.Image(l)
+    return i
+
+
+def daily_landsat(year, roi):
+    start = '{}-01-01'.format(year)
+    end_date = '{}-01-01'.format(year + 1)
+    l5_coll = ee.ImageCollection('LANDSAT/LT05/C01/T1_SR').filterBounds(
+        ee.FeatureCollection(roi).geometry()).filterDate(start, end_date).map(ls5_edge_removal).map(ls57mask)
+    l7_coll = ee.ImageCollection('LANDSAT/LE07/C01/T1_SR').filterBounds(
+        ee.FeatureCollection(roi).geometry()).filterDate(start, end_date).map(ls57mask)
+    l8_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_SR').filterBounds(
+        ee.FeatureCollection(roi).geometry()).filterDate(start, end_date).map(ls8mask)
+
+    ls_sr_masked = ee.ImageCollection(l7_coll.merge(l8_coll).merge(l5_coll))
+
+    d1 = datetime(year, 1, 1)
+    d2 = datetime(year + 1, 1, 1)
+    d_times = [(d1 + timedelta(days=x), d1 + timedelta(days=x + 1)) for x in range((d2-d1).days)]
+    date_tups = [(x.strftime('%Y-%m-%d'), y.strftime('%Y-%m-%d')) for x, y in d_times]
+    bands = ['B2', 'B3', 'B4', 'B5', 'B6', 'B7']
+    l = []
+    final = False
+    for s, e in date_tups:
+        if s == '{}-12-31'.format(year):
+            e = '{}-01-01'.format(year + 1)
+            final = True
+        dt = datetime.strptime(s, '%Y-%m-%d')
+        doy = dt.strftime('%j')
+        rename_bands = ['{}{}{}'.format(year, doy, b) for b in bands]
+        b = ls_sr_masked.filterDate(s, e).mosaic().rename(rename_bands)
+        b = b.unmask(-99)
+        l.append(b)
+        if final:
+            break
     i = ee.Image(l)
     return i
 
@@ -82,7 +119,7 @@ def ls8mask(img):
 
 
 def ndvi5():
-    l = ee.ImageCollection('LANDSAT/LT05/C01/T1_SR').map(lambda x: x.select().addBands(
+    l = ee.ImageCollection('LANDSAT/LT05/C01/T1_SR').map(ls5_edge_removal).map(lambda x: x.select().addBands(
         x.normalizedDifference(['B4', 'B3'])))
     return l
 

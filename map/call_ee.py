@@ -21,30 +21,38 @@
 # ===============================================================================
 
 import os
-from datetime import datetime
+import sys
+from datetime import datetime, date
+from pprint import pprint
 
 import ee
 
 from map.assets import list_assets
-from map.ee_utils import get_world_climate, ls57mask, ls8mask, ndvi5, ndvi7, ndvi8, ls5_edge_removal, period_stat
+from map.ee_utils import get_world_climate, ls57mask, ls8mask, ndvi5
+from map.ee_utils import ndvi7, ndvi8, ls5_edge_removal, period_stat, daily_landsat
+
+sys.setrecursionlimit(2000)
 
 ROI = 'users/dgketchum/boundaries/western_11_union'
 BOUNDARIES = 'users/dgketchum/boundaries'
 ASSET_ROOT = 'users/dgketchum/IrrMapper/version_2'
 IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
 
+RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/IrrMapper_RF_training_sample'
+RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/IrrMapper_training_data_points'
+
 HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
 HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
 COUNTIES = 'users/dgketchum/boundaries/western_counties'
 
-TARGET_STATES = []
+TARGET_STATES = ['MT']
 IRR = {}
 # list of years we have verified irrigated fields
 YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
          2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
          2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
 
-TEST_YEARS = [2013]
+TEST_YEARS = [2005]
 ALL_YEARS = [x for x in range(1986, 2019)]
 
 
@@ -107,30 +115,33 @@ def reduce_classification(tables, years=None, description=None, cdl_mask=False, 
         print(yr)
 
 
-def get_ndvi_stats(tables, years, out_name):
+def get_sr_series(tables, roi, out_name):
+    """This assumes 'YEAR' parameter is already in str(YEAR.js.milliseconds)"""
 
-    fc = ee.FeatureCollection(tables)
-    i = get_ndvi_series(years, fc)
-    image_list = list_assets('users/dgketchum/IrrMapper/version_2')
+    table = ee.FeatureCollection(tables)
+    for year in [2013]:
+        start = '{}-01-01'.format(year)
+        d = datetime.strptime(start, '%Y-%m-%d')
+        epoch = datetime.utcfromtimestamp(0)
+        start_millisec = str(int((d - epoch).total_seconds() * 1000))
 
-    for yr in years:
-        coll = ee.ImageCollection(image_list).filterDate('{}-01-01'.format(yr), '{}-12-31'.format(yr))
-        remap = coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
-        cls = remap.rename('irr_{}'.format(yr))
-        i = i.addBands(cls)
+        table = table.filter(ee.Filter.eq('YEAR', start_millisec))
+        print('{} {} points'.format(year, table.size().getInfo()))
+        ls_sr_masked = daily_landsat(year, roi)
+        stats = ls_sr_masked.sampleRegions(collection=table,
+                                           properties=['POINT_TYPE', 'YEAR', 'LAT_GCS', 'Lon_GCS'],
+                                           scale=30)
 
-    stats = i.reduceRegions(collection=fc,
-                            reducer=ee.Reducer.mean(),
-                            scale=30)
+        task = ee.batch.Export.table.toCloudStorage(
+            stats,
+            description='{}_{}'.format(out_name, year),
+            bucket='wudr',
+            fileNamePrefix='{}_{}'.format(out_name, year),
+            fileFormat='CSV')
 
-    task = ee.batch.Export.table.toCloudStorage(
-        stats,
-        description='{}'.format(out_name),
-        bucket='wudr',
-        fileNamePrefix='{}'.format(out_name),
-        fileFormat='KML')
-
-    task.start()
+        task.start()
+        print('{} {} extracts'.format(year, stats.size().getInfo()))
+        pprint(stats.first().getInfo())
 
 
 def attribute_irrigation():
@@ -433,46 +444,6 @@ def request_band_extract(file_prefix, points_layer, region, filter_bounds=False)
         print(yr)
 
 
-def get_ndvi_series(years, roi):
-    """ Stack NDVI bands """
-    ndvi_l5, ndvi_l7, ndvi_l8 = ndvi5(), ndvi7(), ndvi8()
-    ndvi = ee.ImageCollection(ndvi_l5.merge(ndvi_l7).merge(ndvi_l8)).filterBounds(roi)
-
-    def ndvi_means(date):
-        etc = ndvi.filterDate(ee.Date(date).advance(4, 'month'),
-                              ee.Date(date).advance(9, 'month')).toBands()
-        stats = ee.Image(etc.reduce(ee.Reducer.mean()).rename('nd_mean_{}'.format(date[:4])))
-        return stats
-
-    def ndvi_max(date):
-        etc = ndvi.filterDate(ee.Date(date).advance(4, 'month'),
-                              ee.Date(date).advance(9, 'month')).toBands()
-        stats = ee.Image(etc.reduce(ee.Reducer.max()).rename('nd_max_{}'.format(date[:4])))
-        return stats
-
-    def ndvi_min(date):
-        etc = ndvi.filterDate(ee.Date(date).advance(4, 'month'),
-                              ee.Date(date).advance(9, 'month')).toBands()
-        stats = ee.Image(etc.reduce(ee.Reducer.min()).rename('nd_min_{}'.format(date[:4])))
-        return stats
-
-    bands_list = []
-    for yr in years:
-        d = '{}-01-01'.format(yr)
-
-        bands_mean = ndvi_means(d)
-        bands_list.append(bands_mean.rename('nd_mean_{}'.format(yr)))
-
-        bands_max = ndvi_max(d)
-        bands_list.append(bands_max.rename('nd_max_{}'.format(yr)))
-
-        bands_min = ndvi_min(d)
-        bands_list.append(bands_min.rename('nd_min_{}'.format(yr)))
-
-    i = ee.Image(bands_list)
-    return i
-
-
 def stack_bands(yr, roi):
     """
     Create a stack of bands for the year and region of interest specified.
@@ -580,6 +551,7 @@ def stack_bands(yr, roi):
     temp_ct = 1
     prec_ct = 1
     names = input_bands.bandNames().getInfo()
+    pprint(sorted(names))
     for name in names:
         if 'B' in name and '_1_1' in name:
             replace_ = name.replace('_1_1', '_2')
@@ -612,9 +584,5 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    # export_classification(out_name='MT_v3', asset_root=ASSET_ROOT, region=BOUNDARIES)
-    # request_band_extract(file_prefix='MT_31OCT', points_layer=POINTS_MT, region=BOUNDARIES, filter_bounds=True)
-    # filter_irrigated(filter_type='filter_low')
-    # reduce_classification(COUNTIES, years=ALL_YEARS, description='v2_cdlMask_minYr5', cdl_mask=True, min_years=5)
-    request_validation_extract()
+    get_sr_series(RF_TRAINING_POINTS, ROI, 'sr_series')
 # ========================= EOF ====================================================================
