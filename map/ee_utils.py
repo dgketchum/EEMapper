@@ -17,9 +17,11 @@
 import os
 
 import ee
+from ee.ee_exception import EEException
 
 from datetime import date, datetime, timedelta
 from pprint import pprint
+
 
 def add_doy(image):
     """ Add day-of-year image """
@@ -44,6 +46,7 @@ def get_world_climate(proj):
 
 
 def daily_landsat(year, roi):
+
     start = '{}-01-01'.format(year)
     end_date = '{}-01-01'.format(year + 1)
     l5_coll = ee.ImageCollection('LANDSAT/LT05/C01/T1_SR').filterBounds(
@@ -60,7 +63,8 @@ def daily_landsat(year, roi):
     d_times = [(d1 + timedelta(days=x), d1 + timedelta(days=x + 1)) for x in range((d2-d1).days)]
     date_tups = [(x.strftime('%Y-%m-%d'), y.strftime('%Y-%m-%d')) for x, y in d_times]
     bands = ['B2', 'B3', 'B4', 'B5', 'B6', 'B7']
-    l = []
+
+    l, empty = [], []
     final = False
     for s, e in date_tups:
         if s == '{}-12-31'.format(year):
@@ -70,10 +74,19 @@ def daily_landsat(year, roi):
         doy = dt.strftime('%j')
         rename_bands = ['{}{}{}'.format(year, doy, b) for b in bands]
         b = ls_sr_masked.filterDate(s, e).mosaic().rename(rename_bands)
+
+        try:
+            _ = b.getInfo()['bands'][0]
+        except IndexError:
+            empty.append(s)
+            continue
+
         b = b.unmask(-99)
         l.append(b)
         if final:
             break
+
+    print('{} empty dates : {}'.format(len(empty), empty))
     i = ee.Image(l)
     return i
 
