@@ -33,7 +33,7 @@ from map.ee_utils import ndvi7, ndvi8, ls5_edge_removal, period_stat, daily_land
 
 sys.setrecursionlimit(2000)
 
-ROI = 'users/dgketchum/boundaries/western_11_union'
+GEO_DOMAIN = 'users/dgketchum/boundaries/western_11_union'
 BOUNDARIES = 'users/dgketchum/boundaries'
 ASSET_ROOT = 'users/dgketchum/IrrMapper/version_2'
 IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
@@ -45,7 +45,7 @@ HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
 HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
 COUNTIES = 'users/dgketchum/boundaries/western_counties'
 
-TARGET_STATES = ['MT']
+TARGET_STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
 IRR = {}
 # list of years we have verified irrigated fields
 YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
@@ -115,33 +115,53 @@ def reduce_classification(tables, years=None, description=None, cdl_mask=False, 
         print(yr)
 
 
-def get_sr_series(tables, roi, out_name):
+def get_sr_series(tables, out_name):
     """This assumes 'YEAR' parameter is already in str(YEAR.js.milliseconds)"""
 
-    table = ee.FeatureCollection(tables)
-    for year in [2013]:
-        start = '{}-01-01'.format(year)
-        d = datetime.strptime(start, '%Y-%m-%d')
-        epoch = datetime.utcfromtimestamp(0)
-        start_millisec = str(int((d - epoch).total_seconds() * 1000))
+    pt_ct = 0
+    for year in YEARS:
+        for state in TARGET_STATES:
 
-        table = table.filter(ee.Filter.eq('YEAR', start_millisec))
-        print('{} {} points'.format(year, table.size().getInfo()))
-        ls_sr_masked = daily_landsat(year, roi)
-        stats = ls_sr_masked.sampleRegions(collection=table,
-                                           properties=['POINT_TYPE', 'YEAR', 'LAT_GCS', 'Lon_GCS'],
-                                           scale=30)
+            name_prefix = '{}_{}_{}'.format(out_name, state, year)
+            local_file = os.path.join('/home/dgketchum/IrrigationGIS/EE_extracts/to_concatenate',
+                                      '{}.csv'.format(name_prefix))
+            if os.path.isfile(local_file):
+                continue
+            else:
+                print(local_file)
 
-        task = ee.batch.Export.table.toCloudStorage(
-            stats,
-            description='{}_{}'.format(out_name, year),
-            bucket='wudr',
-            fileNamePrefix='{}_{}'.format(out_name, year),
-            fileFormat='CSV')
+            roi = ee.FeatureCollection(os.path.join(BOUNDARIES, state))
 
-        task.start()
-        print('{} {} extracts'.format(year, stats.size().getInfo()))
-        pprint(stats.first().getInfo())
+            start = '{}-01-01'.format(year)
+            d = datetime.strptime(start, '%Y-%m-%d')
+            epoch = datetime.utcfromtimestamp(0)
+            start_millisec = str(int((d - epoch).total_seconds() * 1000))
+
+            table = ee.FeatureCollection(tables)
+            table = table.filter(ee.Filter.eq('YEAR', start_millisec))
+            table = table.filterBounds(roi)
+
+            points = table.size().getInfo()
+            print('{} {} {} points'.format(state, year, points))
+            pt_ct += 1
+            if points == 0:
+                continue
+
+            ls_sr_masked = daily_landsat(year, GEO_DOMAIN)
+            stats = ls_sr_masked.sampleRegions(collection=table,
+                                               properties=['POINT_TYPE', 'YEAR', 'LAT_GCS', 'Lon_GCS'],
+                                               scale=30,
+                                               tileScale=16)
+
+            task = ee.batch.Export.table.toCloudStorage(
+                stats,
+                description=name_prefix,
+                bucket='wudr',
+                fileNamePrefix=name_prefix,
+                fileFormat='CSV')
+
+            task.start()
+    print('{} total points'.format(pt_ct))
 
 
 def attribute_irrigation():
@@ -376,7 +396,7 @@ def request_validation_extract(file_prefix='validation'):
     :param file_prefix:
     :return:
     """
-    roi = ee.FeatureCollection(ROI)
+    roi = ee.FeatureCollection(GEO_DOMAIN)
     plots = ee.FeatureCollection(None).filterBounds(roi)
     image_list = list_assets('users/dgketchum/IrrMapper/version_2')
 
@@ -584,5 +604,5 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    get_sr_series(RF_TRAINING_POINTS, ROI, 'sr_series')
+    get_sr_series(RF_TRAINING_POINTS, 'sr_series')
 # ========================= EOF ====================================================================
