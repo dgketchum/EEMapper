@@ -23,6 +23,7 @@
 import os
 import sys
 from datetime import datetime, date
+from numpy import ceil, linspace
 from pprint import pprint
 
 import ee
@@ -115,7 +116,7 @@ def reduce_classification(tables, years=None, description=None, cdl_mask=False, 
         print(yr)
 
 
-def get_sr_series(tables, out_name):
+def get_sr_series(tables, out_name, max_sample=500):
     """This assumes 'YEAR' parameter is already in str(YEAR.js.milliseconds)"""
 
     pt_ct = 0
@@ -140,27 +141,46 @@ def get_sr_series(tables, out_name):
             table = ee.FeatureCollection(tables)
             table = table.filter(ee.Filter.eq('YEAR', start_millisec))
             table = table.filterBounds(roi)
-
+            table = table.randomColumn('rnd')
             points = table.size().getInfo()
             print('{} {} {} points'.format(state, year, points))
-            pt_ct += 1
-            if points == 0:
-                continue
 
-            ls_sr_masked = daily_landsat(year, GEO_DOMAIN)
-            stats = ls_sr_masked.sampleRegions(collection=table,
-                                               properties=['POINT_TYPE', 'YEAR', 'LAT_GCS', 'Lon_GCS'],
-                                               scale=30,
-                                               tileScale=16)
+            n_splits = int(ceil(points / float(max_sample)))
+            ranges = linspace(0, 1, n_splits + 1)
+            diff = ranges[1] - ranges[0]
 
-            task = ee.batch.Export.table.toCloudStorage(
-                stats,
-                description=name_prefix,
-                bucket='wudr',
-                fileNamePrefix=name_prefix,
-                fileFormat='CSV')
+            for enum, slice in enumerate(ranges[:-1], start=1):
+                slice_table = table.filter(ee.Filter.And(ee.Filter.gte('rnd', slice),
+                                                   ee.Filter.lt('rnd', slice + diff)))
+                points = slice_table.size().getInfo()
+                print('{} {} {} points'.format(state, year, points))
 
-            task.start()
+                name_prefix = '{}_{}_{}_{}'.format(out_name, state, enum, year)
+                local_file = os.path.join('/home/dgketchum/IrrigationGIS/EE_extracts/to_concatenate',
+                                          '{}.csv'.format(name_prefix))
+                if os.path.isfile(local_file):
+                    continue
+                else:
+                    print(local_file)
+
+                pt_ct += points
+                if points == 0:
+                    continue
+
+                ls_sr_masked = daily_landsat(year, roi)
+                stats = ls_sr_masked.sampleRegions(collection=table,
+                                                   properties=['POINT_TYPE', 'YEAR', 'LAT_GCS', 'Lon_GCS'],
+                                                   scale=30,
+                                                   tileScale=16)
+
+                task = ee.batch.Export.table.toCloudStorage(
+                    stats,
+                    description=name_prefix,
+                    bucket='wudr',
+                    fileNamePrefix=name_prefix,
+                    fileFormat='CSV')
+
+                task.start()
     print('{} total points'.format(pt_ct))
 
 
@@ -604,5 +624,5 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    get_sr_series(RF_TRAINING_POINTS, 'sr_series')
+    get_sr_series(RF_TRAINING_POINTS, 'sr_series', max_sample=100)
 # ========================= EOF ====================================================================
