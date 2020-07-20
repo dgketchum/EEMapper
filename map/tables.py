@@ -19,7 +19,7 @@ import os
 from datetime import datetime
 
 from geopandas import GeoDataFrame, read_file
-from numpy import where, sum, nan, std, array, min, max, mean, int16, float32
+from numpy import where, sum, nan, std, array, min, max, mean, int16
 from pandas import read_csv, concat, errors, Series, merge, DataFrame
 from pandas import to_datetime
 from pandas.io.json import json_normalize
@@ -117,24 +117,27 @@ def concatenate_band_extract(root, out_dir, glob='None'):
     bands = ['B2', 'B3', 'B4', 'B5', 'B6', 'B7']
     non_bands = ['LAT_GCS', 'Lon_GCS', 'POINT_TYPE', 'YEAR']
     _ = [['{}{}'.format(str(x).rjust(3, '0'), y) for x in range(1, 367)] for y in bands]
-    band_cols = sorted([item for sublist in _ for item in sublist])
-    cols = band_cols + non_bands
-    dtypes = {'LAT_GCS': float32, 'Lon_GCS': float32, 'POINT_TYPE': int16, 'YEAR': int16}
-    btypes = {k: int16 for k in band_cols}
-    dtypes.update(btypes)
-
-    df = DataFrame(columns=cols)
-    for enum, csv in enumerate(l, start=1):
-        c = read_csv(csv, dtype=dtypes)
-        df = concat([df, c])
-        print(enum, c.shape, df.shape, csv)
-
+    cols = sorted([item for sublist in _ for item in sublist]) + non_bands
     out_file = os.path.join(out_dir, '{}.csv'.format(glob))
+    ct = 0
+    with open(out_file, 'w') as fo:
+        for line in open(l[0], 'r'):
+            fo.write(line)
+            ct += 1
+        for fi in l[1:]:
+            with open(fi, 'r') as fi:
+                next(fi)
+                for line in fi:
+                    ct += 1
+                    fo.write(line)
+    print('done {} ct'.format(ct))
 
-    print(df['POINT_TYPE'].value_counts())
-    print('size: {}'.format(df.shape))
-    print('file: {}'.format(out_file))
-    df.to_csv(out_file, index=False)
+    #
+    #
+    # print(df['POINT_TYPE'].value_counts())
+    # print('size: {}'.format(df.shape))
+    # print('file: {}'.format(out_file))
+    # df.to_csv(out_file, index=False)
 
 
 def concatenate_irrigation_attrs(_dir, out_filename, glob):
