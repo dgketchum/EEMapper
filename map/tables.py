@@ -19,7 +19,7 @@ import os
 from datetime import datetime
 
 from geopandas import GeoDataFrame, read_file
-from numpy import where, sum, nan, std, array, min, max, mean, int16
+from numpy import where, sum, nan, std, array, min, max, mean, int16, float32
 from pandas import read_csv, concat, errors, Series, merge, DataFrame
 from pandas import to_datetime
 from pandas.io.json import json_normalize
@@ -113,30 +113,22 @@ def concatenate_band_extract(root, out_dir, glob='None'):
     l = [os.path.join(root, x) for x in os.listdir(root) if glob in x]
     l.sort()
     print(len(l))
+
     bands = ['B2', 'B3', 'B4', 'B5', 'B6', 'B7']
     non_bands = ['LAT_GCS', 'Lon_GCS', 'POINT_TYPE', 'YEAR']
     _ = [['{}{}'.format(str(x).rjust(3, '0'), y) for x in range(1, 367)] for y in bands]
-    cols = sorted([item for sublist in _ for item in sublist]) + non_bands
-    band_cols = [x for x in cols if x not in non_bands]
+    band_cols = sorted([item for sublist in _ for item in sublist])
+    cols = band_cols + non_bands
+    dtypes = {'LAT_GCS': float32, 'Lon_GCS': float32, 'POINT_TYPE': int16, 'YEAR': int16}
+    btypes = {k: int16 for k in band_cols}
+    dtypes.update(btypes)
+
     df = DataFrame(columns=cols)
     for enum, csv in enumerate(l, start=1):
-        print(enum, df.shape, csv)
-        year = int(csv.split('.')[0][-4:])
-        c = read_csv(csv)
-        c.drop(columns=['system:index', '.geo'], inplace=True)
-        c['YEAR'] = year
-        data_cols = c.columns
-        replace_cols = [x[4:] if x[-2] == 'B' else x for x in data_cols]
-        data_bands = [x for x in replace_cols if x in band_cols]
-        c.columns = replace_cols
-        c[data_bands] *= 10000
-        c[c[data_bands] < 0.0] = -99
-        c = c[data_bands].astype(int16)
-        out_ = csv.replace('to_concatenate', 'processed_csv')
-        d = concat([df, c]).fillna(-99)
-        d.to_csv(out_)
+        c = read_csv(csv, dtype=dtypes)
+        df = concat([df, c])
+        print(enum, c.shape, df.shape, csv)
 
-    return None
     out_file = os.path.join(out_dir, '{}.csv'.format(glob))
 
     print(df['POINT_TYPE'].value_counts())
