@@ -64,11 +64,12 @@ def run_model(csv):
     data = [append(x, c, axis=1) for x, c in zip(doy_data, doy_coords)]
     data = array(data).swapaxes(0, 1)
 
-    info_ = append(count_nonzero(data[:, :, 0], axis=1).reshape((df.shape[0], 1)),
-                   years.reshape((df.shape[0], 1)), axis=1)
+    # info_ = append(count_nonzero(data[:, :, 0], axis=1).reshape((df.shape[0], 1)),
+    #                years.reshape((df.shape[0], 1)), axis=1)
     # info_ = info_[info_[:, 0].argsort()]
-    # x, x_test, y, y_test = train_test_split(data, labels, test_size=0.33,
-    #                                         random_state=None)
+
+    x, x_test, y, y_test = train_test_split(data, labels, test_size=0.33,
+                                            random_state=None)
 
     x = helper.input_x(x)
     y = helper.input_y(y)

@@ -72,12 +72,11 @@ class DCMHelper(object):
     def input_x(self, x):
         # x: (num_samples, seq_len, input_feature_size)
         x = x.astype('float32')
-        self.input_feature_size = 6
+        self.input_feature_size = x.shape[2]
         return x
 
     def input_y(self, y):
         self.num_classes = np.unique(y).shape[0]
-
         return y
 
     def normalize_with_scaler(self, scaler, x_test):
