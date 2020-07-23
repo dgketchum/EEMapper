@@ -1,10 +1,6 @@
-import datetime
-import pprint
-
 import ee
 
 from map.openet import landsat
-from map.openet import model
 from map.openet import utils
 import map.openet.common as common
 
@@ -225,6 +221,8 @@ class Image():
                 output_images.append(self.tir.float())
             elif v.lower() == 'ndvi':
                 output_images.append(self.ndvi.float())
+            elif v.lower() == 'mask':
+                output_images.append(self.mask)
             elif v.lower() == 'time':
                 output_images.append(self.time)
             else:
@@ -275,102 +273,14 @@ class Image():
     @lazy_property
     def time(self):
         """Return an image of the 0 UTC time (in milliseconds)"""
-        return self.mask\
-            .double().multiply(0).add(utils.date_to_time_0utc(self._date))\
+        return self.blue.double().multiply(0).add(utils.date_to_time_0utc(self._date))\
             .rename(['time']).set(self._properties)
 
     @lazy_property
-    def dt(self):
-        """
-
-        Returns
-        -------
-        ee.Image
-
-        Raises
-        ------
-        ValueError
-            If `self._dt_source` is not supported.
-
-        """
-        if utils.is_number(self._dt_source):
-            dt_img = ee.Image.constant(float(self._dt_source))
-        # Use precomputed dT median assets
-        elif self._dt_source.upper() == 'DAYMET_MEDIAN_V0':
-            dt_coll = ee.ImageCollection(PROJECT_FOLDER + '/dt/daymet_median_v0')\
-                .filter(ee.Filter.calendarRange(self._doy, self._doy, 'day_of_year'))
-            dt_img = ee.Image(dt_coll.first())
-        elif self._dt_source.upper() == 'DAYMET_MEDIAN_V1':
-            dt_coll = ee.ImageCollection(PROJECT_FOLDER + '/dt/daymet_median_v1')\
-                .filter(ee.Filter.calendarRange(self._doy, self._doy, 'day_of_year'))
-            dt_img = ee.Image(dt_coll.first())
-        # Compute dT for the target date
-        elif self._dt_source.upper() == 'CIMIS':
-            input_img = ee.Image(
-                ee.ImageCollection('projects/earthengine-legacy/assets/'
-                                   'projects/climate-engine/cimis/daily')\
-                    .filterDate(self._start_date, self._end_date)\
-                    .select(['Tx', 'Tn', 'Rs', 'Tdew'])
-                    .first())
-            # Convert units to T [K], Rs [MJ m-2 d-1], ea [kPa]
-            # Compute Ea from Tdew
-            dt_img = model.dt(
-                tmax=input_img.select(['Tx']).add(273.15),
-                tmin=input_img.select(['Tn']).add(273.15),
-                rs=input_img.select(['Rs']),
-                ea=input_img.select(['Tdew']).add(237.3).pow(-1)
-                    .multiply(input_img.select(['Tdew']))\
-                    .multiply(17.27).exp().multiply(0.6108).rename(['ea']),
-                elev=self.elev,
-                doy=self._doy)
-        elif self._dt_source.upper() == 'DAYMET':
-            input_img = ee.Image(
-                ee.ImageCollection('NASA/ORNL/DAYMET_V3')\
-                    .filterDate(self._start_date, self._end_date)\
-                    .select(['tmax', 'tmin', 'srad', 'dayl', 'vp'])
-                    .first())
-            # Convert units to T [K], Rs [MJ m-2 d-1], ea [kPa]
-            # Solar unit conversion from DAYMET documentation:
-            #   https://daymet.ornl.gov/overview.html
-            dt_img = model.dt(
-                tmax=input_img.select(['tmax']).add(273.15),
-                tmin=input_img.select(['tmin']).add(273.15),
-                rs=input_img.select(['srad'])\
-                    .multiply(input_img.select(['dayl'])).divide(1000000),
-                ea=input_img.select(['vp'], ['ea']).divide(1000),
-                elev=self.elev,
-                doy=self._doy)
-        elif self._dt_source.upper() == 'GRIDMET':
-            input_img = ee.Image(
-                ee.ImageCollection('IDAHO_EPSCOR/GRIDMET')\
-                    .filterDate(self._start_date, self._end_date)\
-                    .select(['tmmx', 'tmmn', 'srad', 'sph'])
-                    .first())
-            # Convert units to T [K], Rs [MJ m-2 d-1], ea [kPa]
-            q = input_img.select(['sph'], ['q'])
-            pair = self.elev.multiply(-0.0065).add(293.0).divide(293.0).pow(5.26)\
-                .multiply(101.3)
-            # pair = self.elev.expression(
-            #     '101.3 * pow((293.0 - 0.0065 * elev) / 293.0, 5.26)',
-            #     {'elev': self.elev})
-            dt_img = model.dt(
-                tmax=input_img.select(['tmmx']),
-                tmin=input_img.select(['tmmn']),
-                rs=input_img.select(['srad']).multiply(0.0864),
-                ea=q.multiply(0.378).add(0.622).pow(-1).multiply(q)\
-                    .multiply(pair).rename(['ea']),
-                elev=self.elev,
-                doy=self._doy)
-        else:
-            raise ValueError('Invalid dt_source: {}\n'.format(self._dt_source))
-
-        if (self._dt_resample and
-                self._dt_resample.lower() in ['bilinear', 'bicubic']):
-            dt_img = dt_img.resample(self._dt_resample)
-        # TODO: A reproject call may be needed here also
-        # dt_img = dt_img.reproject(self.crs, self.transform)
-
-        return dt_img.clamp(self._dt_min, self._dt_max).rename('dt')
+    def mask(self):
+        """Mask of all active pixels (based on the final et_fraction)"""
+        return self.ndvi.multiply(0).add(1).updateMask(1) \
+            .rename(['mask']).set(self._properties).uint8()
 
     @lazy_property
     def elev(self):
@@ -404,78 +314,6 @@ class Image():
                 self._elev_source))
 
         return elev_image.select([0], ['elev'])
-
-    @classmethod
-    def from_landsat_c1_toa(cls, toa_image, cloudmask_args={}, **kwargs):
-        """Returns a SSEBop Image instance from a Landsat Collection 1 TOA image
-
-        Parameters
-        ----------
-        toa_image : ee.Image, str
-            A raw Landsat Collection 1 TOA image or image ID.
-        cloudmask_args : dict
-            keyword arguments to pass through to cloud mask function
-        kwargs : dict
-            Keyword arguments to pass through to Image init function
-
-        Returns
-        -------
-        Image
-
-        """
-        toa_image = ee.Image(toa_image)
-
-        # Use the SPACECRAFT_ID property identify each Landsat type
-        spacecraft_id = ee.String(toa_image.get('SPACECRAFT_ID'))
-
-        # Rename bands to generic names
-        # Rename thermal band "k" coefficients to generic names
-        input_bands = ee.Dictionary({
-            'LANDSAT_4': ['B1', 'B2', 'B3', 'B4', 'B5', 'B7', 'B6', 'BQA'],
-            'LANDSAT_5': ['B1', 'B2', 'B3', 'B4', 'B5', 'B7', 'B6', 'BQA'],
-            'LANDSAT_7': ['B1', 'B2', 'B3', 'B4', 'B5', 'B7', 'B6_VCID_1',
-                          'BQA'],
-            'LANDSAT_8': ['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B10', 'BQA'],
-        })
-        output_bands = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2', 'tir',
-                        'BQA']
-        k1 = ee.Dictionary({
-            'LANDSAT_4': 'K1_CONSTANT_BAND_6',
-            'LANDSAT_5': 'K1_CONSTANT_BAND_6',
-            'LANDSAT_7': 'K1_CONSTANT_BAND_6_VCID_1',
-            'LANDSAT_8': 'K1_CONSTANT_BAND_10',
-        })
-        k2 = ee.Dictionary({
-            'LANDSAT_4': 'K2_CONSTANT_BAND_6',
-            'LANDSAT_5': 'K2_CONSTANT_BAND_6',
-            'LANDSAT_7': 'K2_CONSTANT_BAND_6_VCID_1',
-            'LANDSAT_8': 'K2_CONSTANT_BAND_10',
-        })
-        prep_image = toa_image\
-            .select(input_bands.get(spacecraft_id), output_bands)\
-            .set({
-                'k1_constant': ee.Number(toa_image.get(k1.get(spacecraft_id))),
-                'k2_constant': ee.Number(toa_image.get(k2.get(spacecraft_id))),
-                'SATELLITE': spacecraft_id,
-            })
-
-        # Build the input image
-        input_image = ee.Image([
-            landsat.tir(prep_image),
-        ])
-
-        # Apply the cloud mask and add properties
-        input_image = input_image\
-            .updateMask(common.landsat_c1_toa_cloud_mask(
-                toa_image, **cloudmask_args))\
-            .set({
-                'system:index': toa_image.get('system:index'),
-                'system:time_start': toa_image.get('system:time_start'),
-                'system:id': toa_image.get('system:id'),
-            })
-
-        # Instantiate the class
-        return cls(ee.Image(input_image), **kwargs)
 
     @classmethod
     def from_landsat_c1_sr(cls, sr_image, **kwargs):
@@ -530,6 +368,7 @@ class Image():
             landsat.swir2(prep_image),
             landsat.lst(prep_image),
             landsat.ndvi(prep_image),
+            landsat.tir(prep_image),
         ])
 
         # Apply the cloud mask and add properties
@@ -542,59 +381,6 @@ class Image():
 
         # Instantiate the class
         return cls(input_image, **kwargs)
-
-    # # TODO: Move calculation to model.py
-    # @lazy_property
-    # def tcorr_image(self):
-    #     """Compute Tcorr for the current image
-    #
-    #     Returns
-    #     -------
-    #     ee.Image of Tcorr values
-    #
-    #     """
-    #     lst = ee.Image(self.lst)
-    #     ndvi = ee.Image(self.ndvi)
-    #     tmax = ee.Image(self.tmax)
-    #
-    #     # Compute Tcorr
-    #     tcorr = lst.divide(tmax)
-    #
-    #     # Select high NDVI pixels that are also surrounded by high NDVI
-    #     ndvi_smooth_mask = ndvi.focal_mean(radius=120, units='meters')\
-    #       .reproject(crs=self.crs, crsTransform=self.transform)\
-    #       .gt(0.7)
-    #     ndvi_buffer_mask = ndvi.gt(0.7).reduceNeighborhood(
-    #         ee.Reducer.min(), ee.Kernel.square(radius=60, units='meters'))
-    #
-    #     # Remove low LST and low NDVI
-    #     tcorr_mask = lst.gt(270).And(ndvi_smooth_mask).And(ndvi_buffer_mask)
-    #
-    #     return tcorr.updateMask(tcorr_mask).rename(['tcorr'])\
-    #         .set({'system:index': self._index,
-    #               'system:time_start': self._time_start,
-    #               'tmax_source': tmax.get('tmax_source'),
-    #               'tmax_version': tmax.get('tmax_version')})
-    #
-    # @lazy_property
-    # def tcorr_stats(self):
-    #     """Compute the Tcorr 5th percentile and count statistics
-    #
-    #     Returns
-    #     -------
-    #     dictionary
-    #
-    #     """
-    #     return ee.Image(self.tcorr_image).reduceRegion(
-    #         reducer=ee.Reducer.percentile([5])\
-    #             .combine(ee.Reducer.count(), '', True),
-    #         crs=self.crs,
-    #         crsTransform=self.transform,
-    #         geometry=self.image.geometry().buffer(1000),
-    #         bestEffort=False,
-    #         maxPixels=2*10000*10000,
-    #         tileScale=1,
-    #     )
 
 
 if __name__ == '__main__':

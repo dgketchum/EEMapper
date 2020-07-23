@@ -132,3 +132,19 @@ def valid_date(date_str, date_fmt='%Y-%m-%d'):
         return True
     except Exception as e:
         return False
+
+
+def date_0utc(date):
+    """Get the 0 UTC date for a date
+    Parameters
+    ----------
+    date : ee.Date
+    Returns
+    -------
+    ee.Date
+    """
+    return ee.Date.fromYMD(date.get('year'), date.get('month'), date.get('day'))
+
+    # Extra operations are needed since update() does not set milliseconds to 0.
+    # return ee.Date(date.update(hour=0, minute=0, second=0).millis()\
+    #     .divide(1000).floor().multiply(1000))
