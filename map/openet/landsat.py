@@ -123,3 +123,38 @@ def ndvi(landsat_image):
     """
     return ee.Image(landsat_image).normalizedDifference(['nir', 'red'])\
         .rename(['ndvi'])
+
+
+def tir(landsat_image):
+    return ee.Image(landsat_image).select(['tir'])
+
+
+def red(landsat_image):
+    return ee.Image(landsat_image).select('red')
+
+
+def blue(landsat_image):
+    return ee.Image(landsat_image).select('blue')
+
+
+def green(landsat_image):
+    return ee.Image(landsat_image).select('green')
+
+
+def nir(landsat_image):
+    return ee.Image(landsat_image).select('nir')
+
+
+def swir1(landsat_image):
+    return ee.Image(landsat_image).select('swir1')
+
+
+def swir2(landsat_image):
+    return ee.Image(landsat_image).select('swir2')
+
+
+if __name__ == '__main__':
+    pass
+
+# ===================================================================================
+
