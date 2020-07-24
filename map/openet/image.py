@@ -27,22 +27,8 @@ def lazy_property(fn):
 class Image():
     """Earth Engine based SSEBop Image"""
 
-    def __init__(
-            self, image,
-            et_reference_source=None,
-            et_reference_band=None,
-            et_reference_factor=None,
-            et_reference_resample=None,
-            dt_source='DAYMET_MEDIAN_V0',
-            elev_source='SRTM',
-            tcorr_source='DYNAMIC',
-            tmax_source='DAYMET_MEDIAN_V2',
-            elr_flag=False,
-            dt_min=6,
-            dt_max=25,
-            et_fraction_type='alfalfa',
-            **kwargs,
-        ):
+    def __init__(self, image,):
+
         """Construct a generic SSEBop Image
 
         Parameters
@@ -130,66 +116,10 @@ class Image():
         self._cycle_day = self._start_date.difference(
             ee.Date.fromYMD(1970, 1, 3), 'day').mod(8).add(1).int()
 
-        # Reference ET parameters
-        self.et_reference_source = et_reference_source
-        self.et_reference_band = et_reference_band
-        self.et_reference_factor = et_reference_factor
-        self.et_reference_resample = et_reference_resample
-
-        # Check reference ET parameters
-        if et_reference_factor and not utils.is_number(et_reference_factor):
-            raise ValueError('et_reference_factor must be a number')
-        if et_reference_factor and self.et_reference_factor < 0:
-            raise ValueError('et_reference_factor must be greater than zero')
-        et_reference_resample_methods = ['nearest', 'bilinear', 'bicubic']
-        if (et_reference_resample and
-                et_reference_resample.lower() not in et_reference_resample_methods):
-            raise ValueError('unsupported et_reference_resample method')
-
-        # Model input parameters
-        self._dt_source = dt_source
-        self._elev_source = elev_source
-        self._tcorr_source = tcorr_source
-        self._tmax_source = tmax_source
-        self._elr_flag = elr_flag
-        self._dt_min = float(dt_min)
-        self._dt_max = float(dt_max)
-
-        # Convert elr_flag from string to bool if necessary
-        if type(self._elr_flag) is str:
-            if self._elr_flag.upper() in ['TRUE']:
-                self._elr_flag = True
-            elif self._elr_flag.upper() in ['FALSE']:
-                self._elr_flag = False
-            else:
-                raise ValueError('elr_flag "{}" could not be interpreted as '
-                                 'bool'.format(self._elr_flag))
-
         # Image projection and geotransform
         self.crs = image.projection().crs()
         self.transform = ee.List(ee.Dictionary(
             ee.Algorithms.Describe(image.projection())).get('transform'))
-        # self.crs = image.select([0]).projection().getInfo()['crs']
-        # self.transform = image.select([0]).projection().getInfo()['transform']
-
-        # Set the resample method as properties so they can be modified
-        if 'dt_resample' in kwargs.keys():
-            self._dt_resample = kwargs['dt_resample'].lower()
-        else:
-            self._dt_resample = 'bilinear'
-        if 'tmax_resample' in kwargs.keys():
-            self._tmax_resample = kwargs['tmax_resample'].lower()
-        else:
-            self._tmax_resample = 'bilinear'
-
-        if et_fraction_type.lower() not in ['alfalfa', 'grass']:
-            raise ValueError('et_fraction_type must "alfalfa" or "grass"')
-        self.et_fraction_type = et_fraction_type.lower()
-        # CGM - Should et_fraction_type be set as a kwarg instead?
-        # if 'et_fraction_type' in kwargs.keys():
-        #     self.et_fraction_type = kwargs['et_fraction_type'].lower()
-        # else:
-        #     self.et_fraction_type = 'alfalfa'
 
     def calculate(self, variables=[]):
         """Return a multiband image of calculated variables
@@ -273,7 +203,7 @@ class Image():
     @lazy_property
     def time(self):
         """Return an image of the 0 UTC time (in milliseconds)"""
-        return self.blue.double().multiply(0).add(utils.date_to_time_0utc(self._date))\
+        return self.mask.double().multiply(0).add(utils.date_to_time_0utc(self._date))\
             .rename(['time']).set(self._properties)
 
     @lazy_property

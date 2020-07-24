@@ -1,5 +1,6 @@
 import copy
 import datetime
+from pprint import pprint
 
 from datetime import datetime, timedelta
 from dateutil.rrule import rrule, DAILY
@@ -8,6 +9,8 @@ import ee
 
 from map.openet import utils
 from map.openet.image import Image
+from IPython.display import Image as Img
+
 import map.openet.inerpolate as interp
 
 
@@ -115,15 +118,13 @@ class Collection():
         # (+/- interp_days) than are included in the reference ET collection
         interp_start_dt = self.start_date - timedelta(days=interp_days)
         interp_end_dt = self.end_date + timedelta(days=interp_days)
-        interp_start_date = interp_start_dt.date().isoformat()
-        interp_end_date = interp_end_dt.date().isoformat()
 
         interp_vars = [band for band in variables]
-        interp_vars.append('time')
 
         # Count will be determined using the aggregate_coll image masks
         if 'count' in variables:
             interp_vars.append('mask')
+        # interp_vars.append('time')
 
         # Build initial scene image collection
         scene_coll = self._build()
@@ -141,7 +142,7 @@ class Collection():
             interp_vars.remove('mask')
 
         # Interpolate to a daily time step
-        daily_coll = interp.custom(
+        daily_coll = interp.daily(
             target_coll=target,
             source_coll=scene_coll.select(interp_vars), interp_days=interp_days)
 
@@ -173,22 +174,14 @@ class Collection():
                       'system:time_start': ee.Date(agg_start_date).millis(),
                       })
 
-        def interval_gen(iter_start_dt, iter_end_dt):
-            iter_dt = iter_start_dt
-            # Conditional is "less than" because end date is exclusive
-            while iter_dt < iter_end_dt:
-                yield iter_dt.strftime('%Y-%m-%d')
-                iter_dt += relativedelta(days=+15)
-
-        month_list = ee.List(list(interval_gen(self.start_date, self.end_date)))
-
-        def aggregate_monthly(agg_start_date):
+        def aggregate_daily(daily_img):
+            agg_start_date = ee.Date(daily_img.get('system:time_start'))
             return aggregate_image(
                 agg_start_date=agg_start_date,
-                agg_end_date=ee.Date(agg_start_date).advance(15, 'day'),
-                date_format='YYYYMM')
+                agg_end_date=ee.Date(agg_start_date).advance(1, 'day'),
+                date_format='YYYYMMdd')
 
-        return ee.ImageCollection(month_list.map(aggregate_monthly))
+        return ee.ImageCollection(daily_coll.map(aggregate_daily))
 
     def get_image_ids(self):
         """Return image IDs of the input images
@@ -208,8 +201,12 @@ class Collection():
 
 def build_target(dates):
 
-    images = [ee.Image(ee.ImageCollection("IDAHO_EPSCOR/GRIDMET"
-                                          ).filterDate(s, e).select('pr').toBands()) for s, e in dates]
+    def time(i, d):
+        return i.double().multiply(0).add(d).rename(['time'])
+
+    images = [ee.Image(ee.ImageCollection("IDAHO_EPSCOR/GRIDMET").select('pr').first()) for i, _ in enumerate(dates)]
+    dates = [ee.Date.fromYMD(x.year, x.month, x.day).millis() for x in dates]
+    images = [i.addBands([time(i, d)]) for i, d in zip(images, dates)]
     coll_ = ee.ImageCollection.fromImages(images)
     return coll_
 
@@ -232,13 +229,11 @@ if __name__ == '__main__':
     year = 2017
     s = datetime(year, 1, 1)
     e = datetime(year + 1, 1, 1)
-    d_times = [(d, d + timedelta(days=1)) for d in rrule(dtstart=s, until=e, interval=15, freq=DAILY)]
-    d_strings = [(x.strftime('%Y-%m-%d'), y.strftime('%Y-%m-%d')) for x, y in d_times]
+    d_times = [d for d in rrule(dtstart=s, until=e, interval=15, freq=DAILY)]
+    # d_strings = [(x.strftime('%Y-%m-%d'), y.strftime('%Y-%m-%d'), x) for x, y in d_times]
 
     cloud_cover = 100
     interp_days = 32
-    interp_method = 'LINEAR'
-
     test_xy = [-121.5265, 38.7399]
     test_point = ee.Geometry.Point(test_xy)
 
@@ -249,7 +244,7 @@ if __name__ == '__main__':
     study_region = study_area.bounds(1, 'EPSG:4326')
     study_crs = 'EPSG:32610'
 
-    target = build_target(d_strings)
+    target = build_target(d_times)
 
     model_obj = Collection(
         collections=collections,
@@ -262,5 +257,10 @@ if __name__ == '__main__':
     daily_coll = model_obj.interpolate(target,
                                        variables=variables,
                                        interp_days=interp_days)
+
+    image = ee.Image(daily_coll.select(['ndvi'])).reproject(crs=study_crs, scale=100)
+    image_url = image.getThumbURL({'min': -1.0, 'max': 1.0, 'palette': ndvi_palette,
+                      'region': study_region, 'dimensions': image_size})
+    Img(image_url, embed=True, format='png')
 
 # =======================================================================================

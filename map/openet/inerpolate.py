@@ -8,8 +8,8 @@ from dateutil.relativedelta import *
 from map.openet import utils
 
 
-def custom(target_coll, source_coll, interp_days=32,
-           use_joins=False, compute_product=False):
+def daily(target_coll, source_coll, interp_days=32,
+          use_joins=False, compute_product=False):
     """Interpolate non-daily source images to a daily target image collection
     Parameters
     ----------
@@ -202,11 +202,8 @@ def custom(target_coll, source_coll, interp_days=32,
 
         # Pass the target image back out as a new band
         target_img = image.select([0]).double()
-        output_img = interp_img.addBands([target_img]) \
-\
-        # TODO: Come up with a dynamic way to name the "product" bands
-        # The product bands will have a "_1" appended to the name
-        # i.e. "et_fraction" -> "et_fraction_1"
+        output_img = interp_img.addBands([target_img])
+
         if compute_product:
             output_img = output_img \
                 .addBands([interp_img.multiply(target_img)])
@@ -217,6 +214,7 @@ def custom(target_coll, source_coll, interp_days=32,
             # 'system:time_start': utc0_time,
         })
 
+    print(target_coll.first().getInfo())
     interp_coll = ee.ImageCollection(target_coll.map(_linear))
 
     return interp_coll
