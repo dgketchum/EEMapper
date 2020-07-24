@@ -258,7 +258,7 @@ if __name__ == '__main__':
                                        variables=variables,
                                        interp_days=interp_days)
 
-    image = ee.Image(daily_coll.select(['ndvi'])).reproject(crs=study_crs, scale=100)
+    image = ee.Image(daily_coll.select(['ndvi']).first()).reproject(crs=study_crs, scale=100)
     image_url = image.getThumbURL({'min': -1.0, 'max': 1.0, 'palette': ndvi_palette,
                       'region': study_region, 'dimensions': image_size})
     Img(image_url, embed=True, format='png')
