@@ -1,5 +1,6 @@
 import copy
 import datetime
+import sys
 from pprint import pprint
 
 from datetime import datetime, timedelta
@@ -33,7 +34,7 @@ def lazy_property(fn):
     return _lazy_property
 
 
-class Collection():
+class Collection:
     """"""
 
     def __init__(
@@ -42,8 +43,8 @@ class Collection():
             start_date,
             end_date,
             geometry,
-            cloud_cover_max=70,
-            model_args=None):
+            variables=None,
+            cloud_cover_max=70):
 
         self.collections = collections
         self.start_date = start_date
@@ -51,16 +52,16 @@ class Collection():
         self.start_str = self.start_date.strftime('%Y-%m-%d')
         self.end_str = self.end_date.strftime('%Y-%m-%d')
 
+        self.variables = variables
         self.geometry = geometry
         self.cloud_cover_max = cloud_cover_max
-        self.model_args = model_args
         self._interp_vars = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2', 'tir', 'ndvi']
 
         # If collections is a string, place in a list
         if type(self.collections) is str:
             self.collections = [self.collections]
 
-    def _build(self):
+    def _build(self, interp_vars):
         """Build a merged model variable image collection
 
         Parameters
@@ -103,32 +104,37 @@ class Collection():
                     'system:time_start', ee.Date('2013-03-24').millis()))
 
             def compute_lsr(image):
-                model_object = Image.from_landsat_c1_sr(
+                model_obj = Image.from_landsat_c1_sr(
                     sr_image=ee.Image(image))
-                return model_object.calculate(variables)
+                return model_obj.calculate(interp_vars)
 
             variable_coll = variable_coll.merge(
                 ee.ImageCollection(input_coll.map(compute_lsr)))
 
         return variable_coll
 
-    def interpolate(self, target, variables, interp_days=32):
+    def interpolate(self, variables, interp_days=32):
 
         # The start/end date for the interpolation include more days
         # (+/- interp_days) than are included in the reference ET collection
         interp_start_dt = self.start_date - timedelta(days=interp_days)
         interp_end_dt = self.end_date + timedelta(days=interp_days)
 
+        daily_et_ref_coll_id = 'projects/climate-engine/cimis/daily'
+        daily_et_ref_coll = ee.ImageCollection(daily_et_ref_coll_id) \
+            .filterDate(self.start_date, self.end_date) \
+            .select(['ETr_ASCE'], ['et_reference'])
+
         interp_vars = [band for band in variables]
 
         # Count will be determined using the aggregate_coll image masks
         if 'count' in variables:
             interp_vars.append('mask')
-        # interp_vars.append('time')
+
+        interp_vars.append('time')
 
         # Build initial scene image collection
-        scene_coll = self._build()
-
+        scene_coll = self._build(interp_vars)
         # For count, compute the composite/mosaic image for the mask band only
         if 'count' in variables:
             aggregate_coll = interp.aggregate_to_daily(
@@ -143,8 +149,9 @@ class Collection():
 
         # Interpolate to a daily time step
         daily_coll = interp.daily(
-            target_coll=target,
-            source_coll=scene_coll.select(interp_vars), interp_days=interp_days)
+            target_coll=daily_et_ref_coll,
+            source_coll=scene_coll.select(interp_vars),
+            interp_days=interp_days)
 
         interp_properties = {
             'cloud_cover_max': self.cloud_cover_max,
@@ -155,7 +162,13 @@ class Collection():
 
         def aggregate_image(agg_start_date, agg_end_date, date_format):
 
+            et_reference_img = daily_coll \
+                .filterDate(agg_start_date, agg_end_date) \
+                .select(['et_reference']).sum()
+
             image_list = []
+
+            image_list.append(et_reference_img.float())
             for var in variables:
                 # Compute average ndvi over the aggregation period
                 ndvi_img = daily_coll \
@@ -199,68 +212,6 @@ class Collection():
         return sorted(list(self._build().aggregate_array('image_id').getInfo()))
 
 
-def build_target(dates):
-
-    def time(i, d):
-        return i.double().multiply(0).add(d).rename(['time'])
-
-    images = [ee.Image(ee.ImageCollection("IDAHO_EPSCOR/GRIDMET").select('pr').first()) for i, _ in enumerate(dates)]
-    dates = [ee.Date.fromYMD(x.year, x.month, x.day).millis() for x in dates]
-    images = [i.addBands([time(i, d)]) for i, d in zip(images, dates)]
-    coll_ = ee.ImageCollection.fromImages(images)
-    return coll_
-
-
 if __name__ == '__main__':
-    ee.Initialize(use_cloud_api=True)
-
-    ndvi_palette = ['#EFE7E1', '#003300']
-    et_palette = [
-        'DEC29B', 'E6CDA1', 'EDD9A6', 'F5E4A9', 'FFF4AD', 'C3E683', '6BCC5C',
-        '3BB369', '20998F', '1C8691', '16678A', '114982', '0B2C7A']
-
-    image_size = 768
-    landsat_cs = 30
-
-    collections = ['LANDSAT/LC08/C01/T1_SR',
-                   'LANDSAT/LE07/C01/T1_SR',
-                   'LANDSAT/LT05/C01/T1_SR']
-
-    year = 2017
-    s = datetime(year, 1, 1)
-    e = datetime(year + 1, 1, 1)
-    d_times = [d for d in rrule(dtstart=s, until=e, interval=15, freq=DAILY)]
-    # d_strings = [(x.strftime('%Y-%m-%d'), y.strftime('%Y-%m-%d'), x) for x, y in d_times]
-
-    cloud_cover = 100
-    interp_days = 32
-    test_xy = [-121.5265, 38.7399]
-    test_point = ee.Geometry.Point(test_xy)
-
-    # study_area = ee.Geometry.Rectangle(-122.00, 38.60, -121.00, 39.0)
-    study_area = ee.Geometry.Rectangle(
-        test_xy[0] - 0.08, test_xy[1] - 0.04,
-        test_xy[0] + 0.08, test_xy[1] + 0.04)
-    study_region = study_area.bounds(1, 'EPSG:4326')
-    study_crs = 'EPSG:32610'
-
-    target = build_target(d_times)
-
-    model_obj = Collection(
-        collections=collections,
-        start_date=s,
-        end_date=e,
-        geometry=test_point,
-        cloud_cover_max=70)
-
-    variables = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2', 'tir', 'ndvi']
-    daily_coll = model_obj.interpolate(target,
-                                       variables=variables,
-                                       interp_days=interp_days)
-
-    image = ee.Image(daily_coll.select(['ndvi']).first()).reproject(crs=study_crs, scale=100)
-    image_url = image.getThumbURL({'min': -1.0, 'max': 1.0, 'palette': ndvi_palette,
-                      'region': study_region, 'dimensions': image_size})
-    Img(image_url, embed=True, format='png')
-
+    pass
 # =======================================================================================

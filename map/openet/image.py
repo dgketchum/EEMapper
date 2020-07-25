@@ -309,8 +309,8 @@ class Image():
                   'system:id': sr_image.get('system:id'),
             })
 
-        # Instantiate the class
-        return cls(input_image, **kwargs)
+        _cls = cls(input_image, **kwargs)
+        return _cls
 
 
 if __name__ == '__main__':

@@ -214,7 +214,6 @@ def daily(target_coll, source_coll, interp_days=32,
             # 'system:time_start': utc0_time,
         })
 
-    print(target_coll.first().getInfo())
     interp_coll = ee.ImageCollection(target_coll.map(_linear))
 
     return interp_coll
