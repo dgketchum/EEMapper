@@ -1,21 +1,12 @@
-import copy
-import datetime
-import sys
+import os
 from pprint import pprint
-
 from datetime import datetime, timedelta
 from dateutil.rrule import rrule, DAILY
-from dateutil.relativedelta import relativedelta
 import ee
 
-from map.openet import utils
 from map.openet.image import Image
-from IPython.display import Image as Img
-
 import map.openet.inerpolate as interp
-
-
-# Importing to get version number, is there a better way?
+from map.openet.utils import date_0utc
 
 
 def lazy_property(fn):
@@ -113,17 +104,17 @@ class Collection:
 
         return variable_coll
 
-    def interpolate(self, variables, interp_days=32):
+    def scenes(self, variables):
+        interp_vars = [band for band in variables]
+        interp_vars.append('time')
+        scene_coll = self._build(interp_vars)
+        return ee.ImageCollection(scene_coll).select(variables)
 
-        # The start/end date for the interpolation include more days
-        # (+/- interp_days) than are included in the reference ET collection
-        interp_start_dt = self.start_date - timedelta(days=interp_days)
-        interp_end_dt = self.end_date + timedelta(days=interp_days)
+    def interpolate(self, variables, interp_days=32, dates=None):
 
-        daily_et_ref_coll_id = 'projects/climate-engine/cimis/daily'
-        daily_et_ref_coll = ee.ImageCollection(daily_et_ref_coll_id) \
-            .filterDate(self.start_date, self.end_date) \
-            .select(['ETr_ASCE'], ['et_reference'])
+        ref_et = ee.ImageCollection('IDAHO_EPSCOR/GRIDMET') \
+            .filter(ee.Filter.inList("system:time_start", dates)) \
+            .select(['etr'], ['et_reference'])
 
         interp_vars = [band for band in variables]
 
@@ -149,7 +140,7 @@ class Collection:
 
         # Interpolate to a daily time step
         daily_coll = interp.daily(
-            target_coll=daily_et_ref_coll,
+            target_coll=ref_et,
             source_coll=scene_coll.select(interp_vars),
             interp_days=interp_days)
 
@@ -166,9 +157,8 @@ class Collection:
                 .filterDate(agg_start_date, agg_end_date) \
                 .select(['et_reference']).sum()
 
-            image_list = []
+            image_list = [et_reference_img.float()]
 
-            image_list.append(et_reference_img.float())
             for var in variables:
                 # Compute average ndvi over the aggregation period
                 ndvi_img = daily_coll \
@@ -194,7 +184,7 @@ class Collection:
                 agg_end_date=ee.Date(agg_start_date).advance(1, 'day'),
                 date_format='YYYYMMdd')
 
-        return ee.ImageCollection(daily_coll.map(aggregate_daily))
+        return ee.ImageCollection(daily_coll.map(aggregate_daily)).select(variables)
 
     def get_image_ids(self):
         """Return image IDs of the input images
@@ -212,6 +202,119 @@ class Collection:
         return sorted(list(self._build().aggregate_array('image_id').getInfo()))
 
 
+def get_target_dates(s, e, interval_=15):
+    d_times = [(d, d + timedelta(days=1)) for d in rrule(dtstart=s, until=e, interval=interval_, freq=DAILY)]
+    d_strings = [(x.strftime('%Y-%m-%d'), y.strftime('%Y-%m-%d')) for x, y in d_times]
+    gm = ee.ImageCollection('IDAHO_EPSCOR/GRIDMET')
+    images = [gm.filterDate(s, e).first().getInfo()['properties']['system:time_start'] for s, e in d_strings]
+    return images
+
+
+def get_target_bands(s, e, interval_=15, vars=None):
+
+    d_times = [d for d in rrule(dtstart=s, until=e, interval=interval_, freq=DAILY)]
+    d_strings = [x.strftime('%Y%m%d') for x in d_times]
+
+    collection_bands = [['{}_{}'.format(d, b) for b in vars] for d in d_strings]
+    collection_bands = [item for sublist in collection_bands for item in sublist]
+
+    rename_bands = [['{}_{}'.format(b, d) for b in vars] for d in d_strings]
+    rename_bands = [item for sublist in rename_bands for item in sublist]
+
+    return collection_bands, rename_bands
+
+
 if __name__ == '__main__':
-    pass
+    ee.Initialize(use_cloud_api=True)
+
+    ndvi_palette = ['#EFE7E1', '#003300']
+    et_palette = [
+        'DEC29B', 'E6CDA1', 'EDD9A6', 'F5E4A9', 'FFF4AD', 'C3E683', '6BCC5C',
+        '3BB369', '20998F', '1C8691', '16678A', '114982', '0B2C7A']
+
+    image_size = 768
+    landsat_cs = 30
+
+    collections = ['LANDSAT/LC08/C01/T1_SR',
+                   'LANDSAT/LE07/C01/T1_SR',
+                   'LANDSAT/LT05/C01/T1_SR']
+
+    year = 2017
+    s = datetime(year, 3, 1)
+    e = datetime(year, 11, 1)
+    target_interval = 15
+
+    interp_days = 32
+    test_xy = [ee.Feature(ee.Geometry.Point(-112.20878671819048, 47.5176895106640), {'POINT_TYPE': 0}),
+               ee.Feature(ee.Geometry.Point(-111.61724610359778, 47.6963644206754), {'POINT_TYPE': 1}),
+               ee.Feature(ee.Geometry.Point(-112.32898130320568, 47.4473514239175), {'POINT_TYPE': 2}),
+               ee.Feature(ee.Geometry.Point(-111.74121361280626, 47.4209409545644), {'POINT_TYPE': 3})]
+
+    fc = ee.FeatureCollection(test_xy)
+
+    target_ids = get_target_dates(s, e, interval_=target_interval)
+
+    study_region = ee.Geometry.Rectangle([-112.5, 47.3, -111.5, 48.0])
+
+    model_obj = Collection(
+        collections=collections,
+        start_date=s,
+        end_date=e,
+        geometry=study_region,
+        cloud_cover_max=70)
+
+    variables_ = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2', 'tir']
+    interpolated = model_obj.interpolate(variables=variables_,
+                                         interp_days=interp_days,
+                                         dates=target_ids)
+
+    target_bands, target_rename = get_target_bands(s, e, interval_=target_interval, vars=variables_)
+
+    interp = interpolated.toBands().rename(target_rename)
+    out_name = 'interpolated'
+
+    # task = ee.batch.Export.image.toAsset(
+    #     image=interp,
+    #     description='{}_{}'.format(out_name, year),
+    #     assetId=os.path.join('users/dgketchum/IrrMapper/landsat', '{}_{}'.format(out_name, year)),
+    #     region=study_region,
+    #     scale=30,
+    #     maxPixels=1e13)
+    #
+    # task.start()
+    # print(out_name)
+
+
+    def sample_data():
+        raw = model_obj.scenes(variables_)
+        i_ndvi = interpolated.filterBounds(study_region).select(['red', 'nir']).toBands()
+        r_ndvi = raw.filterBounds(study_region).select(['red', 'nir']).toBands()
+
+        interp_series = i_ndvi.sampleRegions(collection=fc,
+                                             properties=['id'],
+                                             scale=30,
+                                             tileScale=16)
+
+        raw_series = r_ndvi.sampleRegions(collection=fc,
+                                          properties=['id'],
+                                          scale=30,
+                                          tileScale=16)
+
+        for data, name in zip([raw_series, interp_series], ['raw_rnir', 'interp_rnir']):
+            task = ee.batch.Export.table.toCloudStorage(
+                interp_series,
+                description='{}_test'.format(name),
+                bucket='wudr',
+                fileNamePrefix='{}_test'.format(name),
+                fileFormat='CSV')
+
+            task.start()
+            print(name)
+
+    sample_data()
+
+    def get_example():
+        image = ee.Image(interpolated.first().select(['ndvi'])).reproject(crs='EPSG: 4326', scale=100)
+        image_url = image.getThumbURL({'min': -1.0, 'max': 1.0, 'palette': ndvi_palette,
+                                       'region': study_region, 'dimensions': image_size})
 # =======================================================================================

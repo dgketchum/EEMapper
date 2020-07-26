@@ -19,65 +19,7 @@ KERNEL_SHAPE = [KERNEL_SIZE, KERNEL_SIZE]
 list_ = ee.List.repeat(1, KERNEL_SIZE)
 lists = ee.List.repeat(list_, KERNEL_SIZE)
 KERNEL = ee.Kernel.fixed(KERNEL_SIZE, KERNEL_SIZE, lists)
-GS_BUCKET = 'ee-irrigation-mapping'
-
-SHP_TO_YEAR_AND_COUNT = {
-    'irrigated_validation': {2003: 245, 2008: 2069, 2009: 2284, 2010: 2915, 2011: 2676,
-                             2012: 2608, 2013: 3020, 2015: 833},
-    'fallow_validation': {2009: 24, 2010: 69, 2011: 69, 2012: 100, 2013: 81},
-    'uncultivated_validation': {2003: 2372, 2008: 2372, 2009: 2372, 2010: 2372, 2011: 2372, 2012: 2372, 2013: 2372,
-                                2015: 2372},
-    'unirrigated_validation': {2003: 3584, 2008: 3584, 2009: 3584, 2010: 3584, 2011: 3584, 2012: 3584,
-                               2013: 3584, 2015: 3584},
-    'wetlands_validation': {2003: 1252, 2008: 1252, 2009: 1252, 2010: 1252, 2011: 1252, 2012: 1252,
-                            2013: 1252, 2015: 1252},
-    'irrigated_test': {2003: 245, 2008: 2069, 2009: 2284, 2010: 2915, 2011: 2676,
-                       2012: 2608, 2013: 3020, 2015: 833},
-    'irrigated_train': {2003: 741, 2008: 6574, 2009: 6849, 2010: 8342, 2011: 7297,
-                        2012: 7169, 2013: 8640, 2015: 2580},
-    'fallow_test': {2009: 24, 2010: 69, 2011: 69, 2012: 100, 2013: 81},
-    'fallow_train': {2009: 134, 2010: 301, 2011: 301, 2012: 425, 2013: 430},
-    'uncultivated_test': {2003: 2372, 2008: 2372, 2009: 2372, 2010: 2372, 2011: 2372, 2012: 2372, 2013: 2372,
-                          2015: 2372},
-    'uncultivated_train': {2003: 9537, 2008: 9537, 2009: 9537, 2010: 9537, 2011: 9537, 2012: 9537,
-                           2013: 9537, 2015: 9537},
-    'unirrigated_test': {2003: 3584, 2008: 3584, 2009: 3584, 2010: 3584, 2011: 3584, 2012: 3584,
-                         2013: 3584, 2015: 3584},
-    'unirrigated_train': {2003: 12238, 2008: 12238, 2009: 12238, 2010: 12238, 2011: 12238, 2012: 12238,
-                          2013: 12238, 2015: 12238},
-    'wetlands_test': {2003: 1252, 2008: 1252, 2009: 1252, 2010: 1252, 2011: 1252, 2012: 1252,
-                      2013: 1252, 2015: 1252},
-    'wetlands_train': {2003: 6245, 2008: 6245, 2009: 6245, 2010: 6245, 2011: 6245, 2012: 6245,
-                       2013: 6245, 2015: 6245}
-}
-
-SHP_TO_COUNT = {'wetlands_train': 6245,
-                'uncultivated_train': 9537,
-                'unirrigated_train': 12238,
-                }
-
-
-def temporally_filter_features(shapefiles, year):
-    shapefile_to_feature_collection = {}
-    for shapefile in shapefiles:
-        is_temporal = True
-        bs = os.path.basename(shapefile)
-        feature_collection = ee.FeatureCollection(shapefile)
-        if 'irrigated' in bs and 'unirrigated' not in bs:
-            feature_collection = feature_collection.filter(ee.Filter.eq("YEAR", year))
-        elif 'fallow' in bs:
-            feature_collection = feature_collection.filter(ee.Filter.eq("YEAR", year))
-        else:
-            # don't need to temporally filter non-temporal land cover classes
-            is_temporal = False
-            shapefile_to_feature_collection[shapefile] = feature_collection
-
-        if is_temporal:
-            valid_years = list(dict(SHP_TO_YEAR_AND_COUNT[bs].items()).keys())
-            if year in valid_years:
-                shapefile_to_feature_collection[shapefile] = feature_collection
-
-    return shapefile_to_feature_collection
+GS_BUCKET = 'wudr'
 
 
 def create_class_labels(shapefile_to_feature_collection):
@@ -89,7 +31,8 @@ def create_class_labels(shapefile_to_feature_collection):
 
 def extract_data_over_shapefiles(mask_shapefiles, year,
                                  out_folder, points_to_extract=None, n_shards=10):
-    image_stack = daily_landsat(year, roi)
+
+
     # Features dict for TFRecord
     features = [feat['id'] for feat in image_stack.getInfo()['bands']]
     # Add in the mask raster
