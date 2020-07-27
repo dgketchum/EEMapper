@@ -46,7 +46,7 @@ class Collection:
         self.variables = variables
         self.geometry = geometry
         self.cloud_cover_max = cloud_cover_max
-        self._interp_vars = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2', 'tir', 'ndvi']
+        self._interp_vars = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2', 'tir']
 
         # If collections is a string, place in a list
         if type(self.collections) is str:
@@ -142,7 +142,8 @@ class Collection:
         daily_coll = interp.daily(
             target_coll=ref_et,
             source_coll=scene_coll.select(interp_vars),
-            interp_days=interp_days)
+            interp_days=interp_days,
+            use_joins=True)
 
         interp_properties = {
             'cloud_cover_max': self.cloud_cover_max,
@@ -211,7 +212,6 @@ def get_target_dates(s, e, interval_=15):
 
 
 def get_target_bands(s, e, interval_=15, vars=None):
-
     d_times = [d for d in rrule(dtstart=s, until=e, interval=interval_, freq=DAILY)]
     d_strings = [x.strftime('%Y%m%d') for x in d_times]
 

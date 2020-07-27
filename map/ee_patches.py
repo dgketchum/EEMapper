@@ -2,6 +2,7 @@ import os
 import ee
 import tensorflow as tf
 import time
+from pprint import pprint
 from datetime import datetime
 from map.openet.collection import get_target_bands, get_target_dates, Collection
 from map.shapefile_meta import shapefile_counts
@@ -37,7 +38,7 @@ def create_class_labels(shp_to_fc_, yr):
     return class_labels.updateMask(class_labels), cdl
 
 
-def temporally_filter_features(polygon_ds, yr_):
+def filter_features(polygon_ds, yr_, roi):
 
     polygon_to_fc = {}
     polygon_mapping = shapefile_counts()
@@ -46,7 +47,7 @@ def temporally_filter_features(polygon_ds, yr_):
     for shapefile in polygon_ds:
         is_temporal = True
         basename = os.path.basename(shapefile)
-        feature_collection = ee.FeatureCollection(shapefile)
+        feature_collection = ee.FeatureCollection(shapefile).filterBounds(roi)
 
         if 'irrigated' in basename and 'unirrigated' not in basename:
             feature_collection = feature_collection.filter(ee.Filter.eq("YEAR", yr_))
@@ -65,10 +66,9 @@ def temporally_filter_features(polygon_ds, yr_):
     return polygon_to_fc
 
 
-def get_sr_stack(yr, region):
+def get_sr_stack(yr, roi_):
 
-    roi = ee.FeatureCollection(region)
-    roi = roi.geometry()
+    geometry_ = roi_.geometry()
 
     s = datetime(yr, 1, 1)
     e = datetime(yr + 1, 1, 1)
@@ -81,7 +81,7 @@ def get_sr_stack(yr, region):
         collections=COLLECTIONS,
         start_date=s,
         end_date=e,
-        geometry=roi,
+        geometry=geometry_,
         cloud_cover_max=70)
 
     variables_ = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2', 'tir']
@@ -98,15 +98,17 @@ def get_sr_stack(yr, region):
 def extract_data_over_shapefiles(label_polygons, year, extent, out_folder,
                                  points_to_extract=None, n_shards=10):
 
+    roi = ee.FeatureCollection(extent).filter(ee.Filter.eq('MGRS_TILE', '12TVT'))
+    pprint(roi.getInfo())
     polygon_mapping = shapefile_counts()
     polygon_mapping = {'{}_MT'.format(k): v for k, v in polygon_mapping.items()}
 
-    image_stack, bands = get_sr_stack(year, region=extent)
+    image_stack, bands = get_sr_stack(year, roi_=roi)
     features = bands + ['irr', 'cdl']
     columns = [tf.io.FixedLenFeature(shape=KERNEL_SHAPE, dtype=tf.float32) for k in features]
     feature_dict = dict(zip(features, columns))
 
-    shp_to_fc = temporally_filter_features(label_polygons, year)
+    shp_to_fc = filter_features(label_polygons, year, roi)
     class_labels, cdl_labels = create_class_labels(shp_to_fc, year)
 
     data_stack = ee.Image.cat([image_stack, class_labels, cdl_labels]).float()
@@ -153,8 +155,8 @@ def extract_data_over_shapefiles(label_polygons, year, extent, out_folder,
                         selectors=features)
 
                     # try:
-                    task.start()
-                    print('task start')
+                    # task.start()
+                    # print('task start')
 
                     # except ee.ee_exception.EEException:
                     #     print('waiting to export, sleeping for 5 minutes. Holding at \n '
