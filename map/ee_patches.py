@@ -22,11 +22,18 @@ KERNEL_SHAPE = [KERNEL_SIZE, KERNEL_SIZE]
 # gs://ee-irrigation-mapping/validation-data-july23/
 
 
-def create_class_labels(shp_to_fc_):
+def create_class_labels(shp_to_fc_, yr):
+
     class_labels = ee.Image(0).byte()
-    cdl = ee.Image(ee.ImageCollection('USDA/NASS/CDL').select('cropland'))
+
+    cdl = ee.Image(ee.ImageCollection('USDA/NASS/CDL')
+                   .filter(ee.Filter.date('{}-01-01'.format(yr), '{}-12-31'.format(yr)))
+                   .first()
+                   .select('cropland'))
+
     for shapefile, feature_collection in shp_to_fc_.items():
         class_labels = class_labels.paint(feature_collection, assign_class_code(shapefile) + 1)
+
     return class_labels.updateMask(class_labels), cdl
 
 
@@ -61,10 +68,10 @@ def temporally_filter_features(polygon_ds, yr_):
 def get_sr_stack(yr, region):
 
     roi = ee.FeatureCollection(region)
-    roi = roi.geometry()  # .bounds().getInfo()['coordinates']
+    roi = roi.geometry()
 
-    s = datetime(yr, 3, 1)
-    e = datetime(yr, 11, 1)
+    s = datetime(yr, 1, 1)
+    e = datetime(yr + 1, 1, 1)
     target_interval = 15
     interp_days = 32
 
@@ -100,7 +107,7 @@ def extract_data_over_shapefiles(label_polygons, year, extent, out_folder,
     feature_dict = dict(zip(features, columns))
 
     shp_to_fc = temporally_filter_features(label_polygons, year)
-    class_labels, cdl_labels = create_class_labels(shp_to_fc)
+    class_labels, cdl_labels = create_class_labels(shp_to_fc, year)
 
     data_stack = ee.Image.cat([image_stack, class_labels, cdl_labels]).float()
     kernel = ee.Kernel.square(KERNEL_SIZE / 2)
