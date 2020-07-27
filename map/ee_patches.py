@@ -27,14 +27,14 @@ def create_class_labels(shp_to_fc_):
     cdl = ee.Image(ee.ImageCollection('USDA/NASS/CDL').select('cropland'))
     for shapefile, feature_collection in shp_to_fc_.items():
         class_labels = class_labels.paint(feature_collection, assign_class_code(shapefile) + 1)
-    label = cdl.addBands([class_labels.updateMask(class_labels)])
-    return label
+    return class_labels.updateMask(class_labels), cdl
 
 
 def temporally_filter_features(polygon_ds, yr_):
 
     polygon_to_fc = {}
     polygon_mapping = shapefile_counts()
+    polygon_mapping = {'{}_MT'.format(k): v for k, v in polygon_mapping.items()}
 
     for shapefile in polygon_ds:
         is_temporal = True
@@ -92,6 +92,7 @@ def extract_data_over_shapefiles(label_polygons, year, extent, out_folder,
                                  points_to_extract=None, n_shards=10):
 
     polygon_mapping = shapefile_counts()
+    polygon_mapping = {'{}_MT'.format(k): v for k, v in polygon_mapping.items()}
 
     image_stack, bands = get_sr_stack(year, region=extent)
     features = bands + ['irr', 'cdl']
@@ -99,9 +100,9 @@ def extract_data_over_shapefiles(label_polygons, year, extent, out_folder,
     feature_dict = dict(zip(features, columns))
 
     shp_to_fc = temporally_filter_features(label_polygons, year)
-    class_labels = create_class_labels(shp_to_fc)
+    class_labels, cdl_labels = create_class_labels(shp_to_fc)
 
-    data_stack = ee.Image.cat([image_stack, class_labels]).float()
+    data_stack = ee.Image.cat([image_stack, class_labels, cdl_labels]).float()
     kernel = ee.Kernel.square(KERNEL_SIZE / 2)
     data_stack = data_stack.neighborhoodToArray(kernel)
 
@@ -132,7 +133,7 @@ def extract_data_over_shapefiles(label_polygons, year, extent, out_folder,
                     region=ee.Feature(polygons.get(i)).geometry(),
                     scale=30,
                     numPixels=1,
-                    tileScale=8)
+                    tileScale=16)
 
                 geometry_sample = geometry_sample.merge(sample)
                 if (i+1) % n_shards == 0:
@@ -165,13 +166,13 @@ if __name__ == '__main__':
 
     boundary = 'users/dgketchum/boundaries/MT'
 
-    root = 'users/tcolligan0/irrigated-dataset/'
+    root = 'users/dgketchum/training_polygons/'
     test = ['fallow_test', 'irrigated_test', 'uncultivated_test',
             'unirrigated_test', 'wetlands_test']
     test = [root + t for t in test]
     train = ['fallow_train', 'irrigated_train', 'uncultivated_train',
              'unirrigated_train', 'wetlands_train']
-    train = [root + t for t in train]
+    train = [root + t + '_MT' for t in train]
 
     extract_data_over_shapefiles(train, year=2010, extent=boundary, out_folder=GS_BUCKET)
 # ========================= EOF ====================================================================
