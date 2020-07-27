@@ -21,7 +21,7 @@ from datetime import datetime
 from geopandas import GeoDataFrame, read_file
 from numpy import where, sum, nan, std, array, min, max, mean, int16
 from pandas import read_csv, concat, errors, Series, merge, DataFrame
-from dask import dataframe as dd
+# from dask import dataframe as dd
 from pandas import to_datetime
 from pandas.io.json import json_normalize
 from shapely.geometry import Polygon
@@ -399,10 +399,10 @@ def join_comparison_to_shapefile(csv, shp, out_shape):
     out.to_file(out_shape)
 
 
-def duplicates(csv):
-
-    ddf = dd.read_csv(csv).drop_duplicates(subset=['LAT_GCS', 'Lon_GCS'], keep='first').compute()
-    ddf.to_csv(csv.replace('.csv', '_.csv'))
+# def duplicates(csv):
+#
+#     ddf = dd.read_csv(csv).drop_duplicates(subset=['LAT_GCS', 'Lon_GCS'], keep='first').compute()
+#     ddf.to_csv(csv.replace('.csv', '_.csv'))
 
 
 if __name__ == '__main__':
@@ -410,6 +410,6 @@ if __name__ == '__main__':
     d = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'processed_csv')
     out = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated')
     bands = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated', 'sr_series.csv')
-    duplicates(bands)
+    # duplicates(bands)
 
 # ========================= EOF ====================================================================

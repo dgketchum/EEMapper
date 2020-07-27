@@ -441,7 +441,7 @@ if __name__ == '__main__':
     irrmapper_all = os.path.join(irr_tables, 'irr_merged_ac.csv')
     totals_figure = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper',
                                  'figures', 'totals_time_series.pdf')
-    # irr_time_series_totals(irrmapper_all, nass_merged)
+    irr_time_series_totals(irrmapper_all, nass_merged)
 
     nass_irrmapper = os.path.join(irr_tables, 'nass_irrMap.csv')
     scatter_figure = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper',
@@ -466,7 +466,7 @@ if __name__ == '__main__':
     # state_bars = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'figures', 'state_bars.png')
     # state_bar_plots(state_irrmapper, save_fig=None)
 
-    irr_precip = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'tables', 'IrrMapper_Irrigation_Years_PrecipAnom.csv')
-    precip_fig = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'figures', 'precip_training_years.pdf')
-    irrigated_years_precip_anomaly(irr_precip, save_fig=precip_fig)
+    # irr_precip = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'tables', 'IrrMapper_Irrigation_Years_PrecipAnom.csv')
+    # precip_fig = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper', 'figures', 'precip_training_years.pdf')
+    # irrigated_years_precip_anomaly(irr_precip, save_fig=precip_fig)
 # ========================= EOF ====================================================================

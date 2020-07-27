@@ -36,7 +36,7 @@ STATEFP_INV = {v: k for k, v in STATEFP_MAP.items()}
 
 def irr_time_series_totals(irr, nass):
 
-    years = [2012, 2017]
+    years = [2007, 2017]
 
     df = read_csv(irr)
     df.drop(['COUNTYFP', 'COUNTYNS', 'LSAD', 'GEOID'], inplace=True, axis=1)
@@ -44,7 +44,7 @@ def irr_time_series_totals(irr, nass):
     names = [STATEFP_INV[x] for x in list(totals.index)]
     totals['NAME'] = names
     labels = ['noCdlMask_{}'.format(x) for x in years]
-    df = totals[labels] / 247.105
+    df = totals[labels]
 
     nass = read_csv(nass, index_col=[0])
     nass.dropna(axis=0, subset=['STATE_ANSI'], inplace=True)
@@ -54,9 +54,11 @@ def irr_time_series_totals(irr, nass):
     series_cols = ['VALUE_{}'.format(x) for x in years]
     cols = series_cols + ['STATE_ANSI']
     state_nass = state_nass[cols].groupby(['STATE_ANSI']).sum()
-    state_nass = state_nass.loc[list(STATEFP_INV.keys())] / 274.105
+    state_nass = state_nass.loc[list(STATEFP_INV.keys())]
     df[series_cols] = state_nass[series_cols]
-    df.to_csv('/home/dgketchum/Downloads/nass_irrmapper_2012_2017.csv')
+    names = [STATEFP_INV[x] for x in list(totals.index)]
+    df['NAME'] = names
+    df.to_csv('/home/dgketchum/Downloads/nass_irrmapper_2007_2017.csv')
 
 
 if __name__ == '__main__':
