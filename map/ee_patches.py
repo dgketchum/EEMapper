@@ -51,6 +51,7 @@ def filter_features(polygon_ds, yr_, roi):
 
         elif 'fallow' in basename:
             feature_collection = feature_collection.filter(ee.Filter.eq("YEAR", yr_))
+
         else:
             is_temporal = False
             size = feature_collection.size().getInfo()
@@ -87,9 +88,10 @@ def get_sr_stack(yr, s, e, interval, geo_):
                                          dates=target_dates)
 
     target_bands, target_rename = get_target_bands(s, e, interval_=target_interval, vars=variables_)
-    interp = interpolated.toBands().rename(target_rename)
-    spect = {k: tf.io.FixedLenFeature(shape=[256, 256], dtype=tf.float32, default_value=None) for k in target_rename}
-    pprint(spect)
+    interp = interpolated.sort('system:time_start').toBands().rename(target_rename)
+    pprint(target_bands)
+    pprint(target_rename)
+    pprint(interp.bandNames().getInfo())
     return interp, target_rename
 
 
@@ -102,6 +104,8 @@ def extract_data_over_shapefiles(label_polygons, year, out_folder,
 
     image_stack, bands = get_sr_stack(year, s, e, interv_, geo_=roi)
     features = bands + ['irr']
+    spect = {k: tf.io.FixedLenFeature(shape=[256, 256], dtype=tf.float32, default_value=None) for k in target_rename}
+    pprint(spect)
 
     shp_to_fc = filter_features(label_polygons, year, roi)
     class_labels = create_class_labels(shp_to_fc)
@@ -154,7 +158,7 @@ if __name__ == '__main__':
     test = [root + t for t in test]
     train = ['irrigated_train', 'fallow_train', 'uncultivated_train',
              'unirrigated_train', 'wetlands_train']
-    train = [root + t + '_MT' for t in train[1:]]
+    train = [root + t + '_MT' for t in train]
 
     extract_data_over_shapefiles(train, year=2010, out_folder=GS_BUCKET)
 # ========================= EOF ====================================================================
