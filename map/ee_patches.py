@@ -1,13 +1,12 @@
 import os
 import ee
-import tensorflow as tf
+# import tensorflow as tf
 import time
-from pprint import pprint
+# from pprint import pprint
 from datetime import datetime
 from map.openet.collection import get_target_bands, get_target_dates, Collection
 from map.shapefile_meta import shapefile_counts
 from map.ee_utils import assign_class_code
-
 
 COLLECTIONS = ['LANDSAT/LC08/C01/T1_SR',
                'LANDSAT/LE07/C01/T1_SR',
@@ -17,29 +16,25 @@ GS_BUCKET = 'wudr'
 KERNEL_SIZE = 256
 KERNEL_SHAPE = [KERNEL_SIZE, KERNEL_SIZE]
 
+MGRS = 'users/dgketchum/boundaries/MGRS_TILE'
+
+
 # Tommy's training data
 # gs://ee-irrigation-mapping/train-data-july9_1-578/
 # gs://ee-irrigation-mapping/test-data-july23/
 # gs://ee-irrigation-mapping/validation-data-july23/
 
 
-def create_class_labels(shp_to_fc_, yr):
-
+def create_class_labels(shp_to_fc_):
     class_labels = ee.Image(0).byte()
 
-    cdl = ee.Image(ee.ImageCollection('USDA/NASS/CDL')
-                   .filter(ee.Filter.date('{}-01-01'.format(yr), '{}-12-31'.format(yr)))
-                   .first()
-                   .select('cropland'))
+    for asset, (n, _fc) in shp_to_fc_.items():
+        class_labels = class_labels.paint(_fc, assign_class_code(asset) + 1)
 
-    for shapefile, feature_collection in shp_to_fc_.items():
-        class_labels = class_labels.paint(feature_collection, assign_class_code(shapefile) + 1)
-
-    return class_labels.updateMask(class_labels), cdl
+    return class_labels.updateMask(class_labels)
 
 
 def filter_features(polygon_ds, yr_, roi):
-
     polygon_to_fc = {}
     polygon_mapping = shapefile_counts()
     polygon_mapping = {'{}_MT'.format(k): v for k, v in polygon_mapping.items()}
@@ -56,23 +51,22 @@ def filter_features(polygon_ds, yr_, roi):
             feature_collection = feature_collection.filter(ee.Filter.eq("YEAR", yr_))
         else:
             is_temporal = False
-            polygon_to_fc[shapefile] = feature_collection
+            size = feature_collection.size().getInfo()
+            polygon_to_fc[shapefile] = (size, feature_collection)
 
         if is_temporal:
             valid_years = list(dict(polygon_mapping[basename].items()).keys())
             if yr_ in valid_years:
-                polygon_to_fc[shapefile] = feature_collection
+                size = feature_collection.size().getInfo()
+                polygon_to_fc[shapefile] = (size, feature_collection)
 
     return polygon_to_fc
 
 
-def get_sr_stack(yr, roi_):
-
-    geometry_ = roi_.geometry()
-
-    s = datetime(yr, 1, 1)
-    e = datetime(yr + 1, 1, 1)
-    target_interval = 15
+def get_sr_stack(yr, geo_):
+    s = datetime(yr, 5, 1)
+    e = datetime(yr, 10, 1)
+    target_interval = 60
     interp_days = 32
 
     target_dates = get_target_dates(s, e, interval_=target_interval)
@@ -81,62 +75,52 @@ def get_sr_stack(yr, roi_):
         collections=COLLECTIONS,
         start_date=s,
         end_date=e,
-        geometry=geometry_,
-        cloud_cover_max=70)
+        geometry=geo_,
+        cloud_cover_max=100)
 
     variables_ = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2', 'tir']
+
     interpolated = model_obj.interpolate(variables=variables_,
                                          interp_days=interp_days,
                                          dates=target_dates)
 
     target_bands, target_rename = get_target_bands(s, e, interval_=target_interval, vars=variables_)
-
     interp = interpolated.toBands().rename(target_rename)
     return interp, target_rename
 
 
-def extract_data_over_shapefiles(label_polygons, year, extent, out_folder,
-                                 points_to_extract=None, n_shards=10):
+def extract_data_over_shapefiles(label_polygons, year, out_folder,
+                                 points_to_extract=None, n_shards=1):
 
-    roi = ee.FeatureCollection(extent).filter(ee.Filter.eq('MGRS_TILE', '12TVT'))
-    pprint(roi.getInfo())
-    polygon_mapping = shapefile_counts()
-    polygon_mapping = {'{}_MT'.format(k): v for k, v in polygon_mapping.items()}
+    roi = ee.FeatureCollection(MGRS).filter(ee.Filter.eq('MGRS_TILE', '12TVT')).geometry()
 
-    image_stack, bands = get_sr_stack(year, roi_=roi)
-    features = bands + ['irr', 'cdl']
-    columns = [tf.io.FixedLenFeature(shape=KERNEL_SHAPE, dtype=tf.float32) for k in features]
-    feature_dict = dict(zip(features, columns))
+    # test_xy = [-111.8148, 47.52720]
+    # roi = ee.Geometry.Rectangle(
+    #     test_xy[0] - 0.15, test_xy[1] - 0.15,
+    #     test_xy[0] + 0.15, test_xy[1] + 0.15)
+    # roi = roi.bounds(1, 'EPSG:4326')
+
+    image_stack, bands = get_sr_stack(year, geo_=roi)
+    features = bands + ['irr']
 
     shp_to_fc = filter_features(label_polygons, year, roi)
-    class_labels, cdl_labels = create_class_labels(shp_to_fc, year)
+    class_labels = create_class_labels(shp_to_fc)
 
-    data_stack = ee.Image.cat([image_stack, class_labels, cdl_labels]).float()
+    data_stack = ee.Image.cat([image_stack, class_labels]).float()
+    # data_stack = image_stack.addBands([class_labels])
     kernel = ee.Kernel.square(KERNEL_SIZE / 2)
     data_stack = data_stack.neighborhoodToArray(kernel)
 
     if points_to_extract is None:
-        for shapefile, feature_collection in shp_to_fc.items():
+        for asset, (n_features, fc_) in shp_to_fc.items():
 
-            polygons = feature_collection.toList(feature_collection.size())
-            n_features = polygon_mapping[os.path.basename(shapefile)][year]
-
-            out_class_label = os.path.basename(shapefile)
+            polygons = fc_.toList(fc_.size())
+            out_class_label = os.path.basename(asset)
             out_filename = out_folder + "_" + out_class_label + "_" + str(year)
 
             geometry_sample = ee.ImageCollection([])
-            if 'irrigated' in out_class_label and 'unirrigated' not in out_class_label:
-                rate = 1
-            elif 'fallow' in out_class_label:
-                rate = 1
-            else:
-                rate = 10
 
-            print(year, shapefile, rate)
             for i in range(n_features):
-
-                if i % rate != 0:
-                    continue
 
                 sample = data_stack.sample(
                     region=ee.Feature(polygons.get(i)).geometry(),
@@ -145,7 +129,7 @@ def extract_data_over_shapefiles(label_polygons, year, extent, out_folder,
                     tileScale=16)
 
                 geometry_sample = geometry_sample.merge(sample)
-                if (i+1) % n_shards == 0:
+                if (i + 1) % n_shards == 0:
                     task = ee.batch.Export.table.toCloudStorage(
                         collection=geometry_sample,
                         description=out_filename + str(time.time()),
@@ -154,34 +138,23 @@ def extract_data_over_shapefiles(label_polygons, year, extent, out_folder,
                         fileFormat='TFRecord',
                         selectors=features)
 
-                    # try:
-                    # task.start()
-                    # print('task start')
-
-                    # except ee.ee_exception.EEException:
-                    #     print('waiting to export, sleeping for 5 minutes. Holding at \n '
-                    #           '{} {} {}, index {}'.format(year, shapefile, rate, i))
-                    #     time.sleep(300)
-                    #     task.start()
-                    #     print('task start')
-
-                    geometry_sample = ee.ImageCollection([])
-                    break
+                    task.start()
+                    print(year, asset)
+                    exit()
 
 
 if __name__ == '__main__':
-
     ee.Initialize(use_cloud_api=True)
 
     boundary = 'users/dgketchum/boundaries/MT'
 
     root = 'users/dgketchum/training_polygons/'
-    test = ['fallow_test', 'irrigated_test', 'uncultivated_test',
+    test = ['irrigated_test', 'fallow_test', 'uncultivated_test',
             'unirrigated_test', 'wetlands_test']
     test = [root + t for t in test]
-    train = ['fallow_train', 'irrigated_train', 'uncultivated_train',
+    train = ['irrigated_train', 'fallow_train', 'uncultivated_train',
              'unirrigated_train', 'wetlands_train']
     train = [root + t + '_MT' for t in train]
 
-    extract_data_over_shapefiles(train, year=2010, extent=boundary, out_folder=GS_BUCKET)
+    extract_data_over_shapefiles(train, year=2010, out_folder=GS_BUCKET)
 # ========================= EOF ====================================================================
