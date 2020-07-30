@@ -1,9 +1,11 @@
 import os
 import ee
-# import tensorflow as tf
 import time
-# from pprint import pprint
+from collections import OrderedDict
+from pprint import pprint
 from datetime import datetime
+
+import tensorflow as tf
 from map.openet.collection import get_target_bands, get_target_dates, Collection
 from map.shapefile_meta import shapefile_counts
 from map.ee_utils import assign_class_code
@@ -63,9 +65,9 @@ def filter_features(polygon_ds, yr_, roi):
     return polygon_to_fc
 
 
-def get_sr_stack(yr, geo_):
-    s = datetime(yr, 5, 1)
-    e = datetime(yr, 10, 1)
+def get_sr_stack(yr, s, e, interval, geo_):
+    s = datetime(yr, s, 1)
+    e = datetime(yr, e, 1)
     target_interval = 60
     interp_days = 32
 
@@ -86,28 +88,25 @@ def get_sr_stack(yr, geo_):
 
     target_bands, target_rename = get_target_bands(s, e, interval_=target_interval, vars=variables_)
     interp = interpolated.toBands().rename(target_rename)
+    spect = {k: tf.io.FixedLenFeature(shape=[256, 256], dtype=tf.float32, default_value=None) for k in target_rename}
+    pprint(spect)
     return interp, target_rename
 
 
 def extract_data_over_shapefiles(label_polygons, year, out_folder,
-                                 points_to_extract=None, n_shards=1):
+                                 points_to_extract=None, n_shards=4):
+
+    s, e, interv_ = 5, 10, 60
 
     roi = ee.FeatureCollection(MGRS).filter(ee.Filter.eq('MGRS_TILE', '12TVT')).geometry()
 
-    # test_xy = [-111.8148, 47.52720]
-    # roi = ee.Geometry.Rectangle(
-    #     test_xy[0] - 0.15, test_xy[1] - 0.15,
-    #     test_xy[0] + 0.15, test_xy[1] + 0.15)
-    # roi = roi.bounds(1, 'EPSG:4326')
-
-    image_stack, bands = get_sr_stack(year, geo_=roi)
+    image_stack, bands = get_sr_stack(year, s, e, interv_, geo_=roi)
     features = bands + ['irr']
 
     shp_to_fc = filter_features(label_polygons, year, roi)
     class_labels = create_class_labels(shp_to_fc)
 
     data_stack = ee.Image.cat([image_stack, class_labels]).float()
-    # data_stack = image_stack.addBands([class_labels])
     kernel = ee.Kernel.square(KERNEL_SIZE / 2)
     data_stack = data_stack.neighborhoodToArray(kernel)
 
@@ -116,7 +115,8 @@ def extract_data_over_shapefiles(label_polygons, year, out_folder,
 
             polygons = fc_.toList(fc_.size())
             out_class_label = os.path.basename(asset)
-            out_filename = out_folder + "_" + out_class_label + "_" + str(year)
+            out_filename = '{}_{}_s{}e{}int{}'.format(out_folder, out_class_label,
+                                                      s, e, interv_)
 
             geometry_sample = ee.ImageCollection([])
 
@@ -132,9 +132,9 @@ def extract_data_over_shapefiles(label_polygons, year, out_folder,
                 if (i + 1) % n_shards == 0:
                     task = ee.batch.Export.table.toCloudStorage(
                         collection=geometry_sample,
-                        description=out_filename + str(time.time()),
+                        description=out_filename,
                         bucket=GS_BUCKET,
-                        fileNamePrefix=out_filename + str(time.time()),
+                        fileNamePrefix=out_filename,
                         fileFormat='TFRecord',
                         selectors=features)
 
@@ -154,7 +154,7 @@ if __name__ == '__main__':
     test = [root + t for t in test]
     train = ['irrigated_train', 'fallow_train', 'uncultivated_train',
              'unirrigated_train', 'wetlands_train']
-    train = [root + t + '_MT' for t in train]
+    train = [root + t + '_MT' for t in train[1:]]
 
     extract_data_over_shapefiles(train, year=2010, out_folder=GS_BUCKET)
 # ========================= EOF ====================================================================
