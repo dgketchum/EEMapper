@@ -18,8 +18,9 @@ GS_BUCKET = 'wudr'
 KERNEL_SIZE = 256
 KERNEL_SHAPE = [KERNEL_SIZE, KERNEL_SIZE]
 
-MGRS = 'users/dgketchum/boundaries/MGRS_TILE'
-
+BOUNDARIES = 'users/dgketchum/boundaries'
+MGRS = os.path.join(BOUNDARIES, 'MGRS_TILE')
+MT = os.path.join(BOUNDARIES, 'MT')
 
 # Tommy's training data
 # gs://ee-irrigation-mapping/train-data-july9_1-578/
@@ -33,7 +34,9 @@ def create_class_labels(shp_to_fc_):
     for asset, (n, _fc) in shp_to_fc_.items():
         class_labels = class_labels.paint(_fc, assign_class_code(asset) + 1)
 
-    return class_labels.updateMask(class_labels)
+    labels = class_labels.updateMask(class_labels)
+
+    return labels
 
 
 def filter_features(polygon_ds, yr_, roi):
@@ -69,8 +72,8 @@ def filter_features(polygon_ds, yr_, roi):
 def get_sr_stack(yr, s, e, interval, geo_):
     s = datetime(yr, s, 1)
     e = datetime(yr, e, 1)
-    target_interval = 60
-    interp_days = 32
+    target_interval = interval
+    interp_days = 0
 
     target_dates = get_target_dates(s, e, interval_=target_interval)
 
@@ -79,7 +82,7 @@ def get_sr_stack(yr, s, e, interval, geo_):
         start_date=s,
         end_date=e,
         geometry=geo_,
-        cloud_cover_max=100)
+        cloud_cover_max=60)
 
     variables_ = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2', 'tir']
 
@@ -87,24 +90,51 @@ def get_sr_stack(yr, s, e, interval, geo_):
                                          interp_days=interp_days,
                                          dates=target_dates)
 
-    target_bands, target_rename = get_target_bands(s, e, interval_=target_interval, vars=variables_)
-    interp = interpolated.sort('system:time_start').toBands().rename(target_rename)
-    pprint(target_bands)
-    pprint(target_rename)
-    pprint(interp.bandNames().getInfo())
-    return interp, target_rename
+    interp = interpolated.sort('system:time_start')
+    # TODO: map rename function over collection to append date to var name
+    return interp
 
 
 def extract_data_over_shapefiles(label_polygons, year, out_folder,
                                  points_to_extract=None, n_shards=4):
 
-    s, e, interv_ = 5, 10, 60
+    test_xy = [-121.5265, 38.7399]
+    test_point = ee.Geometry.Point(test_xy)
 
-    roi = ee.FeatureCollection(MGRS).filter(ee.Filter.eq('MGRS_TILE', '12TVT')).geometry()
+    # study_area = ee.Geometry.Rectangle(-122.00, 38.60, -121.00, 39.0)
+    study_area = ee.Geometry.Rectangle(
+        test_xy[0] - 0.04, test_xy[1] - 0.02,
+        test_xy[0] + 0.04, test_xy[1] + 0.02)
+    study_region = study_area.bounds(1, 'EPSG:4326')
 
-    image_stack, bands = get_sr_stack(year, s, e, interv_, geo_=roi)
-    features = bands + ['irr']
-    spect = {k: tf.io.FixedLenFeature(shape=[256, 256], dtype=tf.float32, default_value=None) for k in target_rename}
+    s, e, interv_ = 5, 8, 60
+
+    # roi = ee.FeatureCollection(MT).geometry()
+    roi = study_region
+
+    image_stack = get_sr_stack(year, s, e, interv_, geo_=roi)
+
+    renames = ['{}_{}'.format(x[9:], x[:8]) for x in names]
+    out_filename = '{}_s{}e{}int{}'.format('irri_test', s, e, interv_)
+
+    asset_root = 'users/dgketchum/training_polygons'
+    task = ee.batch.Export.image.toAsset(
+        image=image_stack,
+        description='{}_{}'.format(year, out_filename),
+        assetId=os.path.join(asset_root, '{}_{}'.format(out_filename, year)),
+        region=study_area,
+        scale=30,
+        maxPixels=1e13)
+
+    task.start()
+    print(year)
+    exit()
+
+
+    features = bands + ['constant']
+    spect = {k: tf.io.FixedLenFeature(shape=[256, 256],
+                                      dtype=tf.float32,
+                                      default_value=None) for k in features}
     pprint(spect)
 
     shp_to_fc = filter_features(label_polygons, year, roi)
@@ -130,9 +160,11 @@ def extract_data_over_shapefiles(label_polygons, year, out_folder,
                     region=ee.Feature(polygons.get(i)).geometry(),
                     scale=30,
                     numPixels=1,
-                    tileScale=16)
+                    tileScale=16,
+                    dropNulls=False)
 
                 geometry_sample = geometry_sample.merge(sample)
+
                 if (i + 1) % n_shards == 0:
                     task = ee.batch.Export.table.toCloudStorage(
                         collection=geometry_sample,
@@ -149,8 +181,6 @@ def extract_data_over_shapefiles(label_polygons, year, out_folder,
 
 if __name__ == '__main__':
     ee.Initialize(use_cloud_api=True)
-
-    boundary = 'users/dgketchum/boundaries/MT'
 
     root = 'users/dgketchum/training_polygons/'
     test = ['irrigated_test', 'fallow_test', 'uncultivated_test',
