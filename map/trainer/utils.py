@@ -1,31 +1,23 @@
 import numpy as np
 import time
 import os
+import io
+from pprint import pprint
+from PIL import Image
+
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 import tensorflow as tf
 
 from collections import defaultdict
 from sklearn.metrics import confusion_matrix
+
+from map.trainer.config import BUFFER_SIZE
 from map.trainer import feature_spec
 
-features_dict = feature_spec.features_dict()
-bands = feature_spec.bands()
-features = feature_spec.features()
-
-
-def one_hot(labels, n_classes):
-    h, w, d = labels.shape
-    labels = tf.squeeze(labels)
-    ls = []
-    for i in range(n_classes):
-        if i == 0:
-            where = tf.where(labels != i + 1, tf.zeros((h, w)), 1 * tf.ones((h, w)))
-        else:
-            where = tf.where(labels != i + 1, tf.zeros((h, w)), tf.ones((h, w)))
-        ls.append(where)
-    temp = tf.stack(ls, axis=-1)
-    return temp
+FEATURES_DICT = feature_spec.features_dict()
+BANDS = feature_spec.bands()
+FEATURES = feature_spec.features()
 
 
 def mask_unlabeled_values(y_true, y_pred):
@@ -86,6 +78,39 @@ def m_acc(y_true, y_pred):
     return acc
 
 
+def add_ndvi_raster(image_stack):
+    '''
+    These indices are hardcoded, and taken from the
+    sorted keys in feature_spec.
+    (NIR - Red) / (NIR + Red)
+        2 0_nir_mean
+        3 0_red_mean
+        8 1_nir_mean
+        9 1_red_mean
+        14 2_nir_mean
+        15 2_red_mean
+        20 3_nir_mean
+        21 3_red_mean
+        26 4_nir_mean
+        27 4_red_mean
+        32 5_nir_mean
+        33 5_red_mean
+    '''
+    out = []
+    for nir_idx, red_idx in NDVI_INDICES:
+        # Add a small constant in the denominator to ensure
+        # NaNs don't occur because of missing data. Missing
+        # data (i.e. Landsat 7 scan line failure) is represented as 0
+        # in TFRecord files. Adding \{epsilon} will barely
+        # change the non-missing data, and will make sure missing data
+        # is still 0 when it's fed into the model.
+        ndvi = (image_stack[:, :, nir_idx] - image_stack[:, :, red_idx]) / \
+               (image_stack[:, :, nir_idx] + image_stack[:, :, red_idx] + 1e-8)
+        out.append(ndvi)
+    stack = tf.concat((image_stack, tf.stack(out, axis=-1)), axis=-1)
+    return stack
+
+
 def parse_tfrecord(example_proto):
     """the parsing function.
     read a serialized example into the structure defined by features_dict.
@@ -94,31 +119,7 @@ def parse_tfrecord(example_proto):
     returns:
       a dictionary of tensors, keyed by feature name.
     """
-    return tf.io.parse_single_example(example_proto, features_dict)
-
-
-def make_dataset(root, batch_size=16, training=True):
-    paths = ['irrigated', 'uncultivated', 'unirrigated']
-    pattern = "*gz"
-    datasets = []
-    for path in paths:
-        if os.path.isdir(os.path.join(root, path)):
-            training_root = os.path.join(root, path, pattern)
-            dataset = get_dataset(training_root)
-            if training:
-                datasets.append(dataset.repeat())
-            else:
-                datasets.append(dataset)
-    if not len(datasets):
-        training_root = os.path.join(root, pattern)
-        datasets = [get_dataset(training_root)]
-    if not training:
-        return datasets
-    choice_dataset = tf.data.Dataset.range(len(paths)).repeat()
-    dataset = tf.data.experimental.choose_from_datasets(datasets,
-                                                        choice_dataset).batch(batch_size).repeat().shuffle(
-        buffer_size=30)
-    return dataset
+    return tf.io.parse_single_example(example_proto, FEATURES_DICT)
 
 
 def filter_list_into_classes(lst):
@@ -146,7 +147,7 @@ def make_training_dataset(root, batch_size=16):
     choice_dataset = tf.data.Dataset.range(len(datasets)).repeat()
     dataset = tf.data.experimental.choose_from_datasets(datasets,
                                                         choice_dataset).batch(batch_size).repeat().shuffle(
-        buffer_size=config.BUFFER_SIZE)
+        buffer_size=BUFFER_SIZE)
     return dataset
 
 
@@ -166,50 +167,95 @@ def get_dataset(pattern):
     Returns:
       A tf.data.Dataset
     """
-    glob = tf.io.gfile.glob(pattern)
-    dataset = tf.data.TFRecordDataset(glob, compression_type='GZIP')
-    dataset = dataset.map(parse_tfrecord, num_parallel_calls=5)
-    dataset = dataset.map(to_tuple, num_parallel_calls=5)
+    if not isinstance(pattern, list):
+        pattern = tf.io.gfile.glob(pattern)
+    dataset = tf.data.TFRecordDataset(pattern, compression_type='GZIP',
+                                      num_parallel_reads=8)
 
+    dataset = dataset.map(parse_tfrecord, num_parallel_calls=5)
+    to_tup = to_tuple(add_ndvi=False)
+    dataset = dataset.map(to_tup, num_parallel_calls=5)
     return dataset
 
 
-def to_tuple(inputs):
-    """Function to convert a dictionary of tensors to a tuple of (inputs, outputs).
+def one_hot(labels, n_classes):
+    h, w = labels.shape
+    labels = tf.squeeze(labels)
+    ls = []
+    for i in range(n_classes):
+        where = tf.where(labels != i + 1, tf.zeros((h, w)), 1 * tf.ones((h, w)))
+        ls.append(where)
+    temp = tf.stack(ls, axis=-1)
+    return temp
+
+
+def make_dataset(root, batch_size=16, training=True):
+    paths = ['irrigated', 'uncultivated', 'unirrigated']
+    pattern = "*gz"
+    datasets = []
+    for path in paths:
+        if os.path.isdir(os.path.join(root, path)):
+            training_root = os.path.join(root, path, pattern)
+            dataset = get_dataset(training_root)
+            if training:
+                datasets.append(dataset.repeat())
+            else:
+                datasets.append(dataset)
+    if not len(datasets):
+        training_root = os.path.join(root, pattern)
+        datasets = [get_dataset(training_root)]
+    if not training:
+        return datasets
+    choice_dataset = tf.data.Dataset.range(len(paths)).repeat()
+    dataset = tf.data.experimental.choose_from_datasets(datasets,
+                                                        choice_dataset).batch(batch_size).repeat().shuffle(
+        buffer_size=30)
+    return dataset
+
+
+def to_tuple(add_ndvi):
+    """
+    Function to convert a dictionary of tensors to a tuple of (inputs, outputs).
     Turn the tensors returned by parse_tfrecord into a stack in HWC shape.
     Args:
       inputs: A dictionary of tensors, keyed by feature name.
     Returns:
       A tuple of (inputs, outputs).
     """
-    inputsList = [inputs.get(key) for key in sorted(features)]
-    stacked = tf.stack(inputsList, axis=0)
-    # Convert from CHW to HWC
-    stacked = tf.transpose(stacked, [1, 2, 0])
-    inputs = stacked[:, :, :len(bands)] * 0.0001
-    labels = one_hot(stacked[:, :, len(bands):], n_classes=5)
-    labels = tf.cast(labels, tf.int32)
-    return inputs, labels
+
+    def to_tup(inputs):
+        features_list = [inputs.get(key) for key in sorted(FEATURES)]
+        stacked = tf.stack(features_list, axis=0)
+        # Convert from CHW to HWC
+        stacked = tf.transpose(stacked, [1, 2, 0]) * 0.0001
+        if add_ndvi:
+            image_stack = add_ndvi_raster(stacked)
+        else:
+            image_stack = stacked
+        # 'constant' is the label for label raster.
+        labels = one_hot(inputs.get('constant'), n_classes=5)
+        labels = tf.cast(labels, tf.int32)
+        return image_stack, labels
+
+    return to_tup
 
 
 if __name__ == '__main__':
 
     from matplotlib import pyplot as plt
+    tf.executing_eagerly()
 
     home = os.path.expanduser('~')
     tf_recs = os.path.join(home, 'IrrigationGIS', 'tfrecords')
-    dataset = make_test_dataset(tf_recs, True).batch(1)
+    # tf_rec = os.path.join(tf_recs, 'wudr_irrigated_train_MT_s5e9int60.tfrecord')
 
-    for features, labels in dataset:
-        lb = np.sum(labels, axis=-1) == 0
-        lab = np.argmax(labels, axis=-1).astype(np.float32)
-        lab[lb] = np.nan
-        f, ax = plt.subplots(ncols=2)
-        ax[0].imshow(lab.squeeze())
+    dataset = make_test_dataset(tf_recs, True).batch(1)
+    print(dataset)
+    for j, (features, labels) in enumerate(dataset):
+        labels = labels.numpy()
         features = features.numpy().squeeze()
-        vis = np.dstack((features[:, :, 3], features[:, :, 1], features[:, :, 0]))
-        vis = vis / np.max(vis)
-        ax[1].imshow(vis)
-        # plt.colorbar()
-        plt.show()
-        break
+        print(features.shape)
+        print(labels.shape)
+        mask = np.sum(labels, axis=-1) == 0
+        labels = np.argmax(labels, axis=-1).astype(np.float32)
+        pass
