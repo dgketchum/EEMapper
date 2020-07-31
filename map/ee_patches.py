@@ -90,9 +90,9 @@ def get_sr_stack(yr, s, e, interval, geo_):
                                          interp_days=interp_days,
                                          dates=target_dates)
 
-    interp = interpolated.sort('system:time_start')
+    interp = interpolated.sort('system:time_start').toBands()
     # TODO: map rename function over collection to append date to var name
-    return interp
+    return interp, interp.bandNames().getInfo()
 
 
 def extract_data_over_shapefiles(label_polygons, year, out_folder,
@@ -109,33 +109,12 @@ def extract_data_over_shapefiles(label_polygons, year, out_folder,
 
     s, e, interv_ = 5, 8, 60
 
-    # roi = ee.FeatureCollection(MT).geometry()
-    roi = study_region
+    roi = ee.FeatureCollection(MT).geometry()
+    # roi = study_region
 
-    image_stack = get_sr_stack(year, s, e, interv_, geo_=roi)
-
-    renames = ['{}_{}'.format(x[9:], x[:8]) for x in names]
-    out_filename = '{}_s{}e{}int{}'.format('irri_test', s, e, interv_)
-
-    asset_root = 'users/dgketchum/training_polygons'
-    task = ee.batch.Export.image.toAsset(
-        image=image_stack,
-        description='{}_{}'.format(year, out_filename),
-        assetId=os.path.join(asset_root, '{}_{}'.format(out_filename, year)),
-        region=study_area,
-        scale=30,
-        maxPixels=1e13)
-
-    task.start()
-    print(year)
-    exit()
-
+    image_stack, bands = get_sr_stack(year, s, e, interv_, geo_=roi)
 
     features = bands + ['constant']
-    spect = {k: tf.io.FixedLenFeature(shape=[256, 256],
-                                      dtype=tf.float32,
-                                      default_value=None) for k in features}
-    pprint(spect)
 
     shp_to_fc = filter_features(label_polygons, year, roi)
     class_labels = create_class_labels(shp_to_fc)
@@ -143,40 +122,39 @@ def extract_data_over_shapefiles(label_polygons, year, out_folder,
     data_stack = ee.Image.cat([image_stack, class_labels]).float()
     kernel = ee.Kernel.square(KERNEL_SIZE / 2)
     data_stack = data_stack.neighborhoodToArray(kernel)
+    pprint(data_stack.bandNames().getInfo())
+    for asset, (n_features, fc_) in shp_to_fc.items():
 
-    if points_to_extract is None:
-        for asset, (n_features, fc_) in shp_to_fc.items():
+        polygons = fc_.toList(fc_.size())
+        out_class_label = os.path.basename(asset)
+        out_filename = '{}_{}_s{}e{}int{}'.format(out_folder, out_class_label,
+                                                  s, e, interv_)
 
-            polygons = fc_.toList(fc_.size())
-            out_class_label = os.path.basename(asset)
-            out_filename = '{}_{}_s{}e{}int{}'.format(out_folder, out_class_label,
-                                                      s, e, interv_)
+        geometry_sample = ee.ImageCollection([])
 
-            geometry_sample = ee.ImageCollection([])
+        for i in range(n_features):
 
-            for i in range(n_features):
+            sample = data_stack.sample(
+                region=ee.Feature(polygons.get(i)).geometry(),
+                scale=30,
+                numPixels=1,
+                tileScale=16,
+                dropNulls=False)
 
-                sample = data_stack.sample(
-                    region=ee.Feature(polygons.get(i)).geometry(),
-                    scale=30,
-                    numPixels=1,
-                    tileScale=16,
-                    dropNulls=False)
+            geometry_sample = geometry_sample.merge(sample)
+            # pprint(geometry_sample.toBands().getInfo())
+            if (i + 1) % n_shards == 0:
+                task = ee.batch.Export.table.toCloudStorage(
+                    collection=geometry_sample,
+                    description=out_filename,
+                    bucket=GS_BUCKET,
+                    fileNamePrefix=out_filename,
+                    fileFormat='TFRecord',
+                    selectors=features)
 
-                geometry_sample = geometry_sample.merge(sample)
-
-                if (i + 1) % n_shards == 0:
-                    task = ee.batch.Export.table.toCloudStorage(
-                        collection=geometry_sample,
-                        description=out_filename,
-                        bucket=GS_BUCKET,
-                        fileNamePrefix=out_filename,
-                        fileFormat='TFRecord',
-                        selectors=features)
-
-                    task.start()
-                    print(year, asset)
-                    exit()
+                task.start()
+                print(year, asset)
+                exit()
 
 
 if __name__ == '__main__':
