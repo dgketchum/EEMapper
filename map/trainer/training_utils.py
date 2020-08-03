@@ -265,9 +265,8 @@ if __name__ == '__main__':
         labels_disp[mask] = np.nan
         labels = labels[~mask]
         fig, ax = plt.subplots(ncols=2)
-        for j in range(0, length_):
-            ax[0].imshow(features[:, :, j])
-            ax[1].imshow(labels_disp.squeeze())
-            plt.suptitle(j)
-            plt.show()
+        ax[0].imshow(features[:, :, 28])
+        ax[1].imshow(labels_disp.squeeze())
+        plt.suptitle(j)
+        plt.show()
         break

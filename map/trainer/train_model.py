@@ -9,7 +9,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.metrics import Metric
 from tensorflow.keras.utils import Sequence
 
-from . import utils
+from . import training_utils
 from . import models
 from . import config
 
@@ -43,7 +43,7 @@ class StreamingF1Score(Metric):
         self.save_cmat = save_cmat
 
     def update_state(self, y_true, y_pred, sample_weight=None):
-        y_true, y_pred = utils.mask_unlabeled_values(y_true, y_pred)
+        y_true, y_pred = training_utils.mask_unlabeled_values(y_true, y_pred)
         y_true = tf.reshape(y_true, [-1])
         y_pred = tf.reshape(y_pred, [-1])
         self.cmats.assign_add(tf.cast(tf.math.confusion_matrix(y_true,
@@ -99,17 +99,17 @@ if __name__ == '__main__':
                   metrics=[m_acc, sf1])
 
     if config.REMOTE_OR_LOCAL == 'remote':
-        train = utils.make_balanced_training_dataset(os.path.join('gs://', config.BUCKET,
-                                                                  config.DATA_BUCKET, config.TRAIN_BASE),
-                                                     batch_size=config.BATCH_SIZE, add_ndvi=True)
-        test = utils.make_test_dataset(os.path.join('gs://', config.BUCKET,
-                                                    config.DATA_BUCKET, config.TEST_BASE),
-                                       batch_size=2 * config.BATCH_SIZE, add_ndvi=True)
+        train = training_utils.make_balanced_training_dataset(os.path.join('gs://', config.BUCKET,
+                                                                           config.DATA_BUCKET, config.TRAIN_BASE),
+                                                              batch_size=config.BATCH_SIZE, add_ndvi=True)
+        test = training_utils.make_test_dataset(os.path.join('gs://', config.BUCKET,
+                                                             config.DATA_BUCKET, config.TEST_BASE),
+                                                batch_size=2 * config.BATCH_SIZE, add_ndvi=True)
     else:
-        train = utils.make_training_dataset('/home/thomas/ssd/train-reextracted/',
-                                            batch_size=config.BATCH_SIZE)
-        test = utils.make_test_dataset('/home/thomas/ssd/test-reextracted/',
-                                       batch_size=2 * config.BATCH_SIZE)
+        train = training_utils.make_training_dataset('/home/thomas/ssd/train-reextracted/',
+                                                     batch_size=config.BATCH_SIZE)
+        test = training_utils.make_test_dataset('/home/thomas/ssd/test-reextracted/',
+                                                batch_size=2 * config.BATCH_SIZE)
 
     # n_test = 0
     # for fe, lab in test:

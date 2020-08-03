@@ -10,7 +10,7 @@ import numpy as np
 from datetime import datetime
 from random import shuffle
 from map.openet.collection import get_target_dates, Collection, get_target_bands
-from map.trainer import tc_ee
+from map.trainer import extract_utils
 from map.trainer.shapefile_meta import SHP_TO_YEAR_AND_COUNT
 
 KERNEL_SIZE = 256
@@ -31,7 +31,7 @@ COLLECTIONS = ['LANDSAT/LC08/C01/T1_SR',
 
 def extract_test_patches(mask_shapefiles, year,
                          out_folder, patch_shapefile):
-    image_stack = tc_ee.preprocess_data(year).toBands()
+    image_stack = extract_utils.preprocess_data(year).toBands()
     # Features dict for TFRecord
     features = [feat['id'] for feat in image_stack.getInfo()['bands']]
     # Add in the mask raster
@@ -39,8 +39,8 @@ def extract_test_patches(mask_shapefiles, year,
     columns = [tf.io.FixedLenFeature(shape=KERNEL_SHAPE, dtype=tf.float32) for k in features]
     feature_dict = dict(zip(features, columns))
 
-    shapefile_to_feature_collection = tc_ee.temporally_filter_features(mask_shapefiles, year)
-    class_labels = tc_ee.create_class_labels(shapefile_to_feature_collection)
+    shapefile_to_feature_collection = extract_utils.temporally_filter_features(mask_shapefiles, year)
+    class_labels = extract_utils.create_class_labels(shapefile_to_feature_collection)
     data_stack = ee.Image.cat([image_stack, class_labels]).float()
 
     patches = ee.FeatureCollection(patch_shapefile)
@@ -97,7 +97,7 @@ def extract_data_over_shapefiles(mask_shapefiles, year,
     image_stack = None
 
     if kind == 'mean':
-        image_stack = tc_ee.preprocess_data(year).toBands()
+        image_stack = extract_utils.preprocess_data(year).toBands()
         features = [feat['id'] for feat in image_stack.getInfo()['bands']]
     if kind == 'interp':
         roi = ee.FeatureCollection(MT).geometry()
@@ -109,11 +109,11 @@ def extract_data_over_shapefiles(mask_shapefiles, year,
     feature_dict = dict(zip(features, columns))
     pprint(feature_dict)
 
-    shapefile_to_feature_collection = tc_ee.temporally_filter_features(mask_shapefiles, year)
+    shapefile_to_feature_collection = extract_utils.temporally_filter_features(mask_shapefiles, year)
     if points_to_extract is not None:
         shapefile_to_feature_collection['points'] = points_to_extract
 
-    class_labels = tc_ee.create_class_labels(shapefile_to_feature_collection)
+    class_labels = extract_utils.create_class_labels(shapefile_to_feature_collection)
     data_stack = ee.Image.cat([image_stack, class_labels]).float()
     data_stack = data_stack.neighborhoodToArray(KERNEL)
 
