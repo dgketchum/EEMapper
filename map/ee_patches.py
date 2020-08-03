@@ -1,14 +1,14 @@
 import os
 import ee
-import time
-from collections import OrderedDict
 from pprint import pprint
 from datetime import datetime
 
 import tensorflow as tf
-from map.openet.collection import get_target_bands, get_target_dates, Collection
-from map.shapefile_meta import shapefile_counts
-from map.ee_utils import assign_class_code
+from map.openet.collection import get_target_dates, Collection
+from map.trainer.shapefile_meta import shapefile_counts, SHP_TO_YEAR_AND_COUNT
+from map.trainer.tc_ee import preprocess_data
+from map.trainer.tc_ee import create_class_labels as ccl
+from map.trainer.tc_ee import temporally_filter_features as tff
 
 COLLECTIONS = ['LANDSAT/LC08/C01/T1_SR',
                'LANDSAT/LE07/C01/T1_SR',
@@ -29,12 +29,10 @@ MT = os.path.join(BOUNDARIES, 'MT')
 
 
 def create_class_labels(shp_to_fc_):
-    class_labels = ee.Image(0).byte()
 
-    for asset, (n, _fc) in shp_to_fc_.items():
-        class_labels = class_labels.paint(_fc, assign_class_code(asset) + 1)
-
-    labels = class_labels.updateMask(class_labels)
+    labels = ee.ImageCollection('USDA/NASS/CDL') \
+                .filter(ee.Filter.date('2018-01-01', '2018-12-31')) \
+                .first().select('cultivated').rename('constant')
 
     return labels
 
@@ -73,7 +71,7 @@ def get_sr_stack(yr, s, e, interval, geo_):
     s = datetime(yr, s, 1)
     e = datetime(yr, e, 1)
     target_interval = interval
-    interp_days = 0
+    interp_days = 32
 
     target_dates = get_target_dates(s, e, interval_=target_interval)
 
@@ -90,48 +88,44 @@ def get_sr_stack(yr, s, e, interval, geo_):
                                          interp_days=interp_days,
                                          dates=target_dates)
 
+    scenes = model_obj.scenes(variables_)
+
     interp = interpolated.sort('system:time_start').toBands()
     # TODO: map rename function over collection to append date to var name
     return interp, interp.bandNames().getInfo()
 
 
 def extract_data_over_shapefiles(label_polygons, year, out_folder,
-                                 points_to_extract=None, n_shards=4):
+                                 get_points=False, n_shards=4):
 
-    test_xy = [-121.5265, 38.7399]
-    test_point = ee.Geometry.Point(test_xy)
-
-    # study_area = ee.Geometry.Rectangle(-122.00, 38.60, -121.00, 39.0)
-    study_area = ee.Geometry.Rectangle(
-        test_xy[0] - 0.04, test_xy[1] - 0.02,
-        test_xy[0] + 0.04, test_xy[1] + 0.02)
-    study_region = study_area.bounds(1, 'EPSG:4326')
-
-    s, e, interv_ = 5, 8, 60
+    s, e, interv_ = 5, 6, 60
 
     roi = ee.FeatureCollection(MT).geometry()
-    # roi = study_region
 
-    image_stack, bands = get_sr_stack(year, s, e, interv_, geo_=roi)
+    # image_stack, bands = get_sr_stack(year, s, e, interv_, geo_=roi)
+    # image_stack = preprocess_data(year).toBands()
+    # TODO: check Tommy's image stack (fresh), try to get sr interp with tff
+    features = image_stack.bandNames().getInfo() + ['constant']
 
-    features = bands + ['constant']
+    shp_to_fc = tff(label_polygons, year)
+    class_labels = create_class_labels(shp_to_fc).float()
 
-    shp_to_fc = filter_features(label_polygons, year, roi)
-    class_labels = create_class_labels(shp_to_fc)
+    columns = [tf.io.FixedLenFeature(shape=KERNEL_SHAPE, dtype=tf.float32) for k in features]
+    feature_dict = dict(zip(features, columns))
+    pprint(feature_dict)
 
     data_stack = ee.Image.cat([image_stack, class_labels]).float()
     kernel = ee.Kernel.square(KERNEL_SIZE / 2)
     data_stack = data_stack.neighborhoodToArray(kernel)
-    pprint(data_stack.bandNames().getInfo())
-    for asset, (n_features, fc_) in shp_to_fc.items():
+    for asset, fc_ in shp_to_fc.items():
+
+        n_features = SHP_TO_YEAR_AND_COUNT[os.path.basename(asset)][year]
 
         polygons = fc_.toList(fc_.size())
         out_class_label = os.path.basename(asset)
-        out_filename = '{}_{}_s{}e{}int{}'.format(out_folder, out_class_label,
-                                                  s, e, interv_)
+        out_filename = '{}_{}_means'.format(out_folder, out_class_label)
 
         geometry_sample = ee.ImageCollection([])
-
         for i in range(n_features):
 
             sample = data_stack.sample(
@@ -142,7 +136,6 @@ def extract_data_over_shapefiles(label_polygons, year, out_folder,
                 dropNulls=False)
 
             geometry_sample = geometry_sample.merge(sample)
-            # pprint(geometry_sample.toBands().getInfo())
             if (i + 1) % n_shards == 0:
                 task = ee.batch.Export.table.toCloudStorage(
                     collection=geometry_sample,
@@ -156,7 +149,6 @@ def extract_data_over_shapefiles(label_polygons, year, out_folder,
                 print(year, asset)
                 exit()
 
-
 if __name__ == '__main__':
     ee.Initialize(use_cloud_api=True)
 
@@ -166,7 +158,7 @@ if __name__ == '__main__':
     test = [root + t for t in test]
     train = ['irrigated_train', 'fallow_train', 'uncultivated_train',
              'unirrigated_train', 'wetlands_train']
-    train = [root + t + '_MT' for t in train]
+    train = [root + t for t in train]
 
-    extract_data_over_shapefiles(train, year=2010, out_folder=GS_BUCKET)
+    extract_data_over_shapefiles(train, year=2010, out_folder=GS_BUCKET, get_points=False)
 # ========================= EOF ====================================================================
