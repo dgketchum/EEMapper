@@ -9,7 +9,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.metrics import Metric
 from tensorflow.keras.utils import Sequence
 
-from . import  utils
+from . import utils
 from . import models
 from . import config
 
@@ -33,30 +33,27 @@ class StreamingF1Score(Metric):
     the integer that is passed in.
     '''
 
-    def __init__(self, name='f1', num_classes=2, 
-            focus_on_class=None, save_cmat=False, **kwargs):
+    def __init__(self, name='f1', num_classes=2,
+                 focus_on_class=None, save_cmat=False, **kwargs):
         super(StreamingF1Score, self).__init__(name=name, **kwargs)
-        self.cmats = self.add_weight(name='cmats', shape=(num_classes, 
-            num_classes), dtype=tf.float32, initializer='zeros')
+        self.cmats = self.add_weight(name='cmats', shape=(num_classes,
+                                                          num_classes), dtype=tf.float32, initializer='zeros')
         self.num_classes = num_classes
         self.focus_on_class = focus_on_class
         self.save_cmat = save_cmat
-
 
     def update_state(self, y_true, y_pred, sample_weight=None):
         y_true, y_pred = utils.mask_unlabeled_values(y_true, y_pred)
         y_true = tf.reshape(y_true, [-1])
         y_pred = tf.reshape(y_pred, [-1])
         self.cmats.assign_add(tf.cast(tf.math.confusion_matrix(y_true,
-           y_pred, num_classes=self.num_classes), tf.float32))
-        
+                                                               y_pred, num_classes=self.num_classes), tf.float32))
 
     def reset_states(self):
         if self.save_cmat:
             tf.print(self.cmats, output_stream="file://" + config.JOB_DIR)
         K.batch_set_value([(v, np.zeros((self.num_classes, self.num_classes),
-            dtype=np.float32)) for v in self.variables])
-
+                                        dtype=np.float32)) for v in self.variables])
 
     def result(self):
         f1 = self._result(self.cmats)
@@ -66,16 +63,14 @@ class StreamingF1Score(Metric):
         else:
             return tf.reduce_mean(f1)
 
-
     def _result(self, cmats):
         # returns diagonals of shape (num_classes,).
         prec = cmats / tf.reduce_sum(cmats, axis=1)
         rec = cmats / tf.reduce_sum(cmats, axis=0)
         prec = tf.linalg.tensor_diag_part(prec)
         rec = tf.linalg.tensor_diag_part(rec)
-        f1 = 2*(prec*rec)/(rec+prec)
+        f1 = 2 * (prec * rec) / (rec + prec)
         return f1
-
 
 
 def lr_schedule(epoch):
@@ -90,8 +85,8 @@ def lr_schedule(epoch):
     tf.summary.scalar('learning rate', data=rlr, step=epoch)
     return rlr
 
-if __name__ == '__main__':
 
+if __name__ == '__main__':
 
     ap = argparse.ArgumentParser()
     ap.add_argument('--job-dir')
@@ -101,18 +96,20 @@ if __name__ == '__main__':
     sf1 = StreamingF1Score(num_classes=config.N_CLASSES, focus_on_class=0)
     model = models.unet((None, None, 42), n_classes=config.N_CLASSES, initial_exp=4)
     model.compile(Adam(1e-3), loss='categorical_crossentropy',
-            metrics=[m_acc, sf1])
+                  metrics=[m_acc, sf1])
 
     if config.REMOTE_OR_LOCAL == 'remote':
         train = utils.make_balanced_training_dataset(os.path.join('gs://', config.BUCKET,
-            config.DATA_BUCKET, config.TRAIN_BASE), batch_size=config.BATCH_SIZE, add_ndvi=True)
-        test = utils.make_test_dataset(os.path.join('gs://', config.BUCKET, 
-            config.DATA_BUCKET, config.TEST_BASE), batch_size=2*config.BATCH_SIZE, add_ndvi=True)
+                                                                  config.DATA_BUCKET, config.TRAIN_BASE),
+                                                     batch_size=config.BATCH_SIZE, add_ndvi=True)
+        test = utils.make_test_dataset(os.path.join('gs://', config.BUCKET,
+                                                    config.DATA_BUCKET, config.TEST_BASE),
+                                       batch_size=2 * config.BATCH_SIZE, add_ndvi=True)
     else:
         train = utils.make_training_dataset('/home/thomas/ssd/train-reextracted/',
-                batch_size=config.BATCH_SIZE)
+                                            batch_size=config.BATCH_SIZE)
         test = utils.make_test_dataset('/home/thomas/ssd/test-reextracted/',
-                batch_size=2*config.BATCH_SIZE)
+                                       batch_size=2 * config.BATCH_SIZE)
 
     # n_test = 0
     # for fe, lab in test:
@@ -122,12 +119,12 @@ if __name__ == '__main__':
 
     model_out_path = config.MODEL_DIR + "/{val_f1:.4f}"
     lr = cbacks.LearningRateScheduler(lr_schedule, verbose=True)
-    chpt = cbacks.ModelCheckpoint(model_out_path, 
-            save_best_only=True, verbose=True, 
-            monitor='val_f1', mode='max') 
-    
+    chpt = cbacks.ModelCheckpoint(model_out_path,
+                                  save_best_only=True, verbose=True,
+                                  monitor='val_f1', mode='max')
+
     tb = cbacks.TensorBoard(log_dir=config.LOGS_DIR,
-                     update_freq='epoch')
+                            update_freq='epoch')
 
     nanloss = cbacks.TerminateOnNaN()
 
@@ -135,7 +132,7 @@ if __name__ == '__main__':
               steps_per_epoch=config.STEPS_PER_EPOCH,
               epochs=config.EPOCHS,
               validation_data=test,
-              validation_steps=config.TEST_SIZE // (2*config.BATCH_SIZE),
+              validation_steps=config.TEST_SIZE // (2 * config.BATCH_SIZE),
               callbacks=[chpt, lr, tb, nanloss],
               verbose=2)
 

@@ -87,6 +87,7 @@ def fiona_merge_attribute(out_shp, file_list):
     with fiona.open(out_shp, 'w', **meta) as output:
         ct = 0
         for s in file_list:
+            print(s)
             year, source = int(s.split('.')[0][-4:]), os.path.basename(s.split('.')[0][:-5])
             if year not in years:
                 years.append(year)
@@ -104,6 +105,7 @@ def fiona_merge_no_attribute(out_shp, file_list):
         []), 'geometry': 'Polygon'}
     with fiona.open(out_shp, 'w', **meta) as output:
         for s in file_list:
+            print(s)
             for feat in fiona.open(s):
                 feat = {'type': 'Feature', 'properties': {},
                         'geometry': feat['geometry']}
@@ -851,14 +853,11 @@ def sample_shp(in_shp, out_shp, n):
 
 
 if __name__ == '__main__':
-    home = os.path.expanduser('~')
-    gis = os.path.join(home, 'IrrigationGIS')
-    bounds = os.path.join(gis, 'boundaries', 'states')
-    state_bounds = [os.path.join(bounds, '{}_AEA.shp'.format(x)) for x in irrmapper_states]
-    irrmapper_wgs = os.path.join(gis, 'paper_irrmapper', 'shapefiles')
-    shapes = ['wetlands_AEA.shp', 'irrigated_AEA.shp', 'uncultivated_AEA.shp', 'dryland_AEA.shp']
-    wgs_inputs = [os.path.join(irrmapper_wgs, x) for x in shapes]
-    for state in state_bounds:
-        for shp in wgs_inputs:
-            get_area(shp, intersect_shape=state, add_duplicate_area=False)
+    # home = os.path.expanduser('~')
+    home = '/media/research/'
+    training = os.path.join(home, 'IrrigationGIS', 'training_data')
+    class_ = os.path.join(training, 'fallow', 'inspected')
+    files_ = [os.path.join(class_, x) for x in os.listdir(class_) if '.shp' in x]
+    local = os.path.join(os.path.expanduser('~'), 'IrrigationGIS', 'EE_sample', 'fallow_27JULY2020.shp')
+    fiona_merge_no_attribute(local, files_)
 # ========================= EOF ====================================================================

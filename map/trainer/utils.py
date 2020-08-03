@@ -18,6 +18,8 @@ from map.trainer import feature_spec
 FEATURES_DICT = feature_spec.features_dict()
 BANDS = feature_spec.bands()
 FEATURES = feature_spec.features()
+step_, length_ = 7, len(FEATURES)
+NDVI_INDICES = [(x, y) for x, y in zip(range(2, length_, step_), range(3, length_, step_))]
 
 
 def mask_unlabeled_values(y_true, y_pred):
@@ -119,7 +121,8 @@ def parse_tfrecord(example_proto):
     returns:
       a dictionary of tensors, keyed by feature name.
     """
-    return tf.io.parse_single_example(example_proto, FEATURES_DICT)
+    parsed = tf.io.parse_single_example(example_proto, FEATURES_DICT)
+    return parsed
 
 
 def filter_list_into_classes(lst):
@@ -173,7 +176,7 @@ def get_dataset(pattern):
                                       num_parallel_reads=8)
 
     dataset = dataset.map(parse_tfrecord, num_parallel_calls=5)
-    to_tup = to_tuple(add_ndvi=False)
+    to_tup = to_tuple(add_ndvi=True)
     dataset = dataset.map(to_tup, num_parallel_calls=5)
     return dataset
 
@@ -247,7 +250,7 @@ if __name__ == '__main__':
 
     home = os.path.expanduser('~')
     tf_recs = os.path.join(home, 'IrrigationGIS', 'tfrecords')
-    # tf_rec = os.path.join(tf_recs, 'wudr_irrigated_train_MT_s5e9int60.tfrecord')
+    tf_rec = os.path.join(tf_recs, 'wudr_irrigated_train_means.tfrecord')
 
     dataset = make_test_dataset(tf_recs, True).batch(1)
     print(dataset)
@@ -258,4 +261,13 @@ if __name__ == '__main__':
         print(labels.shape)
         mask = np.sum(labels, axis=-1) == 0
         labels = np.argmax(labels, axis=-1).astype(np.float32)
-        pass
+        labels_disp = labels
+        labels_disp[mask] = np.nan
+        labels = labels[~mask]
+        fig, ax = plt.subplots(ncols=2)
+        for j in range(0, length_):
+            ax[0].imshow(features[:, :, j])
+            ax[1].imshow(labels_disp.squeeze())
+            plt.suptitle(j)
+            plt.show()
+        break

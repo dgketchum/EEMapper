@@ -154,29 +154,29 @@ class Collection:
 
         def aggregate_image(agg_start_date, agg_end_date, date_format):
 
-            et_reference_img = daily_coll \
-                .filterDate(agg_start_date, agg_end_date) \
-                .select(['et_reference']).sum()
-
-            image_list = [et_reference_img.float()]
+            image_list = []
 
             for var in variables:
-                # Compute average ndvi over the aggregation period
-                ndvi_img = daily_coll \
+                # Compute average of variable over the aggregation period
+                img = daily_coll \
                     .filterDate(agg_start_date, agg_end_date) \
                     .mean().select([var]).float()
-                image_list.append(ndvi_img)
+
+                image_list.append(img)
+
             if 'count' in variables:
                 count_img = aggregate_coll \
                     .filterDate(agg_start_date, agg_end_date) \
                     .select(['mask']).count().rename('count').uint8()
                 image_list.append(count_img)
 
-            return ee.Image(image_list) \
+            agg_image = ee.Image(image_list) \
                 .set(interp_properties) \
                 .set({'system:index': ee.Date(agg_start_date).format(date_format),
                       'system:time_start': ee.Date(agg_start_date).millis(),
                       })
+
+            return agg_image
 
         def aggregate_daily(daily_img):
             agg_start_date = ee.Date(daily_img.get('system:time_start'))
@@ -185,7 +185,8 @@ class Collection:
                 agg_end_date=ee.Date(agg_start_date).advance(1, 'day'),
                 date_format='YYYYMMdd')
 
-        return ee.ImageCollection(daily_coll.map(aggregate_daily)).select(variables)
+        interp_collection = ee.ImageCollection(daily_coll.map(aggregate_daily)).select(variables)
+        return interp_collection
 
     def get_image_ids(self):
         """Return image IDs of the input images
