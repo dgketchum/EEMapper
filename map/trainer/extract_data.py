@@ -66,7 +66,7 @@ def extract_test_patches(mask_shapefiles, year,
 
 def get_sr_stack(yr, s, e, interval, geo_):
     s = datetime(yr, s, 1)
-    e = datetime(yr, e, 1)
+    e = datetime(yr + 1, e, 1)
     target_interval = interval
     interp_days = 32
 
@@ -91,19 +91,22 @@ def get_sr_stack(yr, s, e, interval, geo_):
 
 
 def extract_data_over_shapefiles(mask_shapefiles, year,
-                                 out_folder, points_to_extract=None, n_shards=10, kind='mean'):
+                                 out_folder, points_to_extract=None,
+                                 n_shards=10, kind='interp'):
 
-    s, e, interval_ = 5, 8, 30
+    roi = ee.FeatureCollection(MGRS).filter(ee.Filter.eq('MGRS_TILE', '12TVT')).geometry()
+    # roi = ee.FeatureCollection(MT).geometry()
+
+    s, e, interval_ = 1, 1, 30
     image_stack = None
 
     if kind == 'mean':
         image_stack = extract_utils.preprocess_data(year).toBands()
         features = [feat['id'] for feat in image_stack.getInfo()['bands']]
     if kind == 'interp':
-        roi = ee.FeatureCollection(MT).geometry()
         image_stack, features = get_sr_stack(year, s, e, interval_, roi)
 
-    features = features + ['constant']
+    features = features + ['lat', 'lon', 'irr', 'cdl']
 
     columns = [tf.io.FixedLenFeature(shape=KERNEL_SHAPE, dtype=tf.float32) for k in features]
     feature_dict = dict(zip(features, columns))
@@ -113,13 +116,13 @@ def extract_data_over_shapefiles(mask_shapefiles, year,
     if points_to_extract is not None:
         shapefile_to_feature_collection['points'] = points_to_extract
 
-    class_labels = extract_utils.create_class_labels(shapefile_to_feature_collection)
-    data_stack = ee.Image.cat([image_stack, class_labels]).float()
+    coords, irr, cdl = extract_utils.create_class_labels(shapefile_to_feature_collection)
+    data_stack = ee.Image.cat([image_stack, coords, irr, cdl]).float()
     data_stack = data_stack.neighborhoodToArray(KERNEL)
 
     if points_to_extract is None:
         # This extracts data over every polygon that
-        # was passed in 
+        # was passed in
         for shapefile, feature_collection in shapefile_to_feature_collection.items():
 
             polygons = feature_collection.toList(feature_collection.size())
@@ -128,7 +131,7 @@ def extract_data_over_shapefiles(mask_shapefiles, year,
             # request something from the server
             n_features = SHP_TO_YEAR_AND_COUNT[os.path.basename(shapefile)][year]
             out_class_label = os.path.basename(shapefile)
-            out_filename = out_class_label + "_srRenameTest_" + str(year)
+            out_filename = out_class_label + "_sr1YrNoMaskCDLXY_" + str(year)
             geometry_sample = ee.ImageCollection([])
             if not n_features:
                 continue

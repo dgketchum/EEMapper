@@ -39,11 +39,21 @@ def temporally_filter_features(shapefiles, year):
 
 
 def create_class_labels(shapefile_to_feature_collection):
+
+    cdl = ee.ImageCollection('USDA/NASS/CDL') \
+        .filter(ee.Filter.date('2018-01-01', '2018-12-31')) \
+        .first().select('cultivated').rename('cdl')
+
+    coords = cdl.pixelLonLat().rename(['lon', 'lat'])
+
     class_labels = ee.Image(0).byte()
     for shapefile, feature_collection in shapefile_to_feature_collection.items():
         class_labels = class_labels.paint(feature_collection,
                                           assign_class_code(shapefile) + 1)
-    return class_labels.updateMask(class_labels)
+
+    label = class_labels.updateMask(class_labels).rename('irr')
+
+    return coords, label, cdl
 
 
 def ls8mask(img):

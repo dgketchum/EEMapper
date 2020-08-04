@@ -15,9 +15,9 @@ from sklearn.metrics import confusion_matrix
 from map.trainer.config import BUFFER_SIZE
 from map.trainer import feature_spec
 
+MODE = 'cdl'
 FEATURES_DICT = feature_spec.features_dict()
-BANDS = feature_spec.bands()
-FEATURES = feature_spec.features()
+FEATURES = feature_spec.features()[:-2]
 step_, length_ = 7, len(FEATURES)
 NDVI_INDICES = [(x, y) for x, y in zip(range(2, length_, step_), range(3, length_, step_))]
 
@@ -236,7 +236,7 @@ def to_tuple(add_ndvi):
         else:
             image_stack = stacked
         # 'constant' is the label for label raster.
-        labels = one_hot(inputs.get('constant'), n_classes=5)
+        labels = one_hot(inputs.get(MODE), n_classes=5)
         labels = tf.cast(labels, tf.int32)
         return image_stack, labels
 
@@ -250,23 +250,25 @@ if __name__ == '__main__':
 
     home = os.path.expanduser('~')
     tf_recs = os.path.join(home, 'IrrigationGIS', 'tfrecords')
-    tf_rec = os.path.join(tf_recs, 'wudr_irrigated_train_means.tfrecord')
 
     dataset = make_test_dataset(tf_recs, True).batch(1)
     print(dataset)
+    ct = 0
     for j, (features, labels) in enumerate(dataset):
         labels = labels.numpy()
         features = features.numpy().squeeze()
         print(features.shape)
         print(labels.shape)
+        ct += 1
         mask = np.sum(labels, axis=-1) == 0
         labels = np.argmax(labels, axis=-1).astype(np.float32)
         labels_disp = labels
         labels_disp[mask] = np.nan
         labels = labels[~mask]
-        fig, ax = plt.subplots(ncols=2)
-        ax[0].imshow(features[:, :, 28])
-        ax[1].imshow(labels_disp.squeeze())
-        plt.suptitle(j)
-        plt.show()
-        break
+        # for nd in range(92, 99):
+        #     fig, ax = plt.subplots(ncols=2)
+        #     ax[0].imshow(features[:, :, nd])
+        #     ax[1].imshow(labels_disp.squeeze())
+        #     plt.suptitle(j)
+        #     plt.show()
+    print(ct)
