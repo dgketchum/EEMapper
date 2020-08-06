@@ -115,7 +115,6 @@ def select_wetlands(_file, out_file):
 
     """
     out_feats = 0
-    counter = [x for x in range(10000, int(3e6), 10000)]
 
     with fiona.open(_file, 'r') as input:
         meta = input.meta
@@ -142,7 +141,7 @@ def select_wetlands(_file, out_file):
                         out_feature = {'type': 'Feature', 'geometry': mapping(geo), 'id': out_feats,
                                        'properties': OrderedDict([('OBJECTID', out_feats),
                                                                   ('WETLAND_TY', f['properties']['WETLAND_TY']),
-                                                                  ('AREA_SQM', a)])}
+                                                                  ('AREA_SQM', a/1e6)])}
                         output.write(out_feature)
 
                 elif isinstance(geo, MultiPolygon):
@@ -157,22 +156,23 @@ def select_wetlands(_file, out_file):
                             out_feature = {'type': 'Feature', 'geometry': mapping(p), 'id': out_feats,
                                            'properties': OrderedDict([('OBJECTID', out_feats),
                                                                       ('WETLAND_TY', f['properties']['WETLAND_TY']),
-                                                                      ('AREA_SQM', a)])}
+                                                                      ('AREA_SQM', a/1e6)])}
                             output.write(out_feature)
 
-                if out_feats in counter:
-                    print(out_feats, (datetime.now() - s).seconds)
-
     print('{} out in {} sec \n {} {}'.format(out_feats, (datetime.now() - s).seconds, _file, out_file))
+    return out_feats
 
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    remote = '/media/research'
+    remote = '/home/dgketchum/data/'
     wet = os.path.join(remote, 'IrrigationGIS', 'wetlands', 'raw_shp')
     files_ = [os.path.join(wet, x) for x in os.listdir(wet) if '.shp' in x]
     wet_sel = os.path.join(remote, 'IrrigationGIS', 'wetlands', 'feature_buf')
+    features_ = 0
     for f in files_:
         out = f.replace('raw_shp', 'feature_buf')
-        select_wetlands(f, out)
+        if not os.path.isfile(out):
+            features_ += select_wetlands(f, out)
+    print('{} total features'.format(features_))
 # ========================= EOF ====================================================================
