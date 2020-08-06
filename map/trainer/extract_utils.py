@@ -40,12 +40,6 @@ def temporally_filter_features(shapefiles, year):
 
 def create_class_labels(shapefile_to_feature_collection):
 
-    cdl = ee.ImageCollection('USDA/NASS/CDL') \
-        .filter(ee.Filter.date('2018-01-01', '2018-12-31')) \
-        .first().select('cultivated').rename('cdl')
-
-    coords = cdl.pixelLonLat().rename(['lon', 'lat'])
-
     class_labels = ee.Image(0).byte()
     for shapefile, feature_collection in shapefile_to_feature_collection.items():
         class_labels = class_labels.paint(feature_collection,
@@ -53,7 +47,7 @@ def create_class_labels(shapefile_to_feature_collection):
 
     label = class_labels.updateMask(class_labels).rename('irr')
 
-    return coords, label, cdl
+    return label
 
 
 def ls8mask(img):
@@ -100,15 +94,15 @@ def temporalCollection(collection, start, count, interval, units):
 def assign_class_code(shapefile_path):
     shapefile_path = os.path.basename(shapefile_path)
     if 'irrigated' in shapefile_path and 'unirrigated' not in shapefile_path:
-        return 0
-    if 'unirrigated' in shapefile_path:
         return 1
     if 'fallow' in shapefile_path:
         return 2
-    if 'wetlands' in shapefile_path:
+    if 'unirrigated' in shapefile_path:
         return 3
-    if 'uncultivated' in shapefile_path:
+    if 'wetlands' in shapefile_path:
         return 4
+    if 'uncultivated' in shapefile_path:
+        return 5
     if 'points' in shapefile_path:
         # annoying workaround for earthengine
         return 10

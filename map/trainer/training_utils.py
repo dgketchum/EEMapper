@@ -5,9 +5,9 @@ import io
 from pprint import pprint
 from PIL import Image
 
-
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 import tensorflow as tf
+from numpy import median, dstack, sum, count_nonzero, unique
 
 from collections import defaultdict
 from sklearn.metrics import confusion_matrix
@@ -230,7 +230,7 @@ def to_tuple(add_ndvi):
         features_list = [inputs.get(key) for key in sorted(FEATURES)]
         stacked = tf.stack(features_list, axis=0)
         # Convert from CHW to HWC
-        stacked = tf.transpose(stacked, [1, 2, 0]) * 0.0001
+        stacked = tf.transpose(stacked, [1, 2, 0])  # TC scaled somehow: * 0.0001
         if add_ndvi:
             image_stack = add_ndvi_raster(stacked)
         else:
@@ -245,7 +245,6 @@ def to_tuple(add_ndvi):
 
 if __name__ == '__main__':
 
-    from matplotlib import pyplot as plt
     tf.executing_eagerly()
 
     home = os.path.expanduser('~')
@@ -254,21 +253,32 @@ if __name__ == '__main__':
     dataset = make_test_dataset(tf_recs, True).batch(1)
     print(dataset)
     ct = 0
+
+    r_idx, g_idx, b_idx = [FEATURES.index(x) for x in FEATURES if 'red' in x], \
+                          [FEATURES.index(x) for x in FEATURES if 'green' in x], \
+                          [FEATURES.index(x) for x in FEATURES if 'blue' in x]
+
+    from matplotlib import pyplot as plt
+    from matplotlib import cm
+    viridis = cm.get_cmap('viridis', 5)
+
     for j, (features, labels) in enumerate(dataset):
-        labels = labels.numpy()
+        labels = labels.numpy().squeeze()
+        # collapse one-hot encoding to single categorical image
+        for n in range(labels.shape[2]):
+            labels[:, :, n] *= n
+        labels = sum(labels, axis=-1)
         features = features.numpy().squeeze()
-        print(features.shape)
-        print(labels.shape)
         ct += 1
-        mask = np.sum(labels, axis=-1) == 0
-        labels = np.argmax(labels, axis=-1).astype(np.float32)
-        labels_disp = labels
-        labels_disp[mask] = np.nan
-        labels = labels[~mask]
-        # for nd in range(92, 99):
-        #     fig, ax = plt.subplots(ncols=2)
-        #     ax[0].imshow(features[:, :, nd])
-        #     ax[1].imshow(labels_disp.squeeze())
-        #     plt.suptitle(j)
-        #     plt.show()
+        r, g, b = features[:, :, r_idx], features[:, :, g_idx], features[:, :, b_idx]
+
+        norm = lambda arr:  ((arr - arr.min()) * (1 / (arr.max() - arr.min()) * 255)).astype('uint8')
+        rgb = map(norm, [median(r, axis=2), median(g, axis=2), median(b, axis=2)])
+        rgb = dstack(rgb)
+
+        fig, ax = plt.subplots(ncols=2)
+        ax[0].imshow(rgb)
+        ax[1].imshow(labels, cmap=viridis)
+        plt.suptitle(j)
+        plt.show()
     print(ct)

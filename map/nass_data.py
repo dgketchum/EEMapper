@@ -14,22 +14,18 @@
 # limitations under the License.
 # ===============================================================================
 
-import json
 import os
 from copy import deepcopy
 
-import matplotlib.pyplot as plt
-from geopandas import GeoDataFrame
-from numpy import nan
-from pandas import read_table, read_csv, DataFrame, Series, concat
-from pandas.io.json import json_normalize
 
-from map.tables import to_polygon
+from numpy import nan
+from pandas import read_table, read_csv, concat
+from shapely.geometry import Polygon
 
 DROP = ['SOURCE_DESC', 'SECTOR_DESC', 'GROUP_DESC',
         'COMMODITY_DESC', 'CLASS_DESC', 'PRODN_PRACTICE_DESC',
         'UTIL_PRACTICE_DESC', 'STATISTICCAT_DESC', 'UNIT_DESC',
-        'SHORT_DESC', 'DOMAIN_DESC', 'DOMAINCAT_DESC',  'STATE_FIPS_CODE',
+        'SHORT_DESC', 'DOMAIN_DESC', 'DOMAINCAT_DESC', 'STATE_FIPS_CODE',
         'ASD_CODE', 'ASD_DESC', 'COUNTY_ANSI',
         'REGION_DESC', 'ZIP_5', 'WATERSHED_CODE',
         'WATERSHED_DESC', 'CONGR_DISTRICT_CODE', 'COUNTRY_CODE',
@@ -37,7 +33,6 @@ DROP = ['SOURCE_DESC', 'SECTOR_DESC', 'GROUP_DESC',
         'BEGIN_CODE', 'END_CODE', 'REFERENCE_PERIOD_DESC',
         'WEEK_ENDING', 'LOAD_TIME', 'VALUE', 'AGG_LEVEL_DESC',
         'CV_%', 'STATE_ALPHA', 'STATE_NAME', 'COUNTY_NAME']
-
 
 TSV = {1987: ('DS0041/35206-0041-Data.tsv', 'ITEM01018', 'FLAG01018'),
        1992: ('DS0042/35206-0042-Data.tsv', 'ITEM010018', 'FLAG010018'),
@@ -141,6 +136,19 @@ def merge_nass_irrmapper(nass, irrmapper, out_name):
     df = concat([ndf, idf], axis=1)
     df.dropna(axis=0, thresh=8, inplace=True)
     df.to_csv(out_name)
+
+
+def to_polygon(j):
+    if not isinstance(j, list):
+        return nan
+    try:
+        return Polygon(j[0])
+    except ValueError:
+        return nan
+    except TypeError:
+        return nan
+    except AssertionError:
+        return nan
 
 
 if __name__ == '__main__':

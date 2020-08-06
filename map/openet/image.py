@@ -307,7 +307,6 @@ class Image():
                   'system:time_start': sr_image.get('system:time_start'),
                   'system:id': sr_image.get('system:id'),
             })
-        # .updateMask(common.landsat_c1_sr_cloud_mask(sr_image))\
 
         _cls = cls(input_image, **kwargs)
         return _cls

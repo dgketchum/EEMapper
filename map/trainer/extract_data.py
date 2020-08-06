@@ -29,39 +29,19 @@ COLLECTIONS = ['LANDSAT/LC08/C01/T1_SR',
                'LANDSAT/LT05/C01/T1_SR']
 
 
-def extract_test_patches(mask_shapefiles, year,
-                         out_folder, patch_shapefile):
-    image_stack = extract_utils.preprocess_data(year).toBands()
-    # Features dict for TFRecord
-    features = [feat['id'] for feat in image_stack.getInfo()['bands']]
-    # Add in the mask raster
-    features = features + ['constant']
-    columns = [tf.io.FixedLenFeature(shape=KERNEL_SHAPE, dtype=tf.float32) for k in features]
-    feature_dict = dict(zip(features, columns))
+def get_ancillary():
 
-    shapefile_to_feature_collection = extract_utils.temporally_filter_features(mask_shapefiles, year)
-    class_labels = extract_utils.create_class_labels(shapefile_to_feature_collection)
-    data_stack = ee.Image.cat([image_stack, class_labels]).float()
+    cdl = ee.ImageCollection('USDA/NASS/CDL') \
+        .filter(ee.Filter.date('2018-01-01', '2018-12-31')) \
+        .first().select('cultivated').rename('cdl')
 
-    patches = ee.FeatureCollection(patch_shapefile)
-    patches = patches.toList(patches.size())
+    coords = cdl.pixelLonLat().rename(['lon', 'lat'])
 
-    out_filename = str(year)
-    for idx in range(patches.size().getInfo()):
-        patch = ee.Feature(patches.get(idx))
-        features = [feat['id'] for feat in class_labels.getInfo()['bands']]
-        task = ee.batch.Export.image.toCloudStorage(
-            image=data_stack,
-            bucket=GS_BUCKET,
-            description=out_filename + str(time.time()),
-            fileNamePrefix=out_folder + out_filename + str(time.time()),
-            fileFormat='TFRecord',
-            region=patch.geometry(),
-            scale=30,
-            formatOptions={'patchDimensions': 256,
-                           'compressed': True},
-        )
-        task.start()
+    ned = ee.Image('USGS/NED')
+    terrain = ee.Terrain.products(ned).select('elevation', 'slope', 'aspect') \
+        .resample('bilinear').rename(['elev', 'slope', 'aspect'])
+
+    return terrain, coords, cdl
 
 
 def get_sr_stack(yr, s, e, interval, geo_):
@@ -90,48 +70,74 @@ def get_sr_stack(yr, s, e, interval, geo_):
     return interp, target_rename
 
 
-def extract_data_over_shapefiles(mask_shapefiles, year,
-                                 out_folder, points_to_extract=None,
-                                 n_shards=10, kind='interp'):
-
-    roi = ee.FeatureCollection(MGRS).filter(ee.Filter.eq('MGRS_TILE', '12TVT')).geometry()
-    # roi = ee.FeatureCollection(MT).geometry()
+def extract_test_patches(mask_shapefiles, year,
+                         out_folder, patch_shapefile):
 
     s, e, interval_ = 1, 1, 30
-    image_stack = None
-
-    if kind == 'mean':
-        image_stack = extract_utils.preprocess_data(year).toBands()
-        features = [feat['id'] for feat in image_stack.getInfo()['bands']]
-    if kind == 'interp':
-        image_stack, features = get_sr_stack(year, s, e, interval_, roi)
+    roi = ee.FeatureCollection(MGRS).filter(ee.Filter.eq('MGRS_TILE', '12TVT')).geometry()
+    image_stack, features = get_sr_stack(year, s, e, interval_, roi)
 
     features = features + ['lat', 'lon', 'irr', 'cdl']
-
     columns = [tf.io.FixedLenFeature(shape=KERNEL_SHAPE, dtype=tf.float32) for k in features]
     feature_dict = dict(zip(features, columns))
     pprint(feature_dict)
 
     shapefile_to_feature_collection = extract_utils.temporally_filter_features(mask_shapefiles, year)
+    coords, irr, cdl = extract_utils.create_class_labels(shapefile_to_feature_collection)
+    data_stack = ee.Image.cat([image_stack, coords, irr, cdl]).float()
+
+    patches = ee.FeatureCollection(patch_shapefile)
+    patches = patches.toList(patches.size())
+
+    out_filename = str(year)
+    for idx in range(patches.size().getInfo()):
+        patch = ee.Feature(patches.get(idx))
+        task = ee.batch.Export.image.toCloudStorage(
+            image=data_stack,
+            bucket=GS_BUCKET,
+            description=out_filename + str(time.time()),
+            fileNamePrefix=out_folder + out_filename + str(time.time()),
+            fileFormat='TFRecord',
+            region=patch.geometry(),
+            scale=30,
+            formatOptions={'patchDimensions': 128,
+                           'compressed': True},
+        )
+        task.start()
+
+
+def extract_data_over_shapefiles(mask_shapefiles, year,
+                                 out_folder, points_to_extract=None,
+                                 n_shards=10):
+
+    roi = ee.FeatureCollection(MGRS).filter(ee.Filter.eq('MGRS_TILE', '12TVT')).geometry()
+    # roi = ee.FeatureCollection(MT).geometry()
+
+    s, e, interval_ = 1, 1, 30
+
+    image_stack, features = get_sr_stack(year, s, e, interval_, roi)
+
+    features = features + ['lat', 'lon', 'elev', 'slope', 'aspect', 'irr', 'cdl']
+
+    columns = [tf.io.FixedLenFeature(shape=KERNEL_SHAPE, dtype=tf.float32) for k in features]
+    feature_dict = dict(zip(features, columns))
+    # pprint(feature_dict)
+
+    shapefile_to_feature_collection = extract_utils.temporally_filter_features(mask_shapefiles, year)
     if points_to_extract is not None:
         shapefile_to_feature_collection['points'] = points_to_extract
 
-    coords, irr, cdl = extract_utils.create_class_labels(shapefile_to_feature_collection)
-    data_stack = ee.Image.cat([image_stack, coords, irr, cdl]).float()
+    irr = extract_utils.create_class_labels(shapefile_to_feature_collection)
+    terrain_, coords_, cdl_ = get_ancillary()
+    data_stack = ee.Image.cat([image_stack, terrain_, coords_, cdl_, irr]).float()
     data_stack = data_stack.neighborhoodToArray(KERNEL)
 
     if points_to_extract is None:
-        # This extracts data over every polygon that
-        # was passed in
         for shapefile, feature_collection in shapefile_to_feature_collection.items():
-
             polygons = feature_collection.toList(feature_collection.size())
-            # Frustratingly using getInfo() for sizes causes
-            # a EE out of user memory error, because it has to actually
-            # request something from the server
             n_features = SHP_TO_YEAR_AND_COUNT[os.path.basename(shapefile)][year]
             out_class_label = os.path.basename(shapefile)
-            out_filename = out_class_label + "_sr1YrNoMaskCDLXY_" + str(year)
+            out_filename = out_class_label + "_sr1_30d_" + str(year)
             geometry_sample = ee.ImageCollection([])
             if not n_features:
                 continue
@@ -162,7 +168,7 @@ def extract_data_over_shapefiles(mask_shapefiles, year,
                     )
                     try:
                         task.start()
-                        exit()
+                        continue
                     except ee.ee_exception.EEException:
                         print('waiting to export, sleeping for 50 minutes. Holding at\
                                 {} {}, index {}'.format(year, shapefile, i))
@@ -180,6 +186,7 @@ def extract_data_over_shapefiles(mask_shapefiles, year,
                 selectors=features
             )
             task.start()
+
     else:
         # just extract data at points
         polygons = ee.FeatureCollection(points_to_extract)
@@ -233,4 +240,4 @@ if __name__ == '__main__':
 
     year = 2010
 
-    extract_data_over_shapefiles(train, year, out_folder=GS_BUCKET, kind='interp')
+    extract_data_over_shapefiles(train, year, out_folder=GS_BUCKET)
