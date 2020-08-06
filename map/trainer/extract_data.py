@@ -1,6 +1,5 @@
 import ee
 
-# ee.Authenticate()
 ee.Initialize()
 import tensorflow as tf
 import time
@@ -8,7 +7,6 @@ import os
 from pprint import pprint
 import numpy as np
 from datetime import datetime
-from random import shuffle
 from map.openet.collection import get_target_dates, Collection, get_target_bands
 from map.trainer import extract_utils
 from map.trainer.shapefile_meta import SHP_TO_YEAR_AND_COUNT
@@ -100,9 +98,8 @@ def extract_test_patches(mask_shapefiles, year,
             fileFormat='TFRecord',
             region=patch.geometry(),
             scale=30,
-            formatOptions={'patchDimensions': 128,
-                           'compressed': True},
-        )
+            formatOptions={'patchDimensions': KERNEL_SIZE,
+                           'compressed': True})
         task.start()
 
 

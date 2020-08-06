@@ -115,8 +115,7 @@ def select_wetlands(_file, out_file):
 
     """
     out_feats = 0
-    ignored = 0
-    discard = 0
+    counter = [x for x in range(10000, int(3e6), 10000)]
 
     with fiona.open(_file, 'r') as input:
         meta = input.meta
@@ -131,14 +130,14 @@ def select_wetlands(_file, out_file):
             s = datetime.now()
             for f in input:
                 geo = shape(f['geometry'])
-                geo = geo.buffer(-30., cap_style=2, resolution=2)
 
                 if isinstance(geo, Polygon):
                     a = geo.area
-                    if a < 100.0:
-                        discard += 1
-                    else:
-                        geo = geo.buffer(30., cap_style=2, resolution=2)
+                    b = geo.length
+                    if a == 0. or b == 0.:
+                        continue
+
+                    if a / b > 12.0:
                         out_feats += 1
                         out_feature = {'type': 'Feature', 'geometry': mapping(geo), 'id': out_feats,
                                        'properties': OrderedDict([('OBJECTID', out_feats),
@@ -149,10 +148,11 @@ def select_wetlands(_file, out_file):
                 elif isinstance(geo, MultiPolygon):
                     for p in list(geo):
                         a = p.area
-                        if a < 100.0:
-                            discard += 1
-                        else:
-                            p = p.buffer(30., cap_style=2, resolution=2)
+                        b = p.length
+                        if a == 0. or b == 0.:
+                            continue
+
+                        if a / b > 12.0:
                             out_feats += 1
                             out_feature = {'type': 'Feature', 'geometry': mapping(p), 'id': out_feats,
                                            'properties': OrderedDict([('OBJECTID', out_feats),
@@ -160,20 +160,18 @@ def select_wetlands(_file, out_file):
                                                                       ('AREA_SQM', a)])}
                             output.write(out_feature)
 
-                else:
-                    ignored += 1
+                if out_feats in counter:
+                    print(out_feats, (datetime.now() - s).seconds)
 
-    print('{} out in {} sec\n {} discarded, {} ignored \n {} {}'.format(out_feats, (datetime.now() - s).seconds,
-                                                                        discard, ignored,
-                                                                        _file, out_file))
+    print('{} out in {} sec \n {} {}'.format(out_feats, (datetime.now() - s).seconds, _file, out_file))
 
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     remote = '/media/research'
-    # wet = os.path.join(home, 'IrrigationGIS', 'wetlands', 'raw_shp', 'MT_Wetlands_East.shp')
-    # wet_sel = os.path.join(home, 'IrrigationGIS', 'wetlands', 'feature_buf', 'MT_Wetlands_East.shp')
-    wet = os.path.join(home, 'IrrigationGIS', 'wetlands', 'MT_wetlands_test.shp')
-    wet_sel = os.path.join(home, 'IrrigationGIS', 'wetlands', 'MT_wetlands_fiona_buf.shp')
+    wet = os.path.join(home, 'IrrigationGIS', 'wetlands', 'raw_shp', 'MT_Wetlands_East.shp')
+    wet_sel = os.path.join(home, 'IrrigationGIS', 'wetlands', 'feature_buf', 'MT_Wetlands_East.shp')
+    # wet = os.path.join(home, 'IrrigationGIS', 'wetlands', 'MT_wetlands_test.shp')
+    # wet_sel = os.path.join(home, 'IrrigationGIS', 'wetlands', 'MT_wetlands_fiona_buf.shp')
     select_wetlands(wet, wet_sel)
 # ========================= EOF ====================================================================
