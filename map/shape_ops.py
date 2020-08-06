@@ -169,9 +169,10 @@ def select_wetlands(_file, out_file):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     remote = '/media/research'
-    wet = os.path.join(home, 'IrrigationGIS', 'wetlands', 'raw_shp', 'MT_Wetlands_East.shp')
-    wet_sel = os.path.join(home, 'IrrigationGIS', 'wetlands', 'feature_buf', 'MT_Wetlands_East.shp')
-    # wet = os.path.join(home, 'IrrigationGIS', 'wetlands', 'MT_wetlands_test.shp')
-    # wet_sel = os.path.join(home, 'IrrigationGIS', 'wetlands', 'MT_wetlands_fiona_buf.shp')
-    select_wetlands(wet, wet_sel)
+    wet = os.path.join(remote, 'IrrigationGIS', 'wetlands', 'raw_shp')
+    files_ = [os.path.join(wet, x) for x in os.listdir(wet) if '.shp' in x]
+    wet_sel = os.path.join(remote, 'IrrigationGIS', 'wetlands', 'feature_buf')
+    for f in files_:
+        out = f.replace('raw_shp', 'feature_buf')
+        select_wetlands(f, out)
 # ========================= EOF ====================================================================
