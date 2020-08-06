@@ -18,7 +18,7 @@ from collections import OrderedDict
 from random import shuffle
 
 import fiona
-from shapely.geometry import shape, mapping
+from shapely.geometry import shape, mapping, Polygon, MultiPolygon
 
 
 def fiona_merge_attribute(out_shp, file_list):
@@ -98,7 +98,7 @@ def test_train_val_split(grid, train=0.6, test=0.2, valid=0.2):
             for f in feature_list:
                 if out_suffix == '_train.':
                     geo = shape(f['geometry'])
-                    mod_geo = geo.buffer(-128 * 30., resolution=1, cap_style=3,)
+                    mod_geo = geo.buffer(-128 * 30., resolution=1, cap_style=3, )
                     f['geometry'] = mapping(mod_geo)
                 output.write(f)
                 ct += 1
@@ -106,8 +106,68 @@ def test_train_val_split(grid, train=0.6, test=0.2, valid=0.2):
     print('{} in, {} out'.format(len_, ct))
 
 
+def select_wetlands(_file, out_file):
+    """ buffer out linear wetlands features """
+    in_feats = 0
+    out_feats = 0
+    ignored = 0
+    discard = 0
+    with fiona.open(_file, 'r') as input:
+        features = []
+        meta = input.meta
+        meta['schema']['properties'] = OrderedDict([('OBJECTID', 'int:10'),
+                                                    ('WETLAND_TY', 'str:50'),
+                                                    ('AREA_SQM', 'float:19.11')])
+        for f in input:
+            in_feats += 1
+            geo = shape(f['geometry'])
+            geo = geo.buffer(-30., cap_style=1, resolution=2)
+
+            if isinstance(geo, Polygon):
+                a = geo.area
+                if a < 100.0:
+                    discard += 1
+                else:
+                    geo = geo.buffer(30., cap_style=1, resolution=2)
+                    out_feats += 1
+                    out_feature = {'type': 'Feature', 'geometry': mapping(geo), 'id': out_feats,
+                                   'properties': OrderedDict([('OBJECTID', out_feats),
+                                                              ('WETLAND_TY', f['properties']['WETLAND_TY']),
+                                                              ('AREA_SQM', a)])}
+                    features.append(out_feature)
+
+            elif isinstance(geo, MultiPolygon):
+                for p in list(geo):
+                    a = p.area
+                    if a < 100.0:
+                        discard += 1
+                    else:
+                        p = p.buffer(30., cap_style=1, resolution=2)
+                        out_feats += 1
+                        out_feature = {'type': 'Feature', 'geometry': mapping(p), 'id': out_feats,
+                                       'properties': OrderedDict([('OBJECTID', out_feats),
+                                                                  ('WETLAND_TY', f['properties']['WETLAND_TY']),
+                                                                  ('AREA_SQM', a)])}
+                        features.append(out_feature)
+
+            else:
+                ignored += 1
+
+            if len(features) % 10000. == 0.:
+                print(len(features))
+
+    with fiona.open(out_file, 'w', **meta) as output:
+        for f in features:
+            output.write(f)
+
+    print('{} in, {} out, {} discarded, {} ignored \n {} {}'.format(in_feats, out_feats, discard, ignored,
+                                                                    _file, out_file))
+
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    grid = os.path.join(home, 'IrrigationGIS', 'EE_sample', 'grid', 'grid_training_aea.shp')
-    test_train_val_split(grid)
+    remote = '/media/research'
+    wet = os.path.join(remote, 'IrrigationGIS', 'wetlands', 'raw_shp', 'MT_Wetlands_East.shp')
+    wet_sel = os.path.join(home, 'IrrigationGIS', 'wetlands', 'feature_buf', 'MT_Wetlands_East.shp')
+    select_wetlands(wet, wet_sel)
 # ========================= EOF ====================================================================
