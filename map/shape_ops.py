@@ -15,31 +15,10 @@
 # ===============================================================================
 import os
 from collections import OrderedDict
+from random import shuffle
 
 import fiona
-from shapely.geometry import shape
-
-CLU_UNNEEDED = ['ca', 'nv', 'ut', 'wa', 'wy']
-CLU_USEFUL = ['az', 'co', 'id', 'mt', 'nm', 'or']
-CLU_ONLY = ['ne', 'ks', 'nd', 'ok', 'sd', 'tx']
-
-irrmapper_states = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
-
-SHAPE_COMPILATION = {
-    # 'AZ': (
-    #     ('UCRBGS', '/home/dgketchum/IrrigationGIS/openET/AZ/az_ucrb.shp'),
-    #     ('LCRVPD', '/home/dgketchum/IrrigationGIS/openET/AZ/az_lcrb.shp'),
-    #     ('CLU', '/home/dgketchum/IrrigationGIS/clu/crop_vector_v2_wgs/az_cropped_v2_wgs.shp')),
-    'CO': (
-        ('UCRBGS', '/home/dgketchum/IrrigationGIS/openET/CO/co_ucrb_add.shp'),
-        ('CODWR', '/home/dgketchum/IrrigationGIS/raw_field_polygons/CO/CO_irrigated_latest_wgs.shp'),
-        ('CLU', '/home/dgketchum/IrrigationGIS/clu/crop_vector_v2_wgs/co_cropped_v2_wgs.shp')),
-    # 'WY': (
-    #     ('UCRBGS', '/home/dgketchum/IrrigationGIS/openET/WY/WY_USGS_UCRB.shp'),
-    #     ('BRC', '/home/dgketchum/IrrigationGIS/openET/WY/WY_BRC.shp'),
-    #     ('WYSWP', '/home/dgketchum/IrrigationGIS/raw_field_polygons/WY/Irrigated_Land/Irrigated_Land_wgs.shp')),
-
-}
+from shapely.geometry import shape, mapping
 
 
 def fiona_merge_attribute(out_shp, file_list):
@@ -63,7 +42,8 @@ def fiona_merge_attribute(out_shp, file_list):
         print(sorted(years))
 
 
-def fiona_merge_no_attribute(out_shp, file_list, clean=False):
+def fiona_merge_no_attribute(out_shp, file_list):
+    """ Use to merge shapefiles with no attributes """
     meta = fiona.open(file_list[0]).meta
     meta['schema'] = {'type': 'Feature', 'properties': OrderedDict(
         []), 'geometry': 'Polygon'}
@@ -97,12 +77,37 @@ def fiona_merge_no_attribute(out_shp, file_list, clean=False):
     print('wrote {}, {} none, {} invalid'.format(ct, none_geo, inval_geo))
 
 
+def test_train_val_split(grid, train=0.6, test=0.2, valid=0.2):
+    """Split grids into test, train, split.
+        Interior-buffer training grids.
+        """
+    with fiona.open(grid, 'r') as input:
+        meta = input.meta
+        features = [f for f in input]
+    shuffle(features)
+
+    len_ = len(features)
+    train_, test_, valid_ = features[:int(len_ * train)], \
+                            features[int(len_ * train): -int(len_ * valid)], \
+                            features[-int(len_ * valid):]
+
+    ct = 0
+    for out_suffix, feature_list in zip(['_train.', '_test.', '_valid.'], [train_, test_, valid_]):
+        out_name = grid.replace('.', out_suffix)
+        with fiona.open(out_name, 'w', **meta) as output:
+            for f in feature_list:
+                if out_suffix == '_train.':
+                    geo = shape(f['geometry'])
+                    mod_geo = geo.buffer(-128 * 30., resolution=1, cap_style=3,)
+                    f['geometry'] = mapping(mod_geo)
+                output.write(f)
+                ct += 1
+
+    print('{} in, {} out'.format(len_, ct))
+
+
 if __name__ == '__main__':
-    # home = os.path.expanduser('~')
-    home = '/media/research/'
-    training = os.path.join(home, 'IrrigationGIS', 'training_data')
-    class_ = os.path.join(training, 'unirrigated', 'to_merge')
-    files_ = [os.path.join(class_, x) for x in os.listdir(class_) if '.shp' in x]
-    local = os.path.join(os.path.expanduser('~'), 'IrrigationGIS', 'EE_sample', 'dryland_5AUG2020.shp')
-    fiona_merge_no_attribute(local, files_)
+    home = os.path.expanduser('~')
+    grid = os.path.join(home, 'IrrigationGIS', 'EE_sample', 'grid', 'grid_training_aea.shp')
+    test_train_val_split(grid)
 # ========================= EOF ====================================================================
