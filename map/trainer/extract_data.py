@@ -27,10 +27,10 @@ COLLECTIONS = ['LANDSAT/LC08/C01/T1_SR',
                'LANDSAT/LT05/C01/T1_SR']
 
 
-def get_ancillary():
+def get_ancillary(yr):
 
     cdl = ee.ImageCollection('USDA/NASS/CDL') \
-        .filter(ee.Filter.date('2018-01-01', '2018-12-31')) \
+        .filter(ee.Filter.date('{}-01-01'.format(yr), '{}-12-31'.format(yr))) \
         .first().select('cultivated').rename('cdl')
 
     coords = cdl.pixelLonLat().rename(['lon', 'lat'])
