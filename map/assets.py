@@ -21,7 +21,7 @@ EDIT_STATES = ['KS', 'ND', 'NE', 'OK', 'SD']
 TEST_YEARS = [1986, 1996, 2006, 2016]
 
 home = os.path.expanduser('~')
-EXEC = os.path.join(home, 'miniconda3', 'envs', 'gcs', 'bin', 'earthengine')
+EXEC = os.path.join(home, 'miniconda3', 'envs', 'ee', 'bin', 'earthengine')
 
 
 def change_permissions(ee_asset, user=None):
@@ -72,7 +72,7 @@ def get_metadata(ee_asset):
             check_call(cmd)
 
 
-def delete_assets(ee_asset_path, years_=None):
+def delete_assets(ee_asset_path, years_=False):
     reader = None
 
     if years_:
@@ -121,13 +121,6 @@ def list_assets(location):
 
 
 if __name__ == '__main__':
-    loc = os.path.join('users', 'dgketchum', 'IrrMapper', 'version_2')
-    dst = os.path.join('projects', 'openet', 'irrigation', 'IrrMapper_v2')
-    k = 'version'
-    v = '2'
-    # copy_asset(loc, dst)
-    # set_metadata(loc, key=k, value=v)
-    get_metadata(dst)
-    # delete_assets(dst)
-    # duplicate_asset(dst)
+    dst = os.path.join('users', 'dgketchum', 'ssebop')
+    delete_assets(dst, years_=True)
 # ========================= EOF ====================================================================
