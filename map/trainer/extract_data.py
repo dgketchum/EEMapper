@@ -27,8 +27,16 @@ COLLECTIONS = ['LANDSAT/LC08/C01/T1_SR',
                'LANDSAT/LT05/C01/T1_SR']
 
 
-def get_ancillary(yr):
+def test_geo():
+    test_geo = ee.Geometry([[-112.19186229407349, 47.81781050704002],
+                            [-112.0552198380188, 47.81781050704002],
+                            [-112.0552198380188, 47.870346541256765],
+                            [-112.19186229407349, 47.870346541256765],
+                            [-112.19186229407349, 47.81781050704002]])
+    return test_geo
 
+
+def get_ancillary(yr):
     cdl = ee.ImageCollection('USDA/NASS/CDL') \
         .filter(ee.Filter.date('{}-01-01'.format(yr), '{}-12-31'.format(yr))) \
         .first().select('cultivated').rename('cdl')
@@ -70,7 +78,6 @@ def get_sr_stack(yr, s, e, interval, geo_):
 
 def extract_test_patches(mask_shapefiles, year,
                          out_folder, patch_shapefile):
-
     s, e, interval_ = 1, 1, 30
     roi = ee.FeatureCollection(MGRS).filter(ee.Filter.eq('MGRS_TILE', '12TVT')).geometry()
     image_stack, features = get_sr_stack(year, s, e, interval_, roi)
@@ -107,8 +114,9 @@ def extract_data_over_shapefiles(mask_shapefiles, year,
                                  out_folder, points_to_extract=None,
                                  n_shards=10):
 
-    roi = ee.FeatureCollection(MGRS).filter(ee.Filter.eq('MGRS_TILE', '12TVT')).geometry()
+    # roi = ee.FeatureCollection(MGRS).filter(ee.Filter.eq('MGRS_TILE', '12TVT')).geometry()
     # roi = ee.FeatureCollection(MT).geometry()
+    roi = test_geo()
 
     s, e, interval_ = 1, 1, 30
 
