@@ -12,7 +12,7 @@ from map.openet.collection import get_target_dates, Collection, get_target_bands
 from map.trainer import extract_utils
 from map.trainer.shapefile_meta import SHP_TO_YEAR_AND_COUNT
 
-KERNEL_SIZE = 256
+KERNEL_SIZE = 64
 KERNEL_SHAPE = [KERNEL_SIZE, KERNEL_SIZE]
 list_ = ee.List.repeat(1, KERNEL_SIZE)
 lists = ee.List.repeat(list_, KERNEL_SIZE)
@@ -94,7 +94,7 @@ def get_ancillary():
 
 def get_sr_stack(yr, s, e, interval, geo_):
     s = datetime(yr, s, 1)
-    e = datetime(yr, e, 1)
+    e = datetime(yr + 1, e, 1)
     target_interval = interval
     interp_days = 32
 
@@ -125,7 +125,7 @@ def extract_data_over_shapefiles(mask_shapefiles, year,
     roi = ee.FeatureCollection(MGRS).filter(ee.Filter.eq('MGRS_TILE', '12TVT')).geometry()
     # roi = ee.FeatureCollection(MT).geometry()
 
-    s, e, interval_ = 5, 8, 30
+    s, e, interval_ = 1, 1, 30
 
     image_stack, features = get_sr_stack(year, s, e, interval_, roi)
 
@@ -134,7 +134,6 @@ def extract_data_over_shapefiles(mask_shapefiles, year,
     columns = [tf.io.FixedLenFeature(shape=KERNEL_SHAPE, dtype=tf.float32) for k in features]
     feature_dict = OrderedDict(zip(features, columns))
     # pprint(feature_dict)
-
     shapefile_to_feature_collection = temporally_filter_features(mask_shapefiles, year)
     if points_to_extract is not None:
         shapefile_to_feature_collection['points'] = points_to_extract
@@ -149,7 +148,7 @@ def extract_data_over_shapefiles(mask_shapefiles, year,
             polygons = feature_collection.toList(feature_collection.size())
             n_features = SHP_TO_YEAR_AND_COUNT[os.path.basename(shapefile)][year]
             out_class_label = os.path.basename(shapefile)
-            out_filename = out_class_label + "_sr1_llei_30d_" + str(year)
+            out_filename = out_class_label + "_sr{}{}{}_".format(KERNEL_SIZE, s, e) + str(year)
             geometry_sample = ee.ImageCollection([])
             if not n_features:
                 continue
