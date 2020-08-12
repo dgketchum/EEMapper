@@ -87,18 +87,12 @@ def assign_class_code(shapefile_path):
         raise NameError('shapefile path {} isn\'t named in assign_class_code'.format(shapefile_path))
 
 
-def get_ancillary(yr):
-    cdl = ee.ImageCollection('USDA/NASS/CDL') \
-        .filter(ee.Filter.date('{}-01-01'.format(yr), '{}-12-31'.format(yr))) \
-        .first().select('cultivated').rename('cdl')
-
-    coords = cdl.pixelLonLat().rename(['lon', 'lat'])
-
+def get_ancillary():
     ned = ee.Image('USGS/NED')
     terrain = ee.Terrain.products(ned).select('elevation') \
         .resample('bilinear').rename(['elev'])
-
-    return terrain, coords, cdl
+    coords = ned.pixelLonLat().rename(['lon', 'lat'])
+    return terrain, coords
 
 
 def get_sr_stack(yr, s, e, interval, geo_):
@@ -146,8 +140,8 @@ def extract_data_at_points(point_layer, year_,
     shapefile_to_feature_collection = temporally_filter_features(year_)
 
     irr = create_class_labels(shapefile_to_feature_collection)
-    terrain_, coords_, cdl_ = get_ancillary(year_)
-    data_stack = ee.Image.cat([image_stack, terrain_, coords_, cdl_, irr]).float()
+    terrain_, coords_ = get_ancillary()
+    data_stack = ee.Image.cat([image_stack, terrain_, coords_, irr]).float()
     data_stack = data_stack.neighborhoodToArray(KERNEL)
 
     # just extract data at points
@@ -162,7 +156,7 @@ def extract_data_at_points(point_layer, year_,
 
     geometry_sample = ee.ImageCollection([])
     out_class_label = os.path.basename(point_layer)
-    out_filename = out_class_label + "_sr1_30d_" + str(year_)
+    out_filename = out_class_label + "_sr1_latlonelirr_256_30d_" + str(year_)
     n_extracted = 0
     for i in range(n_features):
         sample = data_stack.sample(
