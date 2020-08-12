@@ -37,8 +37,8 @@ def test_geo():
 
 def get_ancillary(yr):
     ned = ee.Image('USGS/NED')
-    terrain = ee.Terrain.products(ned).select('elevation', 'slope', 'aspect') \
-        .resample('bilinear').rename(['elev', 'slope', 'aspect'])
+    terrain = ee.Terrain.products(ned).select('elevation') \
+        .resample('bilinear').rename(['elev'])
 
     coords = ned.pixelLonLat().rename(['lon', 'lat'])
     return terrain, coords
@@ -76,7 +76,7 @@ def extract_test_patches(mask_shapefiles, year,
     roi = ee.FeatureCollection(MGRS).filter(ee.Filter.eq('MGRS_TILE', '12TVT')).geometry()
     image_stack, features = get_sr_stack(year, s, e, interval_, roi)
 
-    features = features + ['lat', 'lon', 'irr']
+    features = features + ['lat', 'lon', 'elev', 'irr']
     columns = [tf.io.FixedLenFeature(shape=KERNEL_SHAPE, dtype=tf.float32) for k in features]
     feature_dict = dict(zip(features, columns))
     pprint(feature_dict)
