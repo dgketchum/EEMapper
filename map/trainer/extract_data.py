@@ -29,13 +29,61 @@ COLLECTIONS = ['LANDSAT/LC08/C01/T1_SR',
 
 
 def test_geo():
-    fc = ee.Geometry([[-112.19186229407349,47.81781050704002],
-                      [-112.0552198380188,47.81781050704002],
-                      [-112.0552198380188,47.870346541256765],
-                      [-112.19186229407349,47.870346541256765],[]])
+    fc = ee.Geometry([[-112.19186229407349, 47.81781050704002],
+                      [-112.0552198380188, 47.81781050704002],
+                      [-112.0552198380188, 47.870346541256765],
+                      [-112.19186229407349, 47.870346541256765]])
 
 
-def get_ancillary(yr):
+def temporally_filter_features(shapefiles, year):
+    shapefile_to_feature_collection = {}
+    for shapefile in shapefiles:
+        temporal_ = True
+        bs = os.path.basename(shapefile)
+        feature_collection = ee.FeatureCollection(shapefile)
+        if 'irrigated' in bs and 'unirrigated' not in bs:
+            feature_collection = feature_collection.filter(ee.Filter.eq("YEAR", year))
+        elif 'fallow' in bs:
+            feature_collection = feature_collection.filter(ee.Filter.eq("YEAR", year))
+        else:
+            temporal_ = False
+            shapefile_to_feature_collection[shapefile] = feature_collection
+
+        if temporal_:
+            shapefile_to_feature_collection[shapefile] = feature_collection
+
+    return shapefile_to_feature_collection
+
+
+def create_class_labels(shapefile_to_feature_collection):
+    class_labels = ee.Image(0).byte()
+    for shapefile, feature_collection in shapefile_to_feature_collection.items():
+        class_labels = class_labels.paint(feature_collection,
+                                          assign_class_code(shapefile) + 1)
+
+    label = class_labels.updateMask(class_labels).rename('irr')
+
+    return label
+
+
+def assign_class_code(shapefile_path):
+    shapefile_path = os.path.basename(shapefile_path)
+    if 'irrigated' in shapefile_path and 'unirrigated' not in shapefile_path:
+        return 1
+    if 'fallow' in shapefile_path:
+        return 2
+    if 'unirrigated' in shapefile_path:
+        return 3
+    if 'wetlands' in shapefile_path:
+        return 4
+    if 'points' in shapefile_path:
+        # annoying workaround for earthengine
+        return 10
+    else:
+        raise NameError('shapefile path {} isn\'t named in assign_class_code'.format(shapefile_path))
+
+
+def get_ancillary():
     ned = ee.Image('USGS/NED')
     terrain = ee.Terrain.products(ned).select('elevation') \
         .resample('bilinear').rename(['elev'])
@@ -46,7 +94,7 @@ def get_ancillary(yr):
 
 def get_sr_stack(yr, s, e, interval, geo_):
     s = datetime(yr, s, 1)
-    e = datetime(yr + 1, e, 1)
+    e = datetime(yr, e, 1)
     target_interval = interval
     interp_days = 32
 
@@ -70,62 +118,29 @@ def get_sr_stack(yr, s, e, interval, geo_):
     return interp, target_rename
 
 
-def extract_test_patches(mask_shapefiles, year,
-                         out_folder, patch_shapefile):
-    s, e, interval_ = 1, 1, 30
-    roi = ee.FeatureCollection(MGRS).filter(ee.Filter.eq('MGRS_TILE', '12TVT')).geometry()
-    image_stack, features = get_sr_stack(year, s, e, interval_, roi)
-
-    features = features + ['lat', 'lon', 'elev', 'irr']
-    columns = [tf.io.FixedLenFeature(shape=KERNEL_SHAPE, dtype=tf.float32) for k in features]
-    feature_dict = dict(zip(features, columns))
-    pprint(feature_dict)
-
-    shapefile_to_feature_collection = extract_utils.temporally_filter_features(mask_shapefiles, year)
-    coords, irr = extract_utils.create_class_labels(shapefile_to_feature_collection)
-    data_stack = ee.Image.cat([image_stack, coords, irr]).float()
-
-    patches = ee.FeatureCollection(patch_shapefile)
-    patches = patches.toList(patches.size())
-
-    out_filename = str(year)
-    for idx in range(patches.size().getInfo()):
-        patch = ee.Feature(patches.get(idx))
-        task = ee.batch.Export.image.toCloudStorage(
-            image=data_stack,
-            bucket=GS_BUCKET,
-            description=out_filename + str(time.time()),
-            fileNamePrefix=out_folder + out_filename + str(time.time()),
-            fileFormat='TFRecord',
-            region=patch.geometry(),
-            scale=30,
-            formatOptions={'patchDimensions': KERNEL_SIZE,
-                           'compressed': True})
-        task.start()
-
-
 def extract_data_over_shapefiles(mask_shapefiles, year,
                                  out_folder, points_to_extract=None,
                                  n_shards=10):
+
     roi = ee.FeatureCollection(MGRS).filter(ee.Filter.eq('MGRS_TILE', '12TVT')).geometry()
     # roi = ee.FeatureCollection(MT).geometry()
 
-    s, e, interval_ = 1, 1, 30
+    s, e, interval_ = 5, 8, 30
 
     image_stack, features = get_sr_stack(year, s, e, interval_, roi)
 
-    features = features + ['lat', 'lon', 'elev', 'slope', 'aspect', 'irr']
+    features = features + ['lat', 'lon', 'elev', 'irr']
 
     columns = [tf.io.FixedLenFeature(shape=KERNEL_SHAPE, dtype=tf.float32) for k in features]
     feature_dict = OrderedDict(zip(features, columns))
-    # pprint(feature_dict)
-
-    shapefile_to_feature_collection = extract_utils.temporally_filter_features(mask_shapefiles, year)
+    pprint(feature_dict)
+    exit()
+    shapefile_to_feature_collection = temporally_filter_features(mask_shapefiles, year)
     if points_to_extract is not None:
         shapefile_to_feature_collection['points'] = points_to_extract
 
-    irr = extract_utils.create_class_labels(shapefile_to_feature_collection)
-    terrain_, coords_ = get_ancillary(year)
+    irr = create_class_labels(shapefile_to_feature_collection)
+    terrain_, coords_ = get_ancillary()
     data_stack = ee.Image.cat([image_stack, terrain_, coords_, irr]).float()
     data_stack = data_stack.neighborhoodToArray(KERNEL)
 
@@ -134,7 +149,7 @@ def extract_data_over_shapefiles(mask_shapefiles, year,
             polygons = feature_collection.toList(feature_collection.size())
             n_features = SHP_TO_YEAR_AND_COUNT[os.path.basename(shapefile)][year]
             out_class_label = os.path.basename(shapefile)
-            out_filename = out_class_label + "_sr1_30d_" + str(year)
+            out_filename = out_class_label + "_sr1_llei_30d_" + str(year)
             geometry_sample = ee.ImageCollection([])
             if not n_features:
                 continue
@@ -159,7 +174,7 @@ def extract_data_over_shapefiles(mask_shapefiles, year,
                         collection=geometry_sample,
                         description=out_filename + str(time.time()),
                         bucket=GS_BUCKET,
-                        fileNamePrefix=out_folder + out_filename + str(time.time()),
+                        fileNamePrefix=out_filename + str(time.time()),
                         fileFormat='TFRecord',
                         selectors=features
                     )
@@ -179,7 +194,7 @@ def extract_data_over_shapefiles(mask_shapefiles, year,
                 collection=geometry_sample,
                 description=out_filename + str(time.time()),
                 bucket=GS_BUCKET,
-                fileNamePrefix=out_folder + out_filename + str(time.time()),
+                fileNamePrefix=out_filename + str(time.time()),
                 fileFormat='TFRecord',
                 selectors=features
             )
