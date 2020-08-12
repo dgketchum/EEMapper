@@ -29,7 +29,7 @@ COLLECTIONS = ['LANDSAT/LC08/C01/T1_SR',
 
 root = 'users/dgketchum/training_points/'
 train = ['irrigated', 'dryland', 'uncultivated']
-AVAILABLE_TRAIN = [root + t for t in sorted(train)]
+AVAILABLE_TRAIN = [root + t for t in train]
 
 
 def test_geo():
@@ -95,8 +95,8 @@ def get_ancillary(yr):
     coords = cdl.pixelLonLat().rename(['lon', 'lat'])
 
     ned = ee.Image('USGS/NED')
-    terrain = ee.Terrain.products(ned).select('elevation', 'slope', 'aspect') \
-        .resample('bilinear').rename(['elev', 'slope', 'aspect'])
+    terrain = ee.Terrain.products(ned).select('elevation') \
+        .resample('bilinear').rename(['elev'])
 
     return terrain, coords, cdl
 
@@ -105,7 +105,7 @@ def get_sr_stack(yr, s, e, interval, geo_):
     s = datetime(yr, s, 1)
     e = datetime(yr + 1, e, 1)
     target_interval = interval
-    interp_days = 0
+    interp_days = 32
 
     target_dates = get_target_dates(s, e, interval_=target_interval)
 
@@ -127,43 +127,42 @@ def get_sr_stack(yr, s, e, interval, geo_):
     return interp, target_rename
 
 
-def extract_data_at_points(point_layer, year,
+def extract_data_at_points(point_layer, year_,
                            out_folder, n_shards=3):
-
     # roi = ee.FeatureCollection(MGRS).filter(ee.Filter.eq('MGRS_TILE', '12TVT')).geometry()
     roi = ee.FeatureCollection(MT).geometry()
     pts = test_geo()
 
     s, e, interval_ = 1, 1, 30
 
-    image_stack, features = get_sr_stack(year, s, e, interval_, roi)
+    image_stack, features = get_sr_stack(year_, s, e, interval_, roi)
 
-    features = features + ['lat', 'lon', 'elev', 'slope', 'aspect', 'irr', 'cdl']
+    features = features + ['lat', 'lon', 'elev', 'irr', 'cdl']
 
     columns = [tf.io.FixedLenFeature(shape=KERNEL_SHAPE, dtype=tf.float32) for k in features]
     feature_dict = OrderedDict(zip(features, columns))
     # pprint(feature_dict)
 
-    shapefile_to_feature_collection = temporally_filter_features(year)
+    shapefile_to_feature_collection = temporally_filter_features(year_)
 
     irr = create_class_labels(shapefile_to_feature_collection)
-    terrain_, coords_, cdl_ = get_ancillary(year)
+    terrain_, coords_, cdl_ = get_ancillary(year_)
     data_stack = ee.Image.cat([image_stack, terrain_, coords_, cdl_, irr]).float()
     data_stack = data_stack.neighborhoodToArray(KERNEL)
 
     # just extract data at points
     print(point_layer)
     points = ee.FeatureCollection(point_layer).filterBounds(pts)
-    if 'irrigated' in point_layer:
-        points = points.filter(ee.Filter.eq('YEAR', year))
+    # if 'irrigated' in point_layer:
+    points = points.filter(ee.Filter.eq('YEAR', year_))
     pprint(points.first().getInfo())
     points = points.toList(points.size())
     n_features = points.size().getInfo()
-    pprint('{} features in geo in {}'.format(n_features, year))
+    pprint('{} features in geo in {}'.format(n_features, year_))
 
     geometry_sample = ee.ImageCollection([])
     out_class_label = os.path.basename(point_layer)
-    out_filename = out_class_label + "_sr1_30d_" + str(year)
+    out_filename = out_class_label + "_sr1_30d_" + str(year_)
     n_extracted = 0
     for i in range(n_features):
         sample = data_stack.sample(
@@ -180,19 +179,20 @@ def extract_data_at_points(point_layer, year,
                 collection=geometry_sample,
                 bucket=GS_BUCKET,
                 description=out_filename + str(time.time()),
-                fileNamePrefix=out_folder + out_filename + str(time.time()),
+                fileNamePrefix=out_filename + str(time.time()),
                 fileFormat='TFRecord',
                 selectors=features
             )
             task.start()
             print('{}th element out'.format(i))
             geometry_sample = ee.ImageCollection([])
+            break
     # take care of leftovers
     task = ee.batch.Export.table.toCloudStorage(
         collection=geometry_sample,
         bucket=GS_BUCKET,
         description=out_filename + str(time.time()),
-        fileNamePrefix=out_folder + out_filename + str(time.time()),
+        fileNamePrefix=out_filename + str(time.time()),
         fileFormat='TFRecord',
         selectors=features
     )
