@@ -137,7 +137,7 @@ def extract_data_at_points(point_layer, year_,
 
     image_stack, features = get_sr_stack(year_, s, e, interval_, roi)
 
-    features = features + ['lat', 'lon', 'elev', 'irr', 'cdl']
+    features = features + ['lat', 'lon', 'elev', 'irr']
 
     columns = [tf.io.FixedLenFeature(shape=KERNEL_SHAPE, dtype=tf.float32) for k in features]
     feature_dict = OrderedDict(zip(features, columns))
