@@ -133,8 +133,8 @@ def extract_data_over_shapefiles(mask_shapefiles, year,
 
     columns = [tf.io.FixedLenFeature(shape=KERNEL_SHAPE, dtype=tf.float32) for k in features]
     feature_dict = OrderedDict(zip(features, columns))
-    pprint(feature_dict)
-    exit()
+    # pprint(feature_dict)
+
     shapefile_to_feature_collection = temporally_filter_features(mask_shapefiles, year)
     if points_to_extract is not None:
         shapefile_to_feature_collection['points'] = points_to_extract
