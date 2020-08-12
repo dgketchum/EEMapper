@@ -15,9 +15,9 @@ from sklearn.metrics import confusion_matrix
 from map.trainer.config import BUFFER_SIZE
 from map.trainer import feature_spec
 
-MODE = 'cdl'
+MODE = 'irr'
 FEATURES_DICT = feature_spec.features_dict()
-FEATURES = feature_spec.features()[:-2]
+FEATURES = feature_spec.features()
 step_, length_ = 7, len(FEATURES)
 NDVI_INDICES = [(x, y) for x, y in zip(range(2, length_, step_), range(3, length_, step_))]
 
@@ -176,7 +176,7 @@ def get_dataset(pattern):
                                       num_parallel_reads=8)
 
     dataset = dataset.map(parse_tfrecord, num_parallel_calls=5)
-    to_tup = to_tuple(add_ndvi=True)
+    to_tup = to_tuple(add_ndvi=False)
     dataset = dataset.map(to_tup, num_parallel_calls=5)
     return dataset
 
@@ -227,7 +227,7 @@ def to_tuple(add_ndvi):
     """
 
     def to_tup(inputs):
-        features_list = [inputs.get(key) for key in sorted(FEATURES)]
+        features_list = [inputs.get(key) for key in FEATURES]
         stacked = tf.stack(features_list, axis=0)
         # Convert from CHW to HWC
         stacked = tf.transpose(stacked, [1, 2, 0])  # TC scaled somehow: * 0.0001
@@ -260,25 +260,34 @@ if __name__ == '__main__':
 
     from matplotlib import pyplot as plt
     from matplotlib import cm
+
     viridis = cm.get_cmap('viridis', 5)
 
     for j, (features, labels) in enumerate(dataset):
         labels = labels.numpy().squeeze()
+        l = []
+
         # collapse one-hot encoding to single categorical image
         for n in range(labels.shape[2]):
             labels[:, :, n] *= n
         labels = sum(labels, axis=-1)
         features = features.numpy().squeeze()
+
+        # for i, n in enumerate(features):
+        #     print(i, features[:, :, i].mean())
+
         ct += 1
         r, g, b = features[:, :, r_idx], features[:, :, g_idx], features[:, :, b_idx]
 
-        norm = lambda arr:  ((arr - arr.min()) * (1 / (arr.max() - arr.min()) * 255)).astype('uint8')
+        norm = lambda arr: ((arr - arr.min()) * (1 / (arr.max() - arr.min()) * 255)).astype('uint8')
         rgb = map(norm, [median(r, axis=2), median(g, axis=2), median(b, axis=2)])
         rgb = dstack(rgb)
+
+        lat, lon = features[:, :, -3].mean(), features[:, :, -2].mean()
 
         fig, ax = plt.subplots(ncols=2)
         ax[0].imshow(rgb)
         ax[1].imshow(labels, cmap=viridis)
-        plt.suptitle(j)
+        plt.suptitle('{} {}'.format(lat, lon))
         plt.show()
     print(ct)

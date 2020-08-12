@@ -18,7 +18,7 @@ STD_NAMES = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2']
 def temporally_filter_features(shapefiles, year):
     shapefile_to_feature_collection = {}
     for shapefile in shapefiles:
-        is_temporal = True
+        temporal_ = True
         bs = os.path.basename(shapefile)
         feature_collection = ee.FeatureCollection(shapefile)
         if 'irrigated' in bs and 'unirrigated' not in bs:
@@ -26,14 +26,11 @@ def temporally_filter_features(shapefiles, year):
         elif 'fallow' in bs:
             feature_collection = feature_collection.filter(ee.Filter.eq("YEAR", year))
         else:
-            # don't need to temporally filter non-temporal land cover classes
-            is_temporal = False
+            temporal_ = False
             shapefile_to_feature_collection[shapefile] = feature_collection
 
-        if is_temporal:
-            valid_years = list(dict(SHP_TO_YEAR_AND_COUNT[bs].items()).keys())
-            if year in valid_years:
-                shapefile_to_feature_collection[shapefile] = feature_collection
+        if temporal_:
+            shapefile_to_feature_collection[shapefile] = feature_collection
 
     return shapefile_to_feature_collection
 
@@ -101,8 +98,6 @@ def assign_class_code(shapefile_path):
         return 3
     if 'wetlands' in shapefile_path:
         return 4
-    if 'uncultivated' in shapefile_path:
-        return 5
     if 'points' in shapefile_path:
         # annoying workaround for earthengine
         return 10
