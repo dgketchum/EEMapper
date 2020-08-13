@@ -42,7 +42,14 @@ HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
 COUNTIES = 'users/dgketchum/boundaries/western_counties'
 
 TARGET_STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
-IRR = {}
+
+IRR = {'ND': [2012, 2013, 2014, 2015, 2016],
+       'SD': [2007, 2008, 2009, 2013],
+       'NE': [2003, 2009, 2012, 2013, 2014, 2015, 2016],
+       'KS': [2002, 2006, 2009, 2013, 2016],
+       'OK': [2006, 2007, 2001, 2013, 2014],
+       'TX': [2005, 2006, 2009, 2015, 2016]}
+
 # list of years we have verified irrigated fields
 YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
          2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
@@ -146,7 +153,7 @@ def get_sr_series(tables, out_name, max_sample=500):
 
             for enum, slice in enumerate(ranges[:-1], start=1):
                 slice_table = table.filter(ee.Filter.And(ee.Filter.gte('rnd', slice),
-                                                   ee.Filter.lt('rnd', slice + diff)))
+                                                         ee.Filter.lt('rnd', slice + diff)))
                 points = slice_table.size().getInfo()
                 print('{} {} {} points'.format(state, year, points))
 
@@ -330,9 +337,10 @@ def filter_irrigated(filter_type='filter_low'):
     :return:
     """
     for k, v in IRR.items():
-        plots = ee.FeatureCollection(v[0])
+        plots = ee.FeatureCollection('users/dgketchum/western_states_irr/eastern_irr')
+        plots = plots.filterBounds(ee.FeatureCollection(os.path.join(BOUNDARIES, k)).geometry())
 
-        for year in v[1]:
+        for year in v:
             # pprint(plots.first().getInfo())
             start = '{}-01-01'.format(year)
 
@@ -384,20 +392,20 @@ def filter_irrigated(filter_type='filter_low'):
                                                              reducer=ee.Reducer.mean(),
                                                              scale=30.0)
 
-                filt_fc = early_int_mean.filter(ee.Filter.And(ee.Filter.lt('mean', 0.65), ee.Filter.eq('mode', 1)))
+                filt_fc = early_int_mean.filter(ee.Filter.lt('mean', 0.5))
 
             else:
                 raise NotImplementedError('must choose from filter_low or filter_high')
 
             task = ee.batch.Export.table.toCloudStorage(filt_fc,
-                                                        folder='Irrigation',
                                                         description='{}_{}_{}'.format(k, filter_type, year),
                                                         bucket='wudr',
                                                         fileNamePrefix='{}_{}_{}'.format(k, filter_type, year),
                                                         fileFormat='KML')
-
-            task.start()
-            print(k, year, filter_type, filt_fc.size().getInfo())
+            size = filt_fc.size().getInfo()
+            print(k, year, filter_type, size)
+            if size > 0:
+                task.start()
 
 
 def request_validation_extract(file_prefix='validation'):
@@ -619,5 +627,5 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    get_sr_series(RF_TRAINING_POINTS, 'sr_series', max_sample=100)
+    filter_irrigated('filter_high')
 # ========================= EOF ====================================================================

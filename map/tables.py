@@ -140,6 +140,20 @@ def concatenate_band_extract(root, out_dir, glob='None'):
     # df.to_csv(out_file, index=False)
 
 
+def rm_dupe_geometry():
+    in_dir = '/home/dgketchum/IrrigationGIS/east_training/dupes'
+    out_dir = '/home/dgketchum/IrrigationGIS/east_training/'
+    shapes = [(x, os.path.join(in_dir, x)) for x in os.listdir(in_dir) if '.shp' in x]
+    for bn, fn in shapes:
+        df = read_file(fn)
+        print(df.shape)
+        df = df[['SOURCE', 'geometry']]
+        df.drop_duplicates(subset=['geometry'], keep='first', inplace=True)
+        print(df.shape)
+        out = os.path.join(out_dir, bn)
+        df.to_file(out)
+
+
 def concatenate_irrigation_attrs(_dir, out_filename, glob):
     _files = [os.path.join(_dir, x) for x in os.listdir(_dir) if glob in x]
     _files.sort()
@@ -406,9 +420,9 @@ def join_comparison_to_shapefile(csv, shp, out_shape):
 
 
 if __name__ == '__main__':
-    home = os.path.expanduser('~')
-    d = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'processed_csv')
-    out = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated')
-    concatenate_band_extract(d, out, glob='sr_series')
-
+    # home = os.path.expanduser('~')
+    # d = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'processed_csv')
+    # out = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated')
+    # concatenate_band_extract(d, out, glob='sr_series')
+    rm_dupe_geometry()
 # ========================= EOF ====================================================================

@@ -28,22 +28,6 @@ CLU_ONLY = ['ne', 'ks', 'nd', 'ok', 'sd', 'tx']
 
 irrmapper_states = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
 
-SHAPE_COMPILATION = {
-    # 'AZ': (
-    #     ('UCRBGS', '/home/dgketchum/IrrigationGIS/openET/AZ/az_ucrb.shp'),
-    #     ('LCRVPD', '/home/dgketchum/IrrigationGIS/openET/AZ/az_lcrb.shp'),
-    #     ('CLU', '/home/dgketchum/IrrigationGIS/clu/crop_vector_v2_wgs/az_cropped_v2_wgs.shp')),
-    'CO': (
-        ('UCRBGS', '/home/dgketchum/IrrigationGIS/openET/CO/co_ucrb_add.shp'),
-        ('CODWR', '/home/dgketchum/IrrigationGIS/raw_field_polygons/CO/CO_irrigated_latest_wgs.shp'),
-        ('CLU', '/home/dgketchum/IrrigationGIS/clu/crop_vector_v2_wgs/co_cropped_v2_wgs.shp')),
-    # 'WY': (
-    #     ('UCRBGS', '/home/dgketchum/IrrigationGIS/openET/WY/WY_USGS_UCRB.shp'),
-    #     ('BRC', '/home/dgketchum/IrrigationGIS/openET/WY/WY_BRC.shp'),
-    #     ('WYSWP', '/home/dgketchum/IrrigationGIS/raw_field_polygons/WY/Irrigated_Land/Irrigated_Land_wgs.shp')),
-
-}
-
 
 def fiona_merge_MT(out_shp, file_list):
     meta = fiona.open(file_list[0]).meta
