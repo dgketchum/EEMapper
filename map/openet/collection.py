@@ -215,11 +215,12 @@ def get_target_dates(s, e, interval_=15):
 def get_target_bands(s, e, interval_=15, vars=None):
     d_times = [d for d in rrule(dtstart=s, until=e, interval=interval_, freq=DAILY)]
     d_strings = [x.strftime('%Y%m%d') for x in d_times]
+    ints_ = [x for x in range(len(d_strings))]
 
     collection_bands = [['{}_{}'.format(d, b) for b in vars] for d in d_strings]
     collection_bands = [item for sublist in collection_bands for item in sublist]
 
-    rename_bands = [['{}_{}'.format(b, d) for b in vars] for d in d_strings]
+    rename_bands = [['{}_{}'.format(b, d) for b in vars] for d in ints_]
     rename_bands = [item for sublist in rename_bands for item in sublist]
 
     return collection_bands, rename_bands
