@@ -164,15 +164,11 @@ def select_wetlands(_file, out_file):
 
 
 if __name__ == '__main__':
-    home = os.path.expanduser('~')
-    remote = '/home/dgketchum/data/'
-    wet = os.path.join(remote, 'IrrigationGIS', 'wetlands', 'raw_shp')
-    files_ = [os.path.join(wet, x) for x in os.listdir(wet) if '.shp' in x]
-    wet_sel = os.path.join(remote, 'IrrigationGIS', 'wetlands', 'feature_buf')
-    features_ = 0
-    for f in files_:
-        out = f.replace('raw_shp', 'feature_buf')
-        if not os.path.isfile(out):
-            features_ += select_wetlands(f, out)
-    print('{} total features'.format(features_))
+    # home = os.path.expanduser('~')
+    home = '/media/research/'
+    training = os.path.join(home, 'IrrigationGIS', 'training_data')
+    class_ = os.path.join(training, 'fallow', 'inspected')
+    files_ = [os.path.join(class_, x) for x in os.listdir(class_) if '.shp' in x]
+    local = os.path.join(os.path.expanduser('~'), 'IrrigationGIS', 'EE_sample', 'fallow_13AUG202.shp')
+    fiona_merge_attribute(local, files_)
 # ========================= EOF ====================================================================
