@@ -5,12 +5,11 @@ import tensorflow as tf
 import time
 import os
 from pprint import pprint
-import numpy as np
+
 from collections import OrderedDict
 from datetime import datetime
 from map.openet.collection import get_target_dates, Collection, get_target_bands
-from map.trainer import extract_utils
-from map.trainer.shapefile_meta import SHP_TO_YEAR_AND_COUNT
+
 
 KERNEL_SIZE = 256
 KERNEL_SHAPE = [KERNEL_SIZE, KERNEL_SIZE]
@@ -28,10 +27,10 @@ COLLECTIONS = ['LANDSAT/LC08/C01/T1_SR',
                'LANDSAT/LT05/C01/T1_SR']
 
 
-def masks():
+def masks(roi):
     root = 'users/dgketchum/training_polygons/'
-    irr_mask = ee.FeatureCollection(os.path.join(root, 'irrigated_mask'))
-    dryland_mask = ee.FeatureCollection(os.path.join(root, 'dryland_mask'))
+    irr_mask = ee.FeatureCollection(os.path.join(root, 'irrigated_mask')).filterBounds(roi)
+    dryland_mask = ee.FeatureCollection(os.path.join(root, 'dryland_mask')).filterBounds(roi)
 
     root = 'users/dgketchum/uncultivated/'
     w_wetlands = ee.FeatureCollection(os.path.join(root, 'west_wetlands'))
@@ -40,21 +39,15 @@ def masks():
     usgs_pad = ee.FeatureCollection(os.path.join(root, 'usgs_pad'))
     rf_uncult = ee.FeatureCollection(os.path.join(root, 'west_wetlands'))
     uncultivated_mask = w_wetlands.merge(c_wetlands).merge(e_wetlands).merge(usgs_pad).merge(rf_uncult)
+    uncultivated_mask = uncultivated_mask.filterBounds(roi)
 
     return {'irrigated': irr_mask, 'dryland': dryland_mask, 'uncultivated': uncultivated_mask}
 
 
-def test_geo():
-    fc = ee.Geometry([[-112.19186229407349, 47.81781050704002],
-                      [-112.0552198380188, 47.81781050704002],
-                      [-112.0552198380188, 47.870346541256765],
-                      [-112.19186229407349, 47.870346541256765]])
-
-
-def temporally_filter_features(year_):
+def temporally_filter_features(masks_, year_):
 
     shapefile_to_feature_collection = {}
-    for name, fc in masks().items():
+    for name, fc in masks_.items():
         if 'irrigated' in name:
             feature_collection = fc.filter(ee.Filter.eq("YEAR", year_))
             shapefile_to_feature_collection[name] = feature_collection
@@ -144,20 +137,21 @@ def extract_data_over_shapefiles(year, out_folder, points_to_extract=None, n_sha
     columns = [tf.io.FixedLenFeature(shape=KERNEL_SHAPE, dtype=tf.float32) for k in features]
     feature_dict = OrderedDict(zip(features, columns))
     # pprint(feature_dict)
-    shapefile_to_feature_collection = temporally_filter_features(year)
+    masks_ = masks(roi)
+    name_fc = temporally_filter_features(masks_, year)
     if points_to_extract is not None:
-        shapefile_to_feature_collection['points'] = points_to_extract
+        name_fc['points'] = points_to_extract
 
-    irr = create_class_labels(shapefile_to_feature_collection)
+    irr = create_class_labels(name_fc)
     terrain_, coords_ = get_ancillary()
     data_stack = ee.Image.cat([image_stack, terrain_, coords_, irr]).float()
     data_stack = data_stack.neighborhoodToArray(KERNEL)
 
-    feature_count = 0
     if points_to_extract is None:
-        for shapefile, feature_collection in shapefile_to_feature_collection.items():
-            polygons = feature_collection.toList(feature_collection.size())
-            out_class_label = os.path.basename(shapefile)
+        for name, fc in name_fc.items():
+            feature_count = 0
+            polygons = fc.toList(fc.size())
+            out_class_label = os.path.basename(name)
             out_filename = out_class_label + "_sr{}_s{}_e{}_".format(KERNEL_SIZE, s, e) + str(year)
             geometry_sample = ee.ImageCollection([])
 
@@ -181,24 +175,21 @@ def extract_data_over_shapefiles(year, out_folder, points_to_extract=None, n_sha
                     )
                     try:
                         task.start()
-                        exit()
-                        continue
                     except ee.ee_exception.EEException:
                         print('waiting to export, sleeping for 50 minutes. Holding at\
-                                {} {}, index {}'.format(year, shapefile, i))
+                                {} {}, index {}'.format(year, name, i))
                         time.sleep(3000)
                         task.start()
                     geometry_sample = ee.ImageCollection([])
             # take care of leftovers
-            # print('n_extracted:', feature_count)
+            print('{} {} extracted'.format(name, feature_count))
             task = ee.batch.Export.table.toCloudStorage(
                 collection=geometry_sample,
                 description=out_filename + str(time.time()),
                 bucket=GS_BUCKET,
                 fileNamePrefix=out_filename + str(time.time()),
                 fileFormat='TFRecord',
-                selectors=features
-            )
+                selectors=features)
             task.start()
 
     else:
@@ -244,5 +235,4 @@ def extract_data_over_shapefiles(year, out_folder, points_to_extract=None, n_sha
 
 
 if __name__ == '__main__':
-    year = 2010
-    extract_data_over_shapefiles(year, out_folder=GS_BUCKET)
+    extract_data_over_shapefiles(2010, out_folder=GS_BUCKET)
