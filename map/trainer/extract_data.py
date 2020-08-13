@@ -61,31 +61,21 @@ def temporally_filter_features(masks_, year_):
     return shapefile_to_feature_collection
 
 
-def create_class_labels(shapefile_to_feature_collection):
-    class_labels = ee.Image(0).byte()
-    for name, fc in shapefile_to_feature_collection.items():
-        class_labels = class_labels.paint(fc, assign_class_code(name) + 1)
+def class_codes():
+    return {'irrigated': 1,
+            'fallow': 2,
+            'dryland': 3,
+            'uncultivated': 4}
 
+
+def create_class_labels(name_fc):
+    class_labels = ee.Image(0).byte()
+    # paint irrigated last
+    for name in ['uncultivated', 'dryland', 'irrigated']:
+        class_labels = class_labels.paint(name_fc[name], class_codes()[name])
     label = class_labels.updateMask(class_labels).rename('irr')
 
     return label
-
-
-def assign_class_code(shapefile_path):
-    shapefile_path = os.path.basename(shapefile_path)
-    if 'irrigated' in shapefile_path and 'unirrigated' not in shapefile_path:
-        return 1
-    if 'fallow' in shapefile_path:
-        return 2
-    if 'dryland' in shapefile_path:
-        return 3
-    if 'uncultivated' in shapefile_path:
-        return 4
-    if 'points' in shapefile_path:
-        # annoying workaround for earthengine
-        return 10
-    else:
-        raise NameError('shapefile path {} isn\'t named in assign_class_code'.format(shapefile_path))
 
 
 def get_ancillary():
@@ -160,8 +150,8 @@ def extract_data_over_shapefiles(year, out_folder, points_to_extract=None, n_sha
                     region=ee.Feature(polygons.get(i)).geometry(),
                     scale=30,
                     numPixels=1,
-                    tileScale=8
-                )
+                    tileScale=8)
+
                 geometry_sample = geometry_sample.merge(sample)
                 feature_count += 1
                 if (feature_count + 1) % n_shards == 0:
