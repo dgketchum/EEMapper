@@ -109,7 +109,6 @@ def get_sr_stack(yr, s, e, interval, geo_):
 
 
 def extract_by_feature(year, out_folder, points_to_extract=None, n_shards=4):
-
     roi = ee.FeatureCollection(TRAINING_GRID).filter(ee.Filter.eq('FID', 1440)).geometry()
     # roi = ee.FeatureCollection(MT).geometry()
 
@@ -217,6 +216,14 @@ def extract_by_feature(year, out_folder, points_to_extract=None, n_shards=4):
             #     selectors=features)
             # task.start()
             print(year)
+
+
+def subsample_fid():
+    return [136, 671, 1942, 294, 151, 58, 278, 1621, 2237, 2244, 1224, 2024, 2308, 829,
+            1467, 1440, 842, 403, 11, 1554, 2275, 2206, 1984, 2174, 562, 854, 1211, 1260,
+            2192, 1688, 36, 87, 2171, 1400, 1324, 529, 133, 2175, 93, 2227, 1227, 527, 2243,
+            1017, 2195, 365, 1484, 1555, 566, 2138, 908, 182, 1655, 2006, 1629, 2236, 113,
+            1658, 1726, 1818, 808, 649, 2140, 1807, 2278, 1232, 509, 516, 280, 1014]
 
 
 if __name__ == '__main__':
