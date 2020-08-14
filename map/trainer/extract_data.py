@@ -10,7 +10,6 @@ from collections import OrderedDict
 from datetime import datetime
 from map.openet.collection import get_target_dates, Collection, get_target_bands
 
-
 KERNEL_SIZE = 256
 KERNEL_SHAPE = [KERNEL_SIZE, KERNEL_SIZE]
 list_ = ee.List.repeat(1, KERNEL_SIZE)
@@ -20,16 +19,20 @@ GS_BUCKET = 'wudr'
 
 BOUNDARIES = 'users/dgketchum/boundaries'
 MGRS = os.path.join(BOUNDARIES, 'MGRS_TILE')
+TRAINING_GRID = 'users/dgketchum/grids/train'
 MT = os.path.join(BOUNDARIES, 'MT')
 
 COLLECTIONS = ['LANDSAT/LC08/C01/T1_SR',
                'LANDSAT/LE07/C01/T1_SR',
                'LANDSAT/LT05/C01/T1_SR']
 
+CLASSES = ['uncultivated', 'dryland', 'fallow', 'irrigated']
+
 
 def masks(roi):
     root = 'users/dgketchum/training_polygons/'
     irr_mask = ee.FeatureCollection(os.path.join(root, 'irrigated_mask')).filterBounds(roi)
+    fallow_mask = ee.FeatureCollection(os.path.join(root, 'fallow_mask')).filterBounds(roi)
     dryland_mask = ee.FeatureCollection(os.path.join(root, 'dryland_mask')).filterBounds(roi)
 
     root = 'users/dgketchum/uncultivated/'
@@ -41,11 +44,13 @@ def masks(roi):
     uncultivated_mask = w_wetlands.merge(c_wetlands).merge(e_wetlands).merge(usgs_pad).merge(rf_uncult)
     uncultivated_mask = uncultivated_mask.filterBounds(roi)
 
-    return {'irrigated': irr_mask, 'dryland': dryland_mask, 'uncultivated': uncultivated_mask}
+    return {'irrigated': irr_mask,
+            'fallow': fallow_mask,
+            'dryland': dryland_mask,
+            'uncultivated': uncultivated_mask}
 
 
 def temporally_filter_features(masks_, year_):
-
     shapefile_to_feature_collection = {}
     for name, fc in masks_.items():
         if 'irrigated' in name:
@@ -55,6 +60,7 @@ def temporally_filter_features(masks_, year_):
         elif 'fallow' in name:
             fc = fc.filter(ee.Filter.eq("YEAR", year_))
             shapefile_to_feature_collection[name] = fc
+
         else:
             shapefile_to_feature_collection[name] = fc
 
@@ -71,7 +77,7 @@ def class_codes():
 def create_class_labels(name_fc):
     class_labels = ee.Image(0).byte()
     # paint irrigated last
-    for name in ['uncultivated', 'dryland', 'irrigated']:
+    for name in CLASSES:
         class_labels = class_labels.paint(name_fc[name], class_codes()[name])
     label = class_labels.updateMask(class_labels).rename('irr')
 
@@ -83,7 +89,7 @@ def get_ancillary():
     terrain = ee.Terrain.products(ned).select('elevation') \
         .resample('bilinear').rename(['elev'])
 
-    coords = ned.pixelLonLat().rename(['lon', 'lat'])
+    coords = terrain.pixelLonLat().rename(['lon', 'lat'])
     return terrain, coords
 
 
@@ -99,7 +105,7 @@ def get_sr_stack(yr, s, e, interval, geo_):
         collections=COLLECTIONS,
         start_date=s,
         end_date=e,
-        geometry=geo_,
+        geometry=geo_.buffer(100000),
         cloud_cover_max=60)
 
     variables_ = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2', 'tir']
@@ -113,9 +119,9 @@ def get_sr_stack(yr, s, e, interval, geo_):
     return interp, target_rename
 
 
-def extract_data_over_shapefiles(year, out_folder, points_to_extract=None, n_shards=15):
+def extract_data_over_shapefiles(year, out_folder, points_to_extract=None, n_shards=4):
 
-    roi = ee.FeatureCollection(MGRS).filter(ee.Filter.eq('MGRS_TILE', '12TVT')).geometry()
+    roi = ee.FeatureCollection(TRAINING_GRID).filter(ee.Filter.eq('FID', 1440)).geometry()
     # roi = ee.FeatureCollection(MT).geometry()
 
     s, e, interval_ = 1, 1, 30
@@ -129,8 +135,6 @@ def extract_data_over_shapefiles(year, out_folder, points_to_extract=None, n_sha
     # pprint(feature_dict)
     masks_ = masks(roi)
     name_fc = temporally_filter_features(masks_, year)
-    if points_to_extract is not None:
-        name_fc['points'] = points_to_extract
 
     irr = create_class_labels(name_fc)
     terrain_, coords_ = get_ancillary()
@@ -140,14 +144,14 @@ def extract_data_over_shapefiles(year, out_folder, points_to_extract=None, n_sha
     if points_to_extract is None:
         for name, fc in name_fc.items():
             feature_count = 0
-            polygons = fc.toList(fc.size())
+            points = fc.toList(fc.size())
             out_class_label = os.path.basename(name)
             out_filename = out_class_label + "_sr{}_s{}_e{}_".format(KERNEL_SIZE, s, e) + str(year)
             geometry_sample = ee.ImageCollection([])
 
             for i in range(n_shards):
                 sample = data_stack.sample(
-                    region=ee.Feature(polygons.get(i)).geometry(),
+                    region=ee.Feature(points.get(i)).geometry(),
                     scale=30,
                     numPixels=1,
                     tileScale=8)
@@ -183,46 +187,51 @@ def extract_data_over_shapefiles(year, out_folder, points_to_extract=None, n_sha
             task.start()
 
     else:
-        # just extract data at points
-        polygons = ee.FeatureCollection(points_to_extract)
-        polygons = polygons.toList(polygons.size())
-        n_features = polygons.size().getInfo()  # see if this works
-        print(n_features, points_to_extract)
-        geometry_sample = ee.ImageCollection([])
-        out_filename = str(year)
-        n_extracted = 0
-        for i in range(n_features):
-            sample = data_stack.sample(
-                region=ee.Feature(polygons.get(i)).geometry(),
-                scale=30,
-                numPixels=1,
-                tileScale=8
-            )
-            geometry_sample = geometry_sample.merge(sample)
-            if (i + 1) % n_shards == 0:
-                n_extracted += geometry_sample.size().getInfo()
-                task = ee.batch.Export.table.toCloudStorage(
-                    collection=geometry_sample,
-                    bucket=GS_BUCKET,
-                    description=out_filename + str(time.time()),
-                    fileNamePrefix=out_folder + out_filename + str(time.time()),
-                    fileFormat='TFRecord',
-                    selectors=features
-                )
-                task.start()
-                geometry_sample = ee.ImageCollection([])
-        # take care of leftovers
-        task = ee.batch.Export.table.toCloudStorage(
-            collection=geometry_sample,
-            bucket=GS_BUCKET,
-            description=out_filename + str(time.time()),
-            fileNamePrefix=out_folder + out_filename + str(time.time()),
-            fileFormat='TFRecord',
-            selectors=features
-        )
-        task.start()
-        print(n_extracted, year)
+        for fc in points_to_extract:
+            class_ = os.path.basename(fc)
+            points = ee.FeatureCollection(fc).filterBounds(roi)
+            points = points.toList(points.size())
+            n_features = points.size().getInfo()  # see if this works
+            print(n_features, fc)
+            geometry_sample = ee.ImageCollection([])
+            out_filename = '{}_{}'.format(class_, str(year))
+            ct = 0
+            for i in range(n_features):
+                sample = data_stack.sample(
+                    region=ee.Feature(points.get(i)).geometry(),
+                    scale=30,
+                    numPixels=1,
+                    tileScale=8)
+
+                geometry_sample = geometry_sample.merge(sample)
+                ct += 1
+                if (i + 1) % n_shards == 0:
+                    task = ee.batch.Export.table.toCloudStorage(
+                        collection=geometry_sample,
+                        bucket=GS_BUCKET,
+                        description=out_filename + str(time.time()),
+                        fileNamePrefix=out_folder + out_filename + str(time.time()),
+                        fileFormat='TFRecord',
+                        selectors=features
+                    )
+                    task.start()
+                    print('exporting {} of {}'.format(ct, class_))
+                    geometry_sample = ee.ImageCollection([])
+                    ct = 0
+                    break
+            # take care of leftovers
+            # task = ee.batch.Export.table.toCloudStorage(
+            #     collection=geometry_sample,
+            #     bucket=GS_BUCKET,
+            #     description=out_filename + str(time.time()),
+            #     fileNamePrefix=out_folder + out_filename + str(time.time()),
+            #     fileFormat='TFRecord',
+            #     selectors=features)
+            # task.start()
+            print(year)
 
 
 if __name__ == '__main__':
-    extract_data_over_shapefiles(2010, out_folder=GS_BUCKET)
+    pts_root = 'users/dgketchum/training_points'
+    pts_training = [os.path.join(pts_root, x) for x in CLASSES]
+    extract_data_over_shapefiles(2010, points_to_extract=pts_training, out_folder=GS_BUCKET)
