@@ -17,6 +17,7 @@ import os
 from datetime import datetime
 from collections import OrderedDict
 from random import shuffle
+from copy import deepcopy
 
 import fiona
 from shapely.geometry import shape, mapping, Polygon, MultiPolygon
@@ -176,7 +177,33 @@ def rm_dupe_geometry():
     df.to_file(out)
 
 
+def reduce_training_density(in_shp, out_shp):
+
+    with fiona.open(in_shp, 'r') as input_:
+        meta = input_.meta
+        features = [f for f in input_]
+        buffers = {k: {'count': 0,
+                       'shape': shape(f['geometry']).buffer(3840.)} for k, f in enumerate(input_)}
+
+    bufs = deepcopy(buffers)
+    for f, v in bufs.items():
+        print(f)
+        for j, c in bufs.items():
+            if v['shape'].intersects(c['shape']):
+                if f != j:
+                    buffers[f]['count'] += 1
+    ct = 0
+    with fiona.open(out_shp, 'w', **meta) as output_:
+        for k, v in buffers.items():
+            if v['count'] < 2000:
+                ct += 1
+                output_.write(features[k])
+
+
 if __name__ == '__main__':
     # home = os.path.expanduser('~')
-    rm_dupe_geometry()
+    dir_ = '/home/dgketchum/IrrigationGIS/EE_sample/centroids/buffer_reduced'
+    in_ = os.path.join(dir_, 'irrigated_dense_sample.shp')
+    out_ = os.path.join(dir_, 'irrigated_dense_sample_reduced.shp')
+    reduce_training_density(in_, out_)
 # ========================= EOF ====================================================================
