@@ -7,7 +7,7 @@ from PIL import Image
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 import tensorflow as tf
-from numpy import median, dstack, sum, count_nonzero, unique
+from numpy import median, dstack, sum, count_nonzero, unique, vectorize
 
 from collections import defaultdict
 from sklearn.metrics import confusion_matrix
@@ -37,7 +37,7 @@ def mask_unlabeled_values(y_true, y_pred):
     return y_true, y_pred
 
 
-def confusion_matrix_from_generator(datasets, batch_size, model, n_classes=3):
+def confusion_matrix_from_generator(datasets, batch_size, model, n_classes=4):
     '''
     inputs: list of tf.data.Datasets, not batched, without repeat.
     '''
@@ -128,11 +128,13 @@ def parse_tfrecord(example_proto):
 def filter_list_into_classes(lst):
     out = defaultdict(list)
     for f in lst:
-        if 'irrigated' in f and 'unirrigated' not in f:
+        if 'irrigated' in f:
             out['irrigated'].append(f)
-        elif 'unirrigated' in f or 'fallow' in f:
-            out['unirrigated'].append(f)
-        elif 'uncultivated' in f or 'wetlands' in f:
+        elif'fallow' in f:
+            out['fallow'].append(f)
+        elif 'dryland' in f:
+            out['dryland'].append(f)
+        elif 'uncultivated' in f:
             out['uncultivated'].append(f)
 
     return out
@@ -259,18 +261,20 @@ if __name__ == '__main__':
                           [FEATURES.index(x) for x in FEATURES if 'blue' in x]
 
     from matplotlib import pyplot as plt
-    from matplotlib import cm
+    from matplotlib.colors import ListedColormap
 
-    viridis = cm.get_cmap('viridis', 5)
+    cmap = ListedColormap(['grey', 'blue', 'purple', 'pink', 'green'])
 
     for j, (features, labels) in enumerate(dataset):
         labels = labels.numpy().squeeze()
         l = []
 
-        # collapse one-hot encoding to single categorical image
-        for n in range(labels.shape[2]):
-            labels[:, :, n] *= n
+        # collapse one-hot label to single categorical image
+        for n in range(labels.shape[-1]):
+            labels[:, :, n] *= n + 1
+
         labels = sum(labels, axis=-1)
+        print(unique(labels))
         features = features.numpy().squeeze()
 
         # for i, n in enumerate(features):
@@ -287,7 +291,7 @@ if __name__ == '__main__':
 
         fig, ax = plt.subplots(ncols=2)
         ax[0].imshow(rgb)
-        ax[1].imshow(labels, cmap=viridis)
-        plt.suptitle('{} {}'.format(lat, lon))
+        ax[1].imshow(labels, cmap=cmap)
+        plt.suptitle('{:.3f}, {:.3f}'.format(lat, lon))
         plt.show()
     print(ct)

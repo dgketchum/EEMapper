@@ -20,6 +20,7 @@ from random import shuffle
 
 import fiona
 from shapely.geometry import shape, mapping, Polygon, MultiPolygon
+from geopandas import read_file
 
 
 def fiona_merge_attribute(out_shp, file_list):
@@ -141,7 +142,7 @@ def select_wetlands(_file, out_file):
                         out_feature = {'type': 'Feature', 'geometry': mapping(geo), 'id': out_feats,
                                        'properties': OrderedDict([('OBJECTID', out_feats),
                                                                   ('WETLAND_TY', f['properties']['WETLAND_TY']),
-                                                                  ('AREA_SQM', a/1e6)])}
+                                                                  ('AREA_SQM', a / 1e6)])}
                         output.write(out_feature)
 
                 elif isinstance(geo, MultiPolygon):
@@ -156,19 +157,26 @@ def select_wetlands(_file, out_file):
                             out_feature = {'type': 'Feature', 'geometry': mapping(p), 'id': out_feats,
                                            'properties': OrderedDict([('OBJECTID', out_feats),
                                                                       ('WETLAND_TY', f['properties']['WETLAND_TY']),
-                                                                      ('AREA_SQM', a/1e6)])}
+                                                                      ('AREA_SQM', a / 1e6)])}
                             output.write(out_feature)
 
     print('{} out in {} sec \n {} {}'.format(out_feats, (datetime.now() - s).seconds, _file, out_file))
     return out_feats
 
 
+def rm_dupe_geometry():
+    in_shp = '/home/dgketchum/IrrigationGIS/EE_sample/centroids/irrigated_27JUL2020.shp'
+    out_shp = '/home/dgketchum/IrrigationGIS/EE_sample/centroids/irrigated_13AUG2020.shp'
+    df = read_file(in_shp)
+    print(df.shape)
+    # df = df[['SOURCE', 'geometry']]
+    df.drop_duplicates(['YEAR', 'geometry'], keep='first', inplace=True)
+    print(df.shape)
+    out = os.path.join(out_shp, out_shp)
+    df.to_file(out)
+
+
 if __name__ == '__main__':
     # home = os.path.expanduser('~')
-    home = '/media/research/'
-    training = os.path.join(home, 'IrrigationGIS', 'training_data')
-    class_ = os.path.join(training, 'fallow', 'inspected')
-    files_ = [os.path.join(class_, x) for x in os.listdir(class_) if '.shp' in x]
-    local = os.path.join(os.path.expanduser('~'), 'IrrigationGIS', 'EE_sample', 'fallow_13AUG202.shp')
-    fiona_merge_attribute(local, files_)
+    rm_dupe_geometry()
 # ========================= EOF ====================================================================

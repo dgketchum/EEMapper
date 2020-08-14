@@ -108,7 +108,8 @@ def get_sr_stack(yr, s, e, interval, geo_):
     return interp, target_rename
 
 
-def extract_data_over_shapefiles(year, out_folder, points_to_extract=None, n_shards=4):
+def extract_by_feature(year, out_folder, points_to_extract=None, n_shards=4):
+
     roi = ee.FeatureCollection(TRAINING_GRID).filter(ee.Filter.eq('FID', 1440)).geometry()
     # roi = ee.FeatureCollection(MT).geometry()
 
@@ -121,16 +122,15 @@ def extract_data_over_shapefiles(year, out_folder, points_to_extract=None, n_sha
     columns = [tf.io.FixedLenFeature(shape=KERNEL_SHAPE, dtype=tf.float32) for k in features]
     feature_dict = OrderedDict(zip(features, columns))
     # pprint(feature_dict)
-    masks_ = masks(roi)
-    name_fc = temporally_filter_features(masks_, year)
+    masks_ = masks(roi, year)
 
-    irr = create_class_labels(name_fc)
+    irr = create_class_labels(masks_)
     terrain_, coords_ = get_ancillary()
     data_stack = ee.Image.cat([image_stack, terrain_, coords_, irr]).float()
     data_stack = data_stack.neighborhoodToArray(KERNEL)
 
-    if points_to_extract is None:
-        for name, fc in name_fc.items():
+    if not points_to_extract:
+        for name, fc in masks_.items():
             feature_count = 0
             points = fc.toList(fc.size())
             out_class_label = os.path.basename(name)
@@ -222,4 +222,4 @@ def extract_data_over_shapefiles(year, out_folder, points_to_extract=None, n_sha
 if __name__ == '__main__':
     pts_root = 'users/dgketchum/training_points'
     pts_training = [os.path.join(pts_root, x) for x in CLASSES]
-    extract_data_over_shapefiles(2010, points_to_extract=pts_training, out_folder=GS_BUCKET)
+    extract_by_feature(2010, points_to_extract=pts_training, out_folder=GS_BUCKET)
