@@ -29,10 +29,15 @@ COLLECTIONS = ['LANDSAT/LC08/C01/T1_SR',
 CLASSES = ['uncultivated', 'dryland', 'fallow', 'irrigated']
 
 
-def masks(roi):
+def masks(roi, year_):
     root = 'users/dgketchum/training_polygons/'
+
     irr_mask = ee.FeatureCollection(os.path.join(root, 'irrigated_mask')).filterBounds(roi)
+    irr_mask = irr_mask.filter(ee.Filter.eq("YEAR", year_))
+
     fallow_mask = ee.FeatureCollection(os.path.join(root, 'fallow_mask')).filterBounds(roi)
+    fallow_mask = fallow_mask.filter(ee.Filter.eq("YEAR", year_))
+
     dryland_mask = ee.FeatureCollection(os.path.join(root, 'dryland_mask')).filterBounds(roi)
 
     root = 'users/dgketchum/uncultivated/'
@@ -44,27 +49,11 @@ def masks(roi):
     uncultivated_mask = w_wetlands.merge(c_wetlands).merge(e_wetlands).merge(usgs_pad).merge(rf_uncult)
     uncultivated_mask = uncultivated_mask.filterBounds(roi)
 
-    return {'irrigated': irr_mask,
-            'fallow': fallow_mask,
-            'dryland': dryland_mask,
-            'uncultivated': uncultivated_mask}
-
-
-def temporally_filter_features(masks_, year_):
-    shapefile_to_feature_collection = {}
-    for name, fc in masks_.items():
-        if 'irrigated' in name:
-            feature_collection = fc.filter(ee.Filter.eq("YEAR", year_))
-            shapefile_to_feature_collection[name] = feature_collection
-
-        elif 'fallow' in name:
-            fc = fc.filter(ee.Filter.eq("YEAR", year_))
-            shapefile_to_feature_collection[name] = fc
-
-        else:
-            shapefile_to_feature_collection[name] = fc
-
-    return shapefile_to_feature_collection
+    masks_ = {'irrigated': irr_mask,
+              'fallow': fallow_mask,
+              'dryland': dryland_mask,
+              'uncultivated': uncultivated_mask}
+    return masks_
 
 
 def class_codes():
@@ -120,7 +109,6 @@ def get_sr_stack(yr, s, e, interval, geo_):
 
 
 def extract_data_over_shapefiles(year, out_folder, points_to_extract=None, n_shards=4):
-
     roi = ee.FeatureCollection(TRAINING_GRID).filter(ee.Filter.eq('FID', 1440)).geometry()
     # roi = ee.FeatureCollection(MT).geometry()
 
