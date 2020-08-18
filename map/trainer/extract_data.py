@@ -5,6 +5,8 @@ import tensorflow as tf
 import time
 import os
 from pprint import pprint
+import sys
+sys.path.append('/home/dgketchum/PycharmProjects/EEMapper')
 
 from collections import OrderedDict
 from datetime import datetime
@@ -27,6 +29,11 @@ COLLECTIONS = ['LANDSAT/LC08/C01/T1_SR',
                'LANDSAT/LT05/C01/T1_SR']
 
 CLASSES = ['uncultivated', 'dryland', 'fallow', 'irrigated']
+
+
+YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
+         2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
+         2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
 
 
 def masks(roi, year_):
@@ -66,7 +73,7 @@ def class_codes():
 def create_class_labels(name_fc):
     class_labels = ee.Image(0).byte()
     # paint irrigated last
-    for name in CLASSES:
+    for name in ['uncultivated', 'dryland', 'fallow', 'irrigated']:
         class_labels = class_labels.paint(name_fc[name], class_codes()[name])
     label = class_labels.updateMask(class_labels).rename('irr')
 
@@ -108,8 +115,10 @@ def get_sr_stack(yr, s, e, interval, geo_):
     return interp, target_rename
 
 
-def extract_by_feature(year, out_folder, points_to_extract=None, n_shards=4):
-    roi = ee.FeatureCollection(TRAINING_GRID).filter(ee.Filter.eq('FID', 1440)).geometry()
+def extract_by_feature(year, out_folder, points_to_extract=None,
+                       n_shards=4, feature_id=1440, max_sample=100):
+
+    roi = ee.FeatureCollection(TRAINING_GRID).filter(ee.Filter.eq('FID', feature_id)).geometry()
     # roi = ee.FeatureCollection(MT).geometry()
 
     s, e, interval_ = 1, 1, 30
@@ -122,6 +131,9 @@ def extract_by_feature(year, out_folder, points_to_extract=None, n_shards=4):
     feature_dict = OrderedDict(zip(features, columns))
     # pprint(feature_dict)
     masks_ = masks(roi, year)
+    if masks_['irrigated'].size().getInfo() == 0:
+        print('no irrigated in {} in {}'.format(year, fid))
+        return
 
     irr = create_class_labels(masks_)
     terrain_, coords_ = get_ancillary()
@@ -177,9 +189,18 @@ def extract_by_feature(year, out_folder, points_to_extract=None, n_shards=4):
         for fc in points_to_extract:
             class_ = os.path.basename(fc)
             points = ee.FeatureCollection(fc).filterBounds(roi)
+            n_features = points.size().getInfo()
+
+            if n_features == 0:
+                print('no irrigated in {} in {}'.format(year, fid))
+                break
+
             points = points.toList(points.size())
-            n_features = points.size().getInfo()  # see if this works
-            print(n_features, fc)
+
+            if n_features > max_sample:
+                points = points.slice(0, max_sample)
+                print(n_features, fc)
+
             geometry_sample = ee.ImageCollection([])
             out_filename = '{}_{}'.format(class_, str(year))
             ct = 0
@@ -197,25 +218,30 @@ def extract_by_feature(year, out_folder, points_to_extract=None, n_shards=4):
                         collection=geometry_sample,
                         bucket=GS_BUCKET,
                         description=out_filename + str(time.time()),
-                        fileNamePrefix=out_folder + out_filename + str(time.time()),
+                        fileNamePrefix=out_filename + str(time.time()),
                         fileFormat='TFRecord',
                         selectors=features
                     )
-                    task.start()
-                    print('exporting {} of {}'.format(ct, class_))
+
+                    try:
+                        task.start()
+                    except ee.ee_exception.EEException:
+                        print('waiting to export, sleeping for 50 minutes. Holding at\
+                                {} {}, index {}'.format(year, class_, i))
+                        time.sleep(3000)
+                        task.start()
+
                     geometry_sample = ee.ImageCollection([])
                     ct = 0
-                    break
-            # take care of leftovers
-            # task = ee.batch.Export.table.toCloudStorage(
-            #     collection=geometry_sample,
-            #     bucket=GS_BUCKET,
-            #     description=out_filename + str(time.time()),
-            #     fileNamePrefix=out_folder + out_filename + str(time.time()),
-            #     fileFormat='TFRecord',
-            #     selectors=features)
-            # task.start()
-            print(year)
+            task = ee.batch.Export.table.toCloudStorage(
+                collection=geometry_sample,
+                bucket=GS_BUCKET,
+                description=out_filename + str(time.time()),
+                fileNamePrefix=out_filename + str(time.time()),
+                fileFormat='TFRecord',
+                selectors=features)
+            task.start()
+            print('exported', fid, year)
 
 
 def subsample_fid():
@@ -228,5 +254,8 @@ def subsample_fid():
 
 if __name__ == '__main__':
     pts_root = 'users/dgketchum/training_points'
-    pts_training = [os.path.join(pts_root, x) for x in CLASSES]
-    extract_by_feature(2010, points_to_extract=pts_training, out_folder=GS_BUCKET)
+    pts_training = [os.path.join(pts_root, x) for x in ['irrigated', 'uncultivated', 'dryland', 'fallow']]
+    for yr_ in YEARS:
+        for fid in subsample_fid():
+            extract_by_feature(yr_, points_to_extract=pts_training,
+                               out_folder=GS_BUCKET, feature_id=fid, max_sample=100)
