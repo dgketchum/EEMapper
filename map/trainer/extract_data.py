@@ -115,7 +115,7 @@ def get_sr_stack(yr, s, e, interval, geo_):
     return interp, target_rename
 
 
-def extract_by_feature(year, out_folder, points_to_extract=None,
+def extract_by_feature(year, points_to_extract=None,
                        n_shards=4, feature_id=1440, max_sample=100):
 
     roi = ee.FeatureCollection(TRAINING_GRID).filter(ee.Filter.eq('FID', feature_id)).geometry()
@@ -144,8 +144,8 @@ def extract_by_feature(year, out_folder, points_to_extract=None,
         for name, fc in masks_.items():
             feature_count = 0
             points = fc.toList(fc.size())
-            out_class_label = os.path.basename(name)
-            out_filename = out_class_label + "_sr{}_s{}_e{}_".format(KERNEL_SIZE, s, e) + str(year)
+            class_ = os.path.basename(name)
+            out_filename = '{}_{}_{}'.format(class_, str(year), feature_id)
             geometry_sample = ee.ImageCollection([])
 
             for i in range(n_shards):
@@ -198,11 +198,12 @@ def extract_by_feature(year, out_folder, points_to_extract=None,
             points = points.toList(points.size())
 
             if n_features > max_sample:
+                # Error: List.get: List index must be between 0 and 99, or -100 and -1. Found 115.
                 points = points.slice(0, max_sample)
                 print(n_features, fc)
 
             geometry_sample = ee.ImageCollection([])
-            out_filename = '{}_{}'.format(class_, str(year))
+            out_filename = '{}_{}_{}'.format(class_, str(year), feature_id)
             ct = 0
             for i in range(n_features):
                 sample = data_stack.sample(
@@ -257,5 +258,4 @@ if __name__ == '__main__':
     pts_training = [os.path.join(pts_root, x) for x in ['irrigated', 'uncultivated', 'dryland', 'fallow']]
     for yr_ in YEARS:
         for fid in subsample_fid():
-            extract_by_feature(yr_, points_to_extract=pts_training,
-                               out_folder=GS_BUCKET, feature_id=fid, max_sample=100)
+            extract_by_feature(yr_, points_to_extract=pts_training, feature_id=fid, max_sample=100)
