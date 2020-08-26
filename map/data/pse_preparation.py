@@ -1,8 +1,7 @@
-import numpy as np
 import json
 import os
 import scipy.ndimage.measurements as mnts
-
+from numpy import stack, zeros_like, array, sort, sum, where
 from map.trainer.training_utils import make_test_dataset
 
 DATES = {0: '19860101',
@@ -19,6 +18,12 @@ DATES = {0: '19860101',
          11: '19861127',
          12: '19861227'}
 
+structure = array([
+    [1, 1, 1],
+    [1, 1, 1],
+    [1, 1, 1]
+])
+
 
 def write_pixel_set(out, recs, label_names=None):
     dataset = make_test_dataset(recs, True).batch(1)
@@ -28,12 +33,40 @@ def write_pixel_set(out, recs, label_names=None):
         labels = labels.numpy().squeeze()
         features = features.numpy().squeeze()
         pixels = []
-        c = crop[i][np.where(crop[i] != np.iinfo(np.uint16).max)]
-        pixels.append(c)
-        pixels = np.stack(pixels, axis=0)  # (C, S)
+
+        bbox_slices = {}
+        for i in range(0, labels.shape[2]):
+            B = labels[:, :, i].copy()
+            print(B.max())
+            if B.max():
+                bbox_slices[i] = mnts.find_objects(mnts.label(B, structure=structure)[0])
+        print(bbox_slices)
+        pixels.append([])
+        pixels = stack(pixels, axis=0)  # (C, S)
         pixels = pixels.reshape((1, *pixels.shape))  # (1, C, S)
         with open(os.path.join(out, 'META', 'dates.json'), 'w') as file:
             file.write(json.dumps(DATES, indent=4))
+
+
+def display_box(features, labels):
+    from matplotlib import pyplot as plt
+    from matplotlib.colors import ListedColormap
+
+    cmap = ListedColormap(['grey', 'blue', 'purple', 'pink', 'green'])
+
+    for n in range(labels.shape[-1]):
+        labels[:, :, n] *= n + 1
+
+    labels = sum(labels, axis=-1)
+    features = features.numpy().squeeze()
+    lat, lon = features[:, :, -3].mean(), features[:, :, -2].mean()
+    boxes = zeros_like(labels)
+    boxes = where()
+
+    fig, ax = plt.subplots(ncols=5)
+    ax[0].imshow(labels, cmap=cmap)
+    plt.suptitle('{:.3f}, {:.3f}'.format(lat, lon))
+    plt.show()
 
 
 def date_parser(filepath):
@@ -53,7 +86,7 @@ def list_extension(folder, extension='tif'):
 
 def get_dates(input_folder):
     tifs = list_extension(input_folder, '.tif')
-    tifs = np.sort(tifs)
+    tifs = sort(tifs)
     dates = [int(t.replace('.tif', '')) for t in tifs]
 
     ndates = len(dates)
