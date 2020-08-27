@@ -2,8 +2,8 @@ import json
 import os
 import scipy.ndimage.measurements as mnts
 import numpy as np
-from numpy import zeros_like, array, sort, sum, where, nan, swapaxes
-from numpy import nanmean, iinfo, uint32, sqrt, save, isnan, all
+from numpy import zeros_like, array, sort, sum, where, nan, swapaxes, count_nonzero
+from numpy import nanmean, iinfo, uint32, sqrt, save, isnan, all, mean, any
 from map.trainer.training_utils import make_test_dataset
 import pickle as pkl
 
@@ -30,10 +30,22 @@ structure = array([
     [1, 1, 1]
 ])
 
+TIR_MEAN = array([272.95673770062103, 273.6426998371442, 278.16735169847965, 288.5894816757432,
+                  287.98069555213607, 294.04969406607677, 301.05678366350924, 301.16551136388387,
+                  298.8445203066237, 290.7196101537407, 284.0292235278144, 274.5143503417129,
+                  270.72235543731]).reshape((len(DATES.keys()), 1))
+
+TIR_STD = array([6.5194679800275, 7.692588058567348, 8.119737667316015, 12.089730140003539,
+                 12.423015571938198, 16.889227043873344, 7.581071868070651, 7.200336296346465,
+                 7.327026780862606, 10.092718485012847, 9.567570972165976, 8.076838803004291,
+                 6.750448925484256]).reshape((len(DATES.keys()), 1))
+
 
 def write_pixel_set(out, recs, label_names=None):
     dataset = make_test_dataset(recs, True).batch(1)
     count = 0
+    nan_ = 0
+    invalid_pix = 0
     mean_, std_ = 0, 0
     M2 = 0
     label_dict, size_dict, geom = {}, {}, {}
@@ -48,7 +60,6 @@ def write_pixel_set(out, recs, label_names=None):
             if lab.max():
                 bbox_slices[i] = mnts.find_objects(mnts.label(lab, structure=structure)[0])
                 for b in bbox_slices[i]:
-                    count += 1
                     lab_mask = np.repeat(lab[b][:, :, np.newaxis], features.shape[-1], axis=2)
                     nan_label = lab_mask.copy()
                     nan_label[:, :, :] = iinfo(uint32).min
@@ -57,7 +68,7 @@ def write_pixel_set(out, recs, label_names=None):
 
                     # valid, invalid = count_nonzero(c[:, :, 0]), count_nonzero(isnan(c[:, :, 0]))
                     # print('{} of {}'.format(valid, valid + invalid))
-                    geom[count] = list(nanmean(c[:, :, -3:], axis=(0, 1)))
+                    geo = list(nanmean(c[:, :, -3:], axis=(0, 1)))
 
                     # pse.shape = T x C x S
                     c = c[:, :, :BANDS]
@@ -66,11 +77,16 @@ def write_pixel_set(out, recs, label_names=None):
                     c = c[~nan_mask]
                     c = c.reshape(c.shape[0], len(DATES.keys()), CHANNELS)
                     c = swapaxes(c, 0, 2)
+                    c = swapaxes(c, 0, 1)
 
-                    save(os.path.join(out, 'DATA', '{}'.format(count)), c)
-                    label_dict[count] = _class
-                    size_dict[count] = c.shape[0] * c.shape[1]
+                    if count_nonzero(isnan(c)):
+                        nan_ += 1
+                        continue
+                    if any(c[:, 0, :] == 2.0):
+                        invalid_pix += 1
+                        continue
 
+                    count += 1
                     # update mean and std
                     # mean_std.shape =  C x T
                     delta = nanmean(c, axis=2) - mean_
@@ -79,11 +95,26 @@ def write_pixel_set(out, recs, label_names=None):
                     M2 = M2 + delta * delta2
                     std_ = sqrt(M2 / (count - 1))
 
+                    # normalize thermal band, it's still in deg K
+                    c[:, 6, :] = (c[:, 6, :] - TIR_MEAN) / TIR_STD
+
+                    geom[count] = geo
+                    label_dict[count] = _class
+                    size_dict[count] = c.shape[0] * c.shape[1]
+                    if count % 10000 == 0:
+                        print('count: {}'.format(count))
+
+                    save(os.path.join(out, 'DATA', '{}'.format(count)), c)
+
         # display_box(labels, bbox_slices)
-        if j > 20:
-            print('count of pixel locations: {}'.format(count))
-            # print(mean_[:RS_FEATURES].reshape(13, 7), std_[:RS_FEATURES].reshape(13, 7))
-            with open(os.path.join(out, 'mean_std.pkl'), 'wb') as handle:
+        if count > 30000:
+            print('final pse shape: {}'.format(c.shape))
+            print('count of pixel sets: {}'.format(count))
+            print('mean: {}'.format(list(mean_[:, 6])))
+            print('std: {}'.format(list(std_[:, 6])))
+            print('nan arrays: {}'.format(nan_))
+            print('invalid (2.0) pixel values: {}'.format(invalid_pix))
+            with open(os.path.join(out, 'S2-2017-T31TFM-meanstd.pkl'), 'wb') as handle:
                 pkl.dump((mean_.reshape(13, 7), std_.reshape(13, 7)),
                          handle, protocol=pkl.HIGHEST_PROTOCOL)
             label_dict = {'label_4class': label_dict}
