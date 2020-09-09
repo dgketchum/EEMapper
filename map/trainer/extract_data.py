@@ -1,13 +1,12 @@
 import ee
 
 ee.Initialize()
-import tensorflow as tf
 import time
 import os
-from pprint import pprint
 import sys
-sys.path.append('/home/dgketchum/PycharmProjects/EEMapper')
 
+sys.path.append('/home/dgketchum/PycharmProjects/EEMapper')
+from pprint import pprint
 from collections import OrderedDict
 from datetime import datetime
 from map.openet.collection import get_target_dates, Collection, get_target_bands
@@ -29,7 +28,6 @@ COLLECTIONS = ['LANDSAT/LC08/C01/T1_SR',
                'LANDSAT/LT05/C01/T1_SR']
 
 CLASSES = ['uncultivated', 'dryland', 'fallow', 'irrigated']
-
 
 YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
          2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
@@ -101,8 +99,8 @@ def get_sr_stack(yr, s, e, interval, geo_):
         collections=COLLECTIONS,
         start_date=s,
         end_date=e,
-        geometry=geo_.buffer(100000),
-        cloud_cover_max=60)
+        geometry=geo_,
+        cloud_cover_max=100)
 
     variables_ = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2', 'tir']
 
@@ -115,138 +113,97 @@ def get_sr_stack(yr, s, e, interval, geo_):
     return interp, target_rename
 
 
-def extract_by_feature(year, points_to_extract=None,
-                       n_shards=4, feature_id=1440, max_sample=100):
+class GEEExtractor:
 
-    roi = ee.FeatureCollection(TRAINING_GRID).filter(ee.Filter.eq('FID', feature_id)).geometry()
-    # roi = ee.FeatureCollection(MT).geometry()
+    def __init__(self, year, feature_id):
+        self.year = year
+        self.out_gs_bucket = GS_BUCKET
+        self.masks = None
+        self.image_stack = None
+        self.kernel_size = 256
+        self.start, self.end, self.interval = 1, 1, 30
+        self.fid = feature_id
+        roi = ee.FeatureCollection(TRAINING_GRID).filter(ee.Filter.eq('FID', feature_id))
+        l = roi.toList(roi.size().getInfo())
+        self.patch = ee.Feature(l.get(0))
+        self.geo = roi.geometry()
 
-    s, e, interval_ = 1, 1, 30
+    def extract_patch(self):
 
-    image_stack, features = get_sr_stack(year, s, e, interval_, roi)
+        image_stack, features = self._get_sr_stack()
+        masks_ = masks(self.geo, self.year)
+        if masks_['irrigated'].size().getInfo() == 0:
+            print('no irrigated in {} in {}'.format(self.year, fid))
+            return
 
-    features = features + ['lat', 'lon', 'elev', 'irr']
+        irr = create_class_labels(masks_)
+        terrain_, coords_ = get_ancillary()
+        self.image_stack = ee.Image.cat([image_stack, terrain_, coords_, irr]).float()
+        # data_stack = data_stack.neighborhoodToArray(KERNEL)
 
-    columns = [tf.io.FixedLenFeature(shape=KERNEL_SHAPE, dtype=tf.float32) for k in features]
-    feature_dict = OrderedDict(zip(features, columns))
-    # pprint(feature_dict)
-    masks_ = masks(roi, year)
-    if masks_['irrigated'].size().getInfo() == 0:
-        print('no irrigated in {} in {}'.format(year, fid))
-        return
+        projection = ee.Projection('EPSG:5070')
+        self.image_stack = image_stack.reproject(projection, None, 30)
+        out_filename = '{}_{}_1kmbuf_100mcp'.format(self.fid, self.year)
+        self._create_and_start_image_task(out_filename)
+        return True
 
-    irr = create_class_labels(masks_)
-    terrain_, coords_ = get_ancillary()
-    data_stack = ee.Image.cat([image_stack, terrain_, coords_, irr]).float()
-    data_stack = data_stack.neighborhoodToArray(KERNEL)
+    def _get_sr_stack(self):
+        s = datetime(self.year, self.start, 1)
+        e = datetime(self.year + 1, self.end, 1)
+        target_interval = self.interval
+        interp_days = 32
 
-    if not points_to_extract:
-        for name, fc in masks_.items():
-            feature_count = 0
-            points = fc.toList(fc.size())
-            class_ = os.path.basename(name)
-            out_filename = '{}_{}_{}'.format(class_, str(year), feature_id)
-            geometry_sample = ee.ImageCollection([])
+        target_dates = get_target_dates(s, e, interval_=target_interval)
 
-            for i in range(n_shards):
-                sample = data_stack.sample(
-                    region=ee.Feature(points.get(i)).geometry(),
-                    scale=30,
-                    numPixels=1,
-                    tileScale=8)
+        model_obj = Collection(
+            collections=COLLECTIONS,
+            start_date=s,
+            end_date=e,
+            geometry=self.geo.buffer(1000),
+            cloud_cover_max=100)
 
-                geometry_sample = geometry_sample.merge(sample)
-                feature_count += 1
-                if (feature_count + 1) % n_shards == 0:
-                    task = ee.batch.Export.table.toCloudStorage(
-                        collection=geometry_sample,
-                        description=out_filename + str(time.time()),
-                        bucket=GS_BUCKET,
-                        fileNamePrefix=out_filename + str(time.time()),
-                        fileFormat='TFRecord',
-                        selectors=features
-                    )
-                    try:
-                        task.start()
-                    except ee.ee_exception.EEException:
-                        print('waiting to export, sleeping for 50 minutes. Holding at\
-                                {} {}, index {}'.format(year, name, i))
-                        time.sleep(3000)
-                        task.start()
-                    geometry_sample = ee.ImageCollection([])
-            # take care of leftovers
-            print('{} {} extracted'.format(name, feature_count))
-            task = ee.batch.Export.table.toCloudStorage(
-                collection=geometry_sample,
-                description=out_filename + str(time.time()),
-                bucket=GS_BUCKET,
-                fileNamePrefix=out_filename + str(time.time()),
-                fileFormat='TFRecord',
-                selectors=features)
+        variables_ = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2', 'tir']
+
+        interpolated = model_obj.interpolate(variables=variables_,
+                                             interp_days=interp_days,
+                                             dates=target_dates)
+
+        target_bands, target_rename = get_target_bands(s, e, interval_=target_interval, vars=variables_)
+        interp = interpolated.sort('system:time_start').toBands().rename(target_rename)
+        return interp, target_rename
+
+    def _create_and_start_image_task(self, out_filename):
+        task = ee.batch.Export.image.toCloudStorage(
+            image=self.image_stack,
+            bucket=self.out_gs_bucket,
+            description=out_filename,
+            fileNamePrefix=out_filename,
+            fileFormat='TFRecord',
+            region=self.patch.geometry(),
+            crs='EPSG:5070',
+            scale=30,
+            formatOptions={'patchDimensions': 256,
+                           'compressed': True,
+                           'maskedThreshold': 0.99}, )
+        self._start_task_and_handle_exception(task)
+
+    def _start_task_and_handle_exception(self, task):
+        try:
             task.start()
-
-    else:
-        for fc in points_to_extract:
-            class_ = os.path.basename(fc)
-            points = ee.FeatureCollection(fc).filterBounds(roi)
-            n_features = points.size().getInfo()
-
-            if n_features == 0:
-                print('no irrigated in {} in {}'.format(year, fid))
-                break
-
-            points = points.toList(points.size())
-
-            if n_features > max_sample:
-                # Error: List.get: List index must be between 0 and 99, or -100 and -1. Found 115.
-                points = points.slice(0, max_sample)
-                print(n_features, fc)
-
-            geometry_sample = ee.ImageCollection([])
-            out_filename = '{}_{}_{}'.format(class_, str(year), feature_id)
-            ct = 0
-            for i in range(n_features):
-                sample = data_stack.sample(
-                    region=ee.Feature(points.get(i)).geometry(),
-                    scale=30,
-                    numPixels=1,
-                    tileScale=8)
-
-                geometry_sample = geometry_sample.merge(sample)
-                ct += 1
-                if (i + 1) % n_shards == 0:
-                    task = ee.batch.Export.table.toCloudStorage(
-                        collection=geometry_sample,
-                        bucket=GS_BUCKET,
-                        description=out_filename + str(time.time()),
-                        fileNamePrefix=out_filename + str(time.time()),
-                        fileFormat='TFRecord',
-                        selectors=features
-                    )
-
-                    try:
-                        task.start()
-                    except ee.ee_exception.EEException:
-                        print('waiting to export, sleeping for 50 minutes. Holding at\
-                                {} {}, index {}'.format(year, class_, i))
-                        time.sleep(3000)
-                        task.start()
-
-                    geometry_sample = ee.ImageCollection([])
-                    ct = 0
-            task = ee.batch.Export.table.toCloudStorage(
-                collection=geometry_sample,
-                bucket=GS_BUCKET,
-                description=out_filename + str(time.time()),
-                fileNamePrefix=out_filename + str(time.time()),
-                fileFormat='TFRecord',
-                selectors=features)
+        except ee.ee_exception.EEException as e:
+            print(e)
+            print('waiting to export, sleeping for 50 minutes')
+            time.sleep(3000)
             task.start()
-            print('exported', fid, year)
+        print(self.fid, self.year, 'export')
+        return ee.ImageCollection([])
+
+    def _create_filename(self, shapefile):
+        return os.path.basename(shapefile) + str(self.year)
 
 
 def subsample_fid():
-    return [136, 671, 1942, 294, 151, 58, 278, 1621, 2237, 2244, 1224, 2024, 2308, 829,
+    return [1621, 136, 671, 1942, 294, 151, 58, 278, 2237, 2244, 1224, 2024, 2308, 829,
             1467, 1440, 842, 403, 11, 1554, 2275, 2206, 1984, 2174, 562, 854, 1211, 1260,
             2192, 1688, 36, 87, 2171, 1400, 1324, 529, 133, 2175, 93, 2227, 1227, 527, 2243,
             1017, 2195, 365, 1484, 1555, 566, 2138, 908, 182, 1655, 2006, 1629, 2236, 113,
@@ -254,8 +211,9 @@ def subsample_fid():
 
 
 if __name__ == '__main__':
-    pts_root = 'users/dgketchum/training_points'
-    pts_training = [os.path.join(pts_root, x) for x in ['irrigated', 'uncultivated', 'dryland', 'fallow']]
-    for yr_ in YEARS:
-        for fid in subsample_fid():
-            extract_by_feature(yr_, points_to_extract=pts_training, feature_id=fid, max_sample=100)
+    for yr_ in YEARS[-5:-4]:
+        for i, fid in enumerate(subsample_fid()):
+            g = GEEExtractor(yr_, fid)
+            g.extract_patch()
+            if i < 7:
+                exit()
