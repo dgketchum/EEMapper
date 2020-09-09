@@ -130,7 +130,7 @@ def filter_list_into_classes(lst):
     for f in lst:
         if 'irrigated' in f:
             out['irrigated'].append(f)
-        elif'fallow' in f:
+        elif 'fallow' in f:
             out['fallow'].append(f)
         elif 'dryland' in f:
             out['dryland'].append(f)
@@ -238,7 +238,7 @@ def to_tuple(add_ndvi):
         else:
             image_stack = stacked
         # 'constant' is the label for label raster.
-        labels = one_hot(inputs.get(MODE), n_classes=5)
+        labels = one_hot(inputs.get(MODE), n_classes=4)
         labels = tf.cast(labels, tf.int32)
         return image_stack, labels
 
@@ -264,7 +264,7 @@ if __name__ == '__main__':
     from matplotlib.colors import ListedColormap
 
     cmap = ListedColormap(['grey', 'blue', 'purple', 'pink', 'green'])
-
+    counter = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0}
     for j, (features, labels) in enumerate(dataset):
         labels = labels.numpy().squeeze()
         l = []
@@ -274,24 +274,27 @@ if __name__ == '__main__':
             labels[:, :, n] *= n + 1
 
         labels = sum(labels, axis=-1)
-        print(unique(labels))
-        features = features.numpy().squeeze()
+        cent = labels[128, 128]
+        counter[cent] += 1
+        ct += 1
+        # features = features.numpy().squeeze()
 
         # for i, n in enumerate(features):
         #     print(i, features[:, :, i].mean())
-
-        ct += 1
-        r, g, b = features[:, :, r_idx], features[:, :, g_idx], features[:, :, b_idx]
-
-        norm = lambda arr: ((arr - arr.min()) * (1 / (arr.max() - arr.min()) * 255)).astype('uint8')
-        rgb = map(norm, [median(r, axis=2), median(g, axis=2), median(b, axis=2)])
-        rgb = dstack(rgb)
-
-        lat, lon = features[:, :, -3].mean(), features[:, :, -2].mean()
-
-        fig, ax = plt.subplots(ncols=2)
-        ax[0].imshow(rgb)
-        ax[1].imshow(labels, cmap=cmap)
-        plt.suptitle('{:.3f}, {:.3f}'.format(lat, lon))
-        plt.show()
+        #
+        # ct += 1
+        # r, g, b = features[:, :, r_idx], features[:, :, g_idx], features[:, :, b_idx]
+        #
+        # norm = lambda arr: ((arr - arr.min()) * (1 / (arr.max() - arr.min()) * 255)).astype('uint8')
+        # rgb = map(norm, [median(r, axis=2), median(g, axis=2), median(b, axis=2)])
+        # rgb = dstack(rgb)
+        #
+        # lat, lon = features[:, :, -3].mean(), features[:, :, -2].mean()
+        #
+        # fig, ax = plt.subplots(ncols=2)
+        # ax[0].imshow(rgb)
+        # ax[1].imshow(labels, cmap=cmap)
+        # plt.suptitle('{:.3f}, {:.3f}'.format(lat, lon))
+        # plt.show()
+    print(counter)
     print(ct)
