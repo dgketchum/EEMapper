@@ -5,6 +5,7 @@ import time
 import os
 from pprint import pprint
 import sys
+
 sys.path.append('/home/dgketchum/PycharmProjects/EEMapper')
 
 from collections import OrderedDict
@@ -21,7 +22,7 @@ GS_BUCKET = 'ts_data'
 
 BOUNDARIES = 'users/dgketchum/boundaries'
 MGRS = os.path.join(BOUNDARIES, 'MGRS_TILE')
-TRAINING_GRID = 'users/dgketchum/grids/train_5070'
+EE_DATA = 'users/dgketchum/grids'
 MT = os.path.join(BOUNDARIES, 'MT')
 
 COLLECTIONS = ['LANDSAT/LC08/C01/T1_SR',
@@ -30,10 +31,31 @@ COLLECTIONS = ['LANDSAT/LC08/C01/T1_SR',
 
 CLASSES = ['uncultivated', 'dryland', 'fallow', 'irrigated']
 
-
 YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
          2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
          2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
+
+STATE_YEARS = {'NM': [1987, 2001, 2004, 2007, 2016, 1988, 1994, 2002, 2010, 1989, 2014, 2008, 2009, 2011, 2012, 2013],
+               'AZ': [2001, 2003, 2004, 2016, 2010, 2012, 2007],
+               'MT': [2003, 2015, 2008, 2009, 2010, 2011, 2012, 2013],
+               'CA': [1995, 1998, 2000, 2007, 2014, 2016, 2002, 2005, 2006, 2008, 2009, 2001, 2003],
+               'CO': [1998, 2003, 2006, 2013, 2016, 2008, 2010, 2011],
+               'WY': [1998, 2003, 2013, 2016, 2006],
+               'ND': [2012, 2013, 2014, 2015, 2016, 2010, 2011, 2003, 2008, 2009],
+               'SD': [2012, 2013, 2014, 2015, 2016, 2007, 2008, 2009],
+               'NE': [2012, 2013, 2014, 2015, 2016, 1993, 2003, 2009],
+               'KS': [2012, 2013, 2014, 2015, 2016, 2002, 2006, 2009],
+               'TX': [2012, 2013, 2014, 2015, 2016, 2005, 2006, 2009],
+               'OK': [2012, 2013, 2014, 2015, 2016, 2006, 2007, 2011],
+               'ID': [1986, 1996, 2002, 2006, 2008, 2009, 2010, 2011, 1997, 1998, 2001, 2013, 1988, 2017, 2003],
+               'NV': [2002, 2005, 2006, 2008, 2009, 2001, 2003, 2007],
+               'UT': [2001, 2005, 2009, 2008, 2010, 2011, 2012, 2013, 1998, 2003, 2006, 2016],
+               'OR': [1996, 1997, 2001, 2013, 1994, 2011],
+               'WA': [1988, 1996, 1997, 1998, 2001, 2006]}
+
+DEBUG_SELECT = {'train': [675, 715, 676, 716, 677, 696, 717],
+                'test': [192, 202, 220],
+                'val': [212, 225, 239]}
 
 
 def masks(roi, year_):
@@ -52,7 +74,7 @@ def masks(roi, year_):
     c_wetlands = ee.FeatureCollection(os.path.join(root, 'central_wetlands'))
     e_wetlands = ee.FeatureCollection(os.path.join(root, 'east_wetlands'))
     usgs_pad = ee.FeatureCollection(os.path.join(root, 'usgs_pad'))
-    rf_uncult = ee.FeatureCollection(os.path.join(root, 'west_wetlands'))
+    rf_uncult = ee.FeatureCollection(os.path.join(root, 'uncultivated'))
     uncultivated_mask = w_wetlands.merge(c_wetlands).merge(e_wetlands).merge(usgs_pad).merge(rf_uncult)
     uncultivated_mask = uncultivated_mask.filterBounds(roi)
 
@@ -115,118 +137,75 @@ def get_sr_stack(yr, s, e, interval, geo_):
     return interp, target_rename
 
 
-def extract_by_feature(year, points_to_extract=None,
-                       n_shards=4, feature_id=1440, max_sample=100):
+def extract_by_feature(feature_id=1440, split=None):
 
-    roi = ee.FeatureCollection(TRAINING_GRID).filter(ee.Filter.eq('FID', feature_id)).geometry()
-    patch = ee.Feature(roi.bounds())
+    grid = os.path.join(EE_DATA, '{}_grid'.format(split))
+    roi = ee.FeatureCollection(grid).filter(ee.Filter.eq('FID', feature_id))
 
-    s, e, interval_ = 1, 1, 30
-    image_stack, features = get_sr_stack(year, s, e, interval_, roi)
+    points = os.path.join(EE_DATA, '{}_pts'.format(split))
+    points = ee.FeatureCollection(points).filter(ee.Filter.eq('POLYFID', feature_id))
+    points = points.toList(points.size())
 
-    masks_ = masks(roi, year)
-    if masks_['irrigated'].size().getInfo() == 0:
-        print('no irrigated in {} in {}'.format(year, fid))
-        return
+    geo = roi.geometry()
+    size = roi.size().getInfo()
+    if size != 1:
+        raise TypeError
+    info_ = roi.first().getInfo()
+    state, irr = info_['properties']['STUSPS'], info_['properties']['IRR']
+    years = STATE_YEARS[state]
 
-    irr = create_class_labels(masks_)
-    terrain_, coords_ = get_ancillary()
-    image_stack = ee.Image.cat([image_stack, terrain_, coords_, irr]).float()
+    for year in years:
 
-    projection = ee.Projection('EPSG:5070')
-    image_stack = image_stack.reproject(projection, None, 30)
+        s, e, interval_ = 1, 1, 30
+        image_stack, features = get_sr_stack(year, s, e, interval_, geo)
 
-    out_filename = 'gee_{}_{}'.format(feature_id, year)
+        masks_ = masks(geo, year)
+        irr = create_class_labels(masks_)
+        terrain_, coords_ = get_ancillary()
+        image_stack = ee.Image.cat([image_stack, terrain_, coords_, irr]).float()
 
-    if not points_to_extract:
-        task = ee.batch.Export.image.toCloudStorage(
-            image=image_stack,
+        if irr and masks_['irrigated'].size().getInfo() == 0:
+            print('no irrigated in {} in {}'.format(year, fid))
+            continue
+
+        projection = ee.Projection('EPSG:5070')
+        image_stack = image_stack.reproject(projection, None, 30)
+
+        if not split:
+            raise NotImplementedError
+
+        out_filename = '{}_{}_{}_{}'.format(split, state, feature_id, year)
+        data_stack = image_stack.neighborhoodToArray(KERNEL)
+        geometry_sample = ee.ImageCollection([])
+
+        for i in range(9):
+            sample = data_stack.sample(
+                region=ee.Feature(points.get(i)).geometry(),
+                scale=30,
+                numPixels=1,
+                tileScale=8)
+            geometry_sample = geometry_sample.merge(sample)
+
+        task = ee.batch.Export.table.toCloudStorage(
+            collection=geometry_sample,
             bucket=GS_BUCKET,
             description=out_filename,
             fileNamePrefix=out_filename,
             fileFormat='TFRecord',
-            region=patch.geometry(),
-            scale=30,
-            formatOptions={'patchDimensions': 256,
-                           'compressed': True,
-                           'maskedThreshold': 0.99})
-        print(feature_id, year)
-        task.start()
-        exit()
+            selectors=features)
 
-    else:
-        data_stack = image_stack.neighborhoodToArray(KERNEL)
-        for fc in points_to_extract:
-            class_ = os.path.basename(fc)
-            points = ee.FeatureCollection(fc).filterBounds(roi)
-            n_features = points.size().getInfo()
-
-            if n_features == 0:
-                print('no irrigated in {} in {}'.format(year, fid))
-                break
-
-            points = points.toList(points.size())
-
-            if n_features > max_sample:
-                # Error: List.get: List index must be between 0 and 99, or -100 and -1. Found 115.
-                points = points.slice(0, max_sample)
-                print(n_features, fc)
-
-            geometry_sample = ee.ImageCollection([])
-            out_filename = '{}_{}_{}'.format(class_, str(year), feature_id)
-            ct = 0
-            for i in range(n_features):
-                sample = data_stack.sample(
-                    region=ee.Feature(points.get(i)).geometry(),
-                    scale=30,
-                    numPixels=1,
-                    tileScale=8)
-
-                geometry_sample = geometry_sample.merge(sample)
-                ct += 1
-                if (i + 1) % n_shards == 0:
-                    task = ee.batch.Export.table.toCloudStorage(
-                        collection=geometry_sample,
-                        bucket=GS_BUCKET,
-                        description=out_filename + str(time.time()),
-                        fileNamePrefix=out_filename + str(time.time()),
-                        fileFormat='TFRecord',
-                        selectors=features
-                    )
-
-                    try:
-                        task.start()
-                    except ee.ee_exception.EEException:
-                        print('waiting to export, sleeping for 50 minutes. Holding at\
-                                {} {}, index {}'.format(year, class_, i))
-                        time.sleep(3000)
-                        task.start()
-
-                    geometry_sample = ee.ImageCollection([])
-                    ct = 0
-            task = ee.batch.Export.table.toCloudStorage(
-                collection=geometry_sample,
-                bucket=GS_BUCKET,
-                description=out_filename + str(time.time()),
-                fileNamePrefix=out_filename + str(time.time()),
-                fileFormat='TFRecord',
-                selectors=features)
+        try:
             task.start()
-            print('exported', fid, year)
-            exit()
-
-
-def subsample_fid():
-    return [1621, 136, 671, 1942, 294, 151, 58, 278, 2237, 2244, 1224, 2024, 2308, 829,
-            1467, 1440, 842, 403, 11, 1554, 2275, 2206, 1984, 2174, 562, 854, 1211, 1260,
-            2192, 1688, 36, 87, 2171, 1400, 1324, 529, 133, 2175, 93, 2227, 1227, 527, 2243,
-            1017, 2195, 365, 1484, 1555, 566, 2138, 908, 182, 1655, 2006, 1629, 2236, 113,
-            1658, 1726, 1818, 808, 649, 2140, 1807, 2278, 1232, 509, 516, 280, 1014]
+        except ee.ee_exception.EEException:
+            print('waiting to export, sleeping for 50 minutes. Holding at\
+                    {}, feature {}'.format(year, feature_id))
+            time.sleep(3000)
+            task.start()
+        print('exported', state, feature_id, year)
 
 
 if __name__ == '__main__':
-    pts_root = 'users/dgketchum/training_points'
-    pts_training = [os.path.join(pts_root, x) for x in ['irrigated', 'uncultivated', 'dryland', 'fallow']]
-    for yr_ in YEARS[-5:]:
-        for fid in subsample_fid():
-            extract_by_feature(yr_, points_to_extract=None, feature_id=fid, max_sample=100)
+    for split, fids in DEBUG_SELECT.items():
+        for fid in fids:
+            extract_by_feature(fid, split)
+# =====================================================================================================================
