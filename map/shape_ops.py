@@ -19,8 +19,10 @@ from collections import OrderedDict
 from random import shuffle
 from copy import deepcopy
 
+import numpy as np
+
 import fiona
-from shapely.geometry import shape, mapping, Polygon, MultiPolygon
+from shapely.geometry import shape, mapping, Polygon, MultiPolygon, Point
 from geopandas import read_file
 
 
@@ -178,15 +180,40 @@ def rm_dupe_geometry():
 
 
 def get_fid(in_shp):
-
     with fiona.open(in_shp, 'r') as input_:
         meta = input_.meta
         features = [f['properties']['FID'] for f in input_]
     print(features)
 
 
+def regular_grid(shp, out_shp):
+    out_feats = 0
+    offset = 7680.
+    places = [(-1, 1), (0, 1), (1, 1), (-1, 0), (0, 0), (1, 0), (-1, -1), (0, -1), (1, -1)]
+    offset = [(offset * p[0], offset * p[1]) for p in places]
+    with fiona.open(shp, 'r') as src:
+        meta = src.meta
+        meta['schema']['geometry'] = 'Point'
+        meta['schema']['properties'] = OrderedDict([('POLYFID', 'int:10'),
+                                                    ('PTFID', 'int:10')])
+        print('{} input features'.format(src.__len__()))
+        with fiona.open(out_shp, 'w', **meta) as dst:
+            for feat in src:
+                cent = shape(feat['geometry']).centroid
+                points = [(cent.x + p[0], cent.y + p[1]) for p in offset]
+                fid = feat['properties']['FID']
+                for l in points:
+                    out_feats += 1
+                    out_feat = {'type': 'Feature', 'properties': OrderedDict([('PTFID', out_feats), ('POLYFID', fid)]),
+                                'geometry': mapping(Point(l))}
+                    dst.write(out_feat)
+    print(out_feats)
+
+
 if __name__ == '__main__':
     # home = os.path.expanduser('~')
-    _in = '/home/dgketchum/IrrigationGIS/EE_sample/to_ee/train_grid_subsample.shp'
-    get_fid(_in)
+    for s in ['test_grid', 'val_grid', 'train_grid']:
+        _in = '/home/dgketchum/IrrigationGIS/EE_sample/grid/{}_aea.shp'.format(s)
+        _out = '/home/dgketchum/IrrigationGIS/EE_sample/grid/{}_aea_pts.shp'.format(s)
+        regular_grid(_in, _out)
 # ========================= EOF ====================================================================
