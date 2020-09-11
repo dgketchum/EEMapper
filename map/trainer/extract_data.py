@@ -82,8 +82,9 @@ def create_class_labels(name_fc):
 
 def get_ancillary():
     ned = ee.Image('USGS/NED')
-    terrain = ee.Terrain.products(ned).select(['elevation', 'slope', 'aspect']) \
-        .resample('bilinear').rename(['elv', 'slp', 'asp'])
+    terrain = ee.Terrain.products(ned).select('elevation') \
+        .resample('bilinear').rename(['elev'])
+
     coords = terrain.pixelLonLat().rename(['lon', 'lat'])
     return terrain, coords
 
@@ -100,7 +101,7 @@ def get_sr_stack(yr, s, e, interval, geo_):
         collections=COLLECTIONS,
         start_date=s,
         end_date=e,
-        geometry=geo_,
+        geometry=geo_.buffer(100000),
         cloud_cover_max=60)
 
     variables_ = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2', 'tir']
@@ -111,24 +112,20 @@ def get_sr_stack(yr, s, e, interval, geo_):
 
     target_bands, target_rename = get_target_bands(s, e, interval_=target_interval, vars=variables_)
     interp = interpolated.sort('system:time_start').toBands().rename(target_rename)
-    print(len(target_rename), len(interp.bandNames().getInfo()))
     return interp, target_rename
 
 
-def extract_by_feature(year, feature_id=1440):
+def extract_by_feature(year, points_to_extract=None,
+                       n_shards=4, feature_id=1440, max_sample=100):
 
-    roi = ee.FeatureCollection(TRAINING_GRID).filter(ee.Filter.eq('FID', feature_id))
+    roi = ee.FeatureCollection(TRAINING_GRID).filter(ee.Filter.eq('FID', feature_id)).geometry()
+    patch = ee.Feature(roi.bounds())
     projection = ee.Projection('EPSG:5070')
 
-    l = roi.toList(roi.size().getInfo())
-    patch = ee.Feature(l.get(0))
-    geo = patch.geometry()
-
     s, e, interval_ = 1, 1, 30
+    image_stack, features = get_sr_stack(year, s, e, interval_, roi)
 
-    image_stack, features = get_sr_stack(year, s, e, interval_, geo)
-
-    masks_ = masks(geo, year)
+    masks_ = masks(roi, year)
     if masks_['irrigated'].size().getInfo() == 0:
         print('no irrigated in {} in {}'.format(year, fid))
         return
@@ -136,29 +133,91 @@ def extract_by_feature(year, feature_id=1440):
     irr = create_class_labels(masks_)
     terrain_, coords_ = get_ancillary()
     image_stack = ee.Image.cat([image_stack, terrain_, coords_, irr]).float()
-
     image_stack = image_stack.reproject(projection, None, 30)
-    # out_names = image_stack.bandNames().getInfo()
-    out_filename = '{}_{}'.format(fid, year)
 
-    task = ee.batch.Export.image.toCloudStorage(
-        image=image_stack,
-        bucket=GS_BUCKET,
-        description=out_filename,
-        fileNamePrefix=out_filename,
-        fileFormat='TFRecord',
-        region=patch.geometry(),
-        scale=30,
-        formatOptions={'patchDimensions': 256,
-                       'compressed': True,
-                       'maskedThreshold': 0.99},
-    )
-    task.start()
-    print(feature_id, year)
+    out_filename = 'gee_{}_{}_cldMsk'.format(feature_id, year)
+
+    if not points_to_extract:
+        task = ee.batch.Export.image.toCloudStorage(
+            image=image_stack,
+            bucket=GS_BUCKET,
+            description=out_filename,
+            fileNamePrefix=out_filename,
+            fileFormat='TFRecord',
+            region=patch.geometry(),
+            scale=30,
+            formatOptions={'patchDimensions': 256,
+                           'compressed': True,
+                           'maskedThreshold': 0.99},
+        )
+        print(feature_id, year)
+        task.start()
+        exit()
+
+    else:
+        data_stack = image_stack.neighborhoodToArray(KERNEL)
+        for fc in points_to_extract:
+            class_ = os.path.basename(fc)
+            points = ee.FeatureCollection(fc).filterBounds(roi)
+            n_features = points.size().getInfo()
+
+            if n_features == 0:
+                print('no irrigated in {} in {}'.format(year, fid))
+                break
+
+            points = points.toList(points.size())
+
+            if n_features > max_sample:
+                # Error: List.get: List index must be between 0 and 99, or -100 and -1. Found 115.
+                points = points.slice(0, max_sample)
+                print(n_features, fc)
+
+            geometry_sample = ee.ImageCollection([])
+            out_filename = '{}_{}_{}'.format(class_, str(year), feature_id)
+            ct = 0
+            for i in range(n_features):
+                sample = data_stack.sample(
+                    region=ee.Feature(points.get(i)).geometry(),
+                    scale=30,
+                    numPixels=1,
+                    tileScale=8)
+
+                geometry_sample = geometry_sample.merge(sample)
+                ct += 1
+                if (i + 1) % n_shards == 0:
+                    task = ee.batch.Export.table.toCloudStorage(
+                        collection=geometry_sample,
+                        bucket=GS_BUCKET,
+                        description=out_filename + str(time.time()),
+                        fileNamePrefix=out_filename + str(time.time()),
+                        fileFormat='TFRecord',
+                        selectors=features
+                    )
+
+                    try:
+                        task.start()
+                    except ee.ee_exception.EEException:
+                        print('waiting to export, sleeping for 50 minutes. Holding at\
+                                {} {}, index {}'.format(year, class_, i))
+                        time.sleep(3000)
+                        task.start()
+
+                    geometry_sample = ee.ImageCollection([])
+                    ct = 0
+            task = ee.batch.Export.table.toCloudStorage(
+                collection=geometry_sample,
+                bucket=GS_BUCKET,
+                description=out_filename + str(time.time()),
+                fileNamePrefix=out_filename + str(time.time()),
+                fileFormat='TFRecord',
+                selectors=features)
+            task.start()
+            print('exported', fid, year)
+            exit()
 
 
 def subsample_fid():
-    return [1621, 136, 671, 1942, 294, 151, 58, 278,2237, 2244, 1224, 2024, 2308, 829,
+    return [1621, 136, 671, 1942, 294, 151, 58, 278, 2237, 2244, 1224, 2024, 2308, 829,
             1467, 1440, 842, 403, 11, 1554, 2275, 2206, 1984, 2174, 562, 854, 1211, 1260,
             2192, 1688, 36, 87, 2171, 1400, 1324, 529, 133, 2175, 93, 2227, 1227, 527, 2243,
             1017, 2195, 365, 1484, 1555, 566, 2138, 908, 182, 1655, 2006, 1629, 2236, 113,
@@ -168,6 +227,6 @@ def subsample_fid():
 if __name__ == '__main__':
     pts_root = 'users/dgketchum/training_points'
     pts_training = [os.path.join(pts_root, x) for x in ['irrigated', 'uncultivated', 'dryland', 'fallow']]
-    for yr_ in YEARS[-5:-4]:
+    for yr_ in YEARS[-5:]:
         for fid in subsample_fid():
-            extract_by_feature(yr_, feature_id=fid)
+            extract_by_feature(yr_, points_to_extract=None, feature_id=fid, max_sample=100)
