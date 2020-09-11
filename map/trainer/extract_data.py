@@ -1,7 +1,6 @@
 import ee
 
 ee.Initialize()
-import tensorflow as tf
 import time
 import os
 from pprint import pprint
@@ -10,6 +9,7 @@ sys.path.append('/home/dgketchum/PycharmProjects/EEMapper')
 
 from collections import OrderedDict
 from datetime import datetime
+import numpy as np
 from map.openet.collection import get_target_dates, Collection, get_target_bands
 
 KERNEL_SIZE = 256
@@ -17,11 +17,11 @@ KERNEL_SHAPE = [KERNEL_SIZE, KERNEL_SIZE]
 list_ = ee.List.repeat(1, KERNEL_SIZE)
 lists = ee.List.repeat(list_, KERNEL_SIZE)
 KERNEL = ee.Kernel.fixed(KERNEL_SIZE, KERNEL_SIZE, lists)
-GS_BUCKET = 'wudr'
+GS_BUCKET = 'ts_data'
 
 BOUNDARIES = 'users/dgketchum/boundaries'
 MGRS = os.path.join(BOUNDARIES, 'MGRS_TILE')
-TRAINING_GRID = 'users/dgketchum/grids/train'
+TRAINING_GRID = 'users/dgketchum/grids/train_5070'
 MT = os.path.join(BOUNDARIES, 'MT')
 
 COLLECTIONS = ['LANDSAT/LC08/C01/T1_SR',
@@ -120,7 +120,6 @@ def extract_by_feature(year, points_to_extract=None,
 
     roi = ee.FeatureCollection(TRAINING_GRID).filter(ee.Filter.eq('FID', feature_id)).geometry()
     patch = ee.Feature(roi.bounds())
-    projection = ee.Projection('EPSG:5070')
 
     s, e, interval_ = 1, 1, 30
     image_stack, features = get_sr_stack(year, s, e, interval_, roi)
@@ -133,9 +132,11 @@ def extract_by_feature(year, points_to_extract=None,
     irr = create_class_labels(masks_)
     terrain_, coords_ = get_ancillary()
     image_stack = ee.Image.cat([image_stack, terrain_, coords_, irr]).float()
+
+    projection = ee.Projection('EPSG:5070')
     image_stack = image_stack.reproject(projection, None, 30)
 
-    out_filename = 'gee_{}_{}_cldMsk'.format(feature_id, year)
+    out_filename = 'gee_{}_{}'.format(feature_id, year)
 
     if not points_to_extract:
         task = ee.batch.Export.image.toCloudStorage(
@@ -148,8 +149,7 @@ def extract_by_feature(year, points_to_extract=None,
             scale=30,
             formatOptions={'patchDimensions': 256,
                            'compressed': True,
-                           'maskedThreshold': 0.99},
-        )
+                           'maskedThreshold': 0.99})
         print(feature_id, year)
         task.start()
         exit()

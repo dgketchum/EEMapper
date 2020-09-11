@@ -302,13 +302,11 @@ class Image():
         ])
 
         # Apply the cloud mask and add properties
-        input_image = input_image \
-            .updateMask(common.landsat_c1_sr_cloud_mask(sr_image)) \
+        input_image = input_image.updateMask(common.landsat_c1_sr_cloud_mask(sr_image))\
             .set({'system:index': sr_image.get('system:index'),
                   'system:time_start': sr_image.get('system:time_start'),
                   'system:id': sr_image.get('system:id'),
                   })
-
         _cls = cls(input_image, **kwargs)
         return _cls
 
