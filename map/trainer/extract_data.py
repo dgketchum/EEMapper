@@ -11,6 +11,7 @@ sys.path.append('/home/dgketchum/PycharmProjects/EEMapper')
 from collections import OrderedDict
 from datetime import datetime
 import numpy as np
+import fiona
 from map.openet.collection import get_target_dates, Collection, get_target_bands
 
 KERNEL_SIZE = 256
@@ -35,23 +36,23 @@ YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
          2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
          2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
 
-STATE_YEARS = {'AZ': [2001, 2003, 2004, 2016, 2010, 2012, 2007],
-               'CA': [1995, 1998, 2000, 2007, 2014, 2016, 2002, 2005, 2006, 2008, 2009, 2001, 2003],
-               'CO': [1998, 2003, 2006, 2013, 2016, 2008, 2010, 2011],
-               'ID': [1986, 1996, 2002, 2006, 2008, 2009, 2010, 2011, 1997, 1998, 2001, 2013, 1988, 2017, 2003],
-               'KS': [2012, 2013, 2014, 2015, 2016, 2002, 2006, 2009],
-               'MT': [2015, 2003, 2013, 2008, 2009, 2010, 2011, 2012],
-               'NE': [2012, 2013, 2014, 2015, 2016, 1993, 2003, 2009],
-               'NM': [1987, 2001, 2004, 2007, 2016, 1988, 1994, 2002, 2010, 1989, 2014, 2008, 2009, 2011, 2012, 2013],
-               'ND': [2012, 2013, 2014, 2015, 2016, 2010, 2011, 2003, 2008, 2009],
-               'NV': [2002, 2005, 2006, 2008, 2009, 2001, 2003, 2007],
-               'OK': [2012, 2013, 2014, 2015, 2016, 2006, 2007, 2011],
-               'OR': [1996, 1997, 2001, 2013, 1994, 2011],
-               'SD': [2012, 2013, 2014, 2015, 2016, 2007, 2008, 2009],
-               'TX': [2012, 2013, 2014, 2015, 2016, 2005, 2006, 2009],
-               'UT': [2001, 2005, 2009, 2008, 2010, 2011, 2012, 2013, 1998, 2003, 2006, 2016],
+STATE_YEARS = {'AZ': [2001, 2003, 2004, 2007, 2010, 2012, 2016],
+               'CA': [1995, 1998, 2000, 2001, 2002, 2003, 2005, 2006, 2007, 2008, 2009, 2014, 2016],
+               'CO': [1998, 2003, 2006, 2008, 2010, 2011, 2013, 2016],
+               'ID': [1986, 1988, 1996, 1997, 1998, 2001, 2002, 2003, 2006, 2008, 2009, 2010, 2011, 2013, 2017],
+               'KS': [2002, 2006, 2009, 2012, 2013, 2014, 2015, 2016],
+               'MT': [2003, 2008, 2009, 2010, 2011, 2012, 2013, 2015],
+               'ND': [2003, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016],
+               'NE': [1993, 2003, 2009, 2012, 2013, 2014, 2015, 2016],
+               'NM': [1987, 1988, 1989, 1994, 2001, 2002, 2004, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2016],
+               'NV': [2001, 2002, 2003, 2005, 2006, 2007, 2008, 2009],
+               'OK': [2006, 2007, 2011, 2012, 2013, 2014, 2015, 2016],
+               'OR': [1994, 1996, 1997, 2001, 2011, 2013],
+               'SD': [2007, 2008, 2009, 2012, 2013, 2014, 2015, 2016],
+               'TX': [2005, 2006, 2009, 2012, 2013, 2014, 2015, 2016],
+               'UT': [1998, 2001, 2003, 2005, 2006, 2008, 2009, 2010, 2011, 2012, 2013, 2016],
                'WA': [1988, 1996, 1997, 1998, 2001, 2006],
-               'WY': [1998, 2003, 2013, 2016, 2006]}
+               'WY': [1998, 2003, 2006, 2013, 2016]}
 
 DEBUG_SELECT = {'test': [202, 192, 220],
                 'train': [676, 675, 715, 716, 677, 696, 717],
@@ -176,9 +177,9 @@ def extract_by_feature(feature_id=1440, split=None):
         image_stack = ee.Image.cat([image_stack, terrain_, coords_, cdl_, irr]).float()
         features = features + ['elv', 'slp', 'asp', 'lon', 'lat', 'cdl', 'cconf', 'irr']
 
-        if irr == 1 and masks_['irrigated'].size().getInfo() == 0:
-            print('no irrigated in {} in {}'.format(year, fid))
-            continue
+        # if irr == 1 and masks_['irrigated'].size().getInfo() == 0:
+        #     print('no irrigated in {} in {}'.format(year, feature_id))
+        #     continue
 
         projection = ee.Projection('EPSG:5070')
         image_stack = image_stack.reproject(projection, None, 30)
@@ -214,8 +215,18 @@ def extract_by_feature(feature_id=1440, split=None):
         print('exported', split, state, feature_id, year)
 
 
+def run_extract(shp, split):
+    with fiona.open(shp, 'r') as src:
+        for f in src:
+            fid_ = f['properties']['FID']
+            extract_by_feature(fid_, split)
+
+
 if __name__ == '__main__':
-    for splt, fids in DEBUG_SELECT.items():
-        for fid in fids[:1]:
-            extract_by_feature(fid, splt)
+    home = os.path.expanduser('~')
+    grids = os.path.join(home, 'IrrigationGIS', 'EE_sample', 'grid')
+    splits = ['train', 'test', 'val']
+    shapes = [os.path.join(grids, '{}_grid.shp'.format(splt)) for splt in splits]
+    for shape, split_ in zip(shapes, splits):
+        run_extract(shape, split_)
 # =====================================================================================================================
