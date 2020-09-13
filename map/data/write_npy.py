@@ -1,6 +1,6 @@
 import os
 import numpy as np
-from trainer.training_utils import make_test_dataset
+from map.trainer.training_utils import make_test_dataset
 
 # dates are generic, dates of each year as below, but data is from many years
 # the year of the data is not used in training, just date position
@@ -30,7 +30,7 @@ structure = np.array([
 
 
 def write_npy(out, recs, n_samples=1000):
-    dataset = make_test_dataset(recs, True).batch(1)
+    dataset = make_test_dataset(recs).batch(1)
     count = 0
     obj_ct = np.array([0, 0, 0, 0])
     for j, (features, labels) in enumerate(dataset):
@@ -50,7 +50,7 @@ def write_npy(out, recs, n_samples=1000):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    pixel_sets = os.path.join(home, 'PycharmProjects', 'IrrMapper', 'data', 'npy')
+    pixel_sets = os.path.join(home, 'PycharmProjects', 'EEMapper', 'map', 'data', 'npy')
     tf_recs = os.path.join(home, 'IrrigationGIS', 'tfrecords')
     write_npy(pixel_sets, tf_recs, n_samples=1000)
 
