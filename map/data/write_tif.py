@@ -33,8 +33,8 @@ r_idx, g_idx, b_idx = [FEATURES.index(x) for x in FEATURES if 'red' in x], \
                       [FEATURES.index(x) for x in FEATURES if 'green' in x], \
                       [FEATURES.index(x) for x in FEATURES if 'blue' in x]
 
-lat_idx = [FEATURES.index(x) for x in FEATURES if 'lat' in x]
-lon_idx = [FEATURES.index(x) for x in FEATURES if 'lon' in x]
+lat_idx = [FEATURES.index(x) for x in FEATURES if 'lat' in x][0]
+lon_idx = [FEATURES.index(x) for x in FEATURES if 'lon' in x][0]
 
 from matplotlib import pyplot as plt
 from matplotlib.colors import ListedColormap
@@ -42,12 +42,14 @@ from matplotlib.colors import ListedColormap
 cmap = ListedColormap(['grey', 'blue', 'purple', 'pink', 'green'])
 
 
-def build_raster(npy_dir, out_tif_dir, plot=False):
+def build_raster(npy_dir, out_tif_dir, plot=True):
     l = [os.path.join(npy_dir, x) for x in os.listdir(npy_dir) if x.endswith('.npy')]
     for j, f in enumerate(l):
 
         a = np.load(f)
         labels = a[:, :, -4:]
+        cdl = a[:, :, -6]
+        cconf = a[:, :, -5]
 
         for n in range(labels.shape[-1]):
             labels[:, :, n] *= n + 1
@@ -63,9 +65,11 @@ def build_raster(npy_dir, out_tif_dir, plot=False):
         lat, lon = features[:, :, lat_idx].max(), features[:, :, lon_idx].min()
         print(lat, lon)
         if plot:
-            fig, ax = plt.subplots(ncols=2)
+            fig, ax = plt.subplots(ncols=4)
             ax[0].imshow(rgb)
             ax[1].imshow(labels, cmap=cmap)
+            ax[2].imshow(cdl)
+            ax[3].imshow(cconf)
             plt.suptitle('{:.3f}, {:.3f}'.format(lat, lon))
             plt.show()
 
@@ -73,7 +77,7 @@ def build_raster(npy_dir, out_tif_dir, plot=False):
         out_proj = Proj('epsg:5070', preserve_units=True)
         x1, y1 = lon, lat
         lon, lat = transform(in_proj, out_proj, y1, x1)
-
+        print(lat, lon)
         affine = from_origin(lon, lat, 30, 30)
         tif_name = os.path.join(out_tif_dir, '{}.tif'.format(j))
 
