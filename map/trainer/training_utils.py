@@ -1,12 +1,14 @@
 import numpy as np
 import time
 import os
+import json
 import io
 from pprint import pprint
 from PIL import Image
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 import tensorflow as tf
+from google.protobuf.json_format import MessageToJson
 from numpy import median, dstack, sum, count_nonzero, unique, vectorize
 
 from collections import defaultdict
@@ -156,9 +158,8 @@ def make_training_dataset(root, batch_size=16):
     return dataset
 
 
-def make_test_dataset(root, batch_size=16):
+def make_test_dataset(root):
     pattern = "*gz"
-    datasets = []
     training_root = os.path.join(root, pattern)
     datasets = get_dataset(training_root)
     return datasets
@@ -185,7 +186,7 @@ def get_dataset(pattern):
 
 def one_hot(labels, n_classes):
     h, w = labels.shape
-    labels = tf.squeeze(labels)
+    labels = tf.squeeze(labels) - 1
     ls = []
     for i in range(n_classes):
         where = tf.where(labels != i + 1, tf.zeros((h, w)), 1 * tf.ones((h, w)))
@@ -245,56 +246,25 @@ def to_tuple(add_ndvi):
     return to_tup
 
 
-if __name__ == '__main__':
-
+def inspect_tfrecord(rec):
     tf.executing_eagerly()
 
+    raw_dataset = tf.data.TFRecordDataset(rec)
+
+    for raw_record in raw_dataset.take(1):
+        example = tf.train.Example()
+        example.ParseFromString(raw_record.numpy())
+        m = json.loads(MessageToJson(example))
+        l = m['features']['feature'].keys()
+        f_keys = FEATURES_DICT.keys()
+        missing = [k for k in f_keys if k not in l]
+        print('{} missing {}'.format(rec, missing))
+
+
+if __name__ == '__main__':
     home = os.path.expanduser('~')
-    tf_recs = os.path.join(home, 'IrrigationGIS', 'tfrecords')
-
-    dataset = make_test_dataset(tf_recs, True).batch(1)
-    print(dataset)
-    ct = 0
-
-    r_idx, g_idx, b_idx = [FEATURES.index(x) for x in FEATURES if 'red' in x], \
-                          [FEATURES.index(x) for x in FEATURES if 'green' in x], \
-                          [FEATURES.index(x) for x in FEATURES if 'blue' in x]
-
-    from matplotlib import pyplot as plt
-    from matplotlib.colors import ListedColormap
-
-    cmap = ListedColormap(['grey', 'blue', 'purple', 'pink', 'green'])
-    counter = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0}
-    for j, (features, labels) in enumerate(dataset):
-        labels = labels.numpy().squeeze()
-        l = []
-
-        # collapse one-hot label to single categorical image
-        for n in range(labels.shape[-1]):
-            labels[:, :, n] *= n + 1
-
-        labels = sum(labels, axis=-1)
-        cent = labels[128, 128]
-        counter[cent] += 1
-        ct += 1
-        # features = features.numpy().squeeze()
-
-        # for i, n in enumerate(features):
-        #     print(i, features[:, :, i].mean())
-        #
-        # ct += 1
-        # r, g, b = features[:, :, r_idx], features[:, :, g_idx], features[:, :, b_idx]
-        #
-        # norm = lambda arr: ((arr - arr.min()) * (1 / (arr.max() - arr.min()) * 255)).astype('uint8')
-        # rgb = map(norm, [median(r, axis=2), median(g, axis=2), median(b, axis=2)])
-        # rgb = dstack(rgb)
-        #
-        # lat, lon = features[:, :, -3].mean(), features[:, :, -2].mean()
-        #
-        # fig, ax = plt.subplots(ncols=2)
-        # ax[0].imshow(rgb)
-        # ax[1].imshow(labels, cmap=cmap)
-        # plt.suptitle('{:.3f}, {:.3f}'.format(lat, lon))
-        # plt.show()
-    print(counter)
-    print(ct)
+    tf_rec = os.path.join(home, 'IrrigationGIS', 'tfrecords')
+    recs = [os.path.join(tf_rec, x) for x in os.listdir(tf_rec) if x.endswith('2015.tfrecord')]
+    for r in recs:
+        inspect_tfrecord(r)
+# ==========================================================================================================
