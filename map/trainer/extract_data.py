@@ -118,7 +118,7 @@ def get_ancillary(year):
     return terrain, cdl
 
 
-def get_sr_stack(yr, s, e, interval, geo_):
+def get_sr_stack(yr, s, e, interval, mask, geo_):
     s = datetime(yr, s, 1)
     e = datetime(yr + 1, e, 1)
     target_interval = interval
@@ -130,6 +130,7 @@ def get_sr_stack(yr, s, e, interval, geo_):
         collections=COLLECTIONS,
         start_date=s,
         end_date=e,
+        mask=mask,
         geometry=geo_,
         cloud_cover_max=60)
 
@@ -144,7 +145,7 @@ def get_sr_stack(yr, s, e, interval, geo_):
     return interp, target_rename
 
 
-def extract_by_feature(feature_id=1440, split=None):
+def extract_by_feature(feature_id=1440, split=None, cloud_mask=True):
     if not split:
         raise NotImplementedError
 
@@ -168,7 +169,7 @@ def extract_by_feature(feature_id=1440, split=None):
     for year in years:
         if 2007 < year < 2017:
             s, e, interval_ = 1, 1, 30
-            image_stack, features = get_sr_stack(year, s, e, interval_, geo)
+            image_stack, features = get_sr_stack(year, s, e, interval_, cloud_mask, geo)
 
             masks_ = masks(geo, year)
             irr = create_class_labels(masks_)
@@ -215,7 +216,7 @@ def run_extract(shp, split):
     with fiona.open(shp, 'r') as src:
         for f in src:
             fid_ = f['properties']['FID']
-            extract_by_feature(fid_, split)
+            extract_by_feature(fid_, split, cloud_mask=True)
 
 
 if __name__ == '__main__':

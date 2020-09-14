@@ -4,8 +4,9 @@ from map.openet import landsat
 from map.openet import utils
 import map.openet.common as common
 
-
 PROJECT_FOLDER = 'projects/earthengine-legacy/assets/projects/usgs-ssebop'
+
+
 # PROJECT_FOLDER = 'projects/usgs-ssebop'
 
 
@@ -21,13 +22,14 @@ def lazy_property(fn):
         if not hasattr(self, attr_name):
             setattr(self, attr_name, fn(self))
         return getattr(self, attr_name)
+
     return _lazy_property
 
 
 class Image():
     """Earth Engine based SSEBop Image"""
 
-    def __init__(self, image,):
+    def __init__(self, image, mask=True):
 
         """Construct a generic SSEBop Image
 
@@ -81,6 +83,7 @@ class Image():
 
         """
         self.image = ee.Image(image)
+        self.mask = mask
 
         # Set as "lazy_property" below in order to return custom properties
         # self.lst = self.image.select('lst')
@@ -98,12 +101,12 @@ class Image():
 
         # Build SCENE_ID from the (possibly merged) system:index
         scene_id = ee.List(ee.String(self._index).split('_')).slice(-3)
-        self._scene_id = ee.String(scene_id.get(0)).cat('_')\
-            .cat(ee.String(scene_id.get(1))).cat('_')\
+        self._scene_id = ee.String(scene_id.get(0)).cat('_') \
+            .cat(ee.String(scene_id.get(1))).cat('_') \
             .cat(ee.String(scene_id.get(2)))
 
         # Build WRS2_TILE from the scene_id
-        self._wrs2_tile = ee.String('p').cat(self._scene_id.slice(5, 8))\
+        self._wrs2_tile = ee.String('p').cat(self._scene_id.slice(5, 8)) \
             .cat('r').cat(self._scene_id.slice(8, 11))
 
         # Set server side date/time properties using the 'system:time_start'
@@ -203,7 +206,7 @@ class Image():
     @lazy_property
     def time(self):
         """Return an image of the 0 UTC time (in milliseconds)"""
-        return self.mask.double().multiply(0).add(utils.date_to_time_0utc(self._date))\
+        return self.mask.double().multiply(0).add(utils.date_to_time_0utc(self._date)) \
             .rename(['time']).set(self._properties)
 
     @lazy_property
@@ -246,13 +249,15 @@ class Image():
         return elev_image.select([0], ['elev'])
 
     @classmethod
-    def from_landsat_c1_sr(cls, sr_image, **kwargs):
+    def from_landsat_c1_sr(cls, sr_image, mask=True):
         """Returns a SSEBop Image instance from a Landsat Collection 1 SR image
 
         Parameters
         ----------
         sr_image : ee.Image, str
             A raw Landsat Collection 1 SR image or image ID.
+        mask: bool
+            Use cloud and snow mask
 
         Returns
         -------
@@ -260,6 +265,7 @@ class Image():
 
         """
         sr_image = ee.Image(sr_image)
+
 
         # Use the SATELLITE property identify each Landsat type
         spacecraft_id = ee.String(sr_image.get('SATELLITE'))
@@ -282,9 +288,10 @@ class Image():
         k2 = ee.Dictionary({
             'LANDSAT_4': 1260.56, 'LANDSAT_5': 1260.56,
             'LANDSAT_7': 1282.71, 'LANDSAT_8': 1321.0789})
-        prep_image = sr_image\
-            .select(input_bands.get(spacecraft_id), output_bands)\
-            .multiply([0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.1, 1])\
+        # TODO: remove scaling, keep in int
+        prep_image = sr_image \
+            .select(input_bands.get(spacecraft_id), output_bands) \
+            .multiply([0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.1, 1]) \
             .set({'k1_constant': ee.Number(k1.get(spacecraft_id)),
                   'k2_constant': ee.Number(k2.get(spacecraft_id))})
 
@@ -302,12 +309,18 @@ class Image():
         ])
 
         # Apply the cloud mask and add properties
-        input_image = input_image.updateMask(common.landsat_c1_sr_cloud_mask(sr_image))\
-            .set({'system:index': sr_image.get('system:index'),
-                  'system:time_start': sr_image.get('system:time_start'),
-                  'system:id': sr_image.get('system:id'),
-                  })
-        _cls = cls(input_image, **kwargs)
+        if mask:
+            input_image = input_image.updateMask(common.landsat_c1_sr_cloud_mask(sr_image)) \
+                .set({'system:index': sr_image.get('system:index'),
+                      'system:time_start': sr_image.get('system:time_start'),
+                      'system:id': sr_image.get('system:id'),
+                      })
+        else:
+            input_image = input_image.set({'system:index': sr_image.get('system:index'),
+                                           'system:time_start': sr_image.get('system:time_start'),
+                                           'system:id': sr_image.get('system:id'),
+                                           })
+        _cls = cls(input_image)
         return _cls
 
 

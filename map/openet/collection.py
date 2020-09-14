@@ -35,9 +35,11 @@ class Collection:
             end_date,
             geometry,
             variables=None,
+            mask=True,
             cloud_cover_max=70):
 
         self.collections = collections
+        self.mask = mask
         self.start_date = start_date
         self.end_date = end_date
         self.start_str = self.start_date.strftime('%Y-%m-%d')
@@ -96,7 +98,7 @@ class Collection:
 
             def compute_lsr(image):
                 model_obj = Image.from_landsat_c1_sr(
-                    sr_image=ee.Image(image))
+                    sr_image=ee.Image(image), mask=self.mask)
                 return model_obj.calculate(interp_vars)
 
             variable_coll = variable_coll.merge(
