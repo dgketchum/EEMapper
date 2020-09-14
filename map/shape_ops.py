@@ -210,10 +210,23 @@ def regular_grid(shp, out_shp):
     print(out_feats)
 
 
+def get_years(shp):
+    d = {}
+    with fiona.open(shp) as src:
+        for f in src:
+            s = f['properties']['STUSPS']
+            y = f['properties']['YEAR']
+            try:
+                if y in d[s]:
+                    continue
+                d[s].append(y)
+            except KeyError:
+                d[s] = [y]
+    print(d)
+
+
 if __name__ == '__main__':
-    # home = os.path.expanduser('~')
-    for s in ['test_grid', 'val_grid', 'train_grid']:
-        _in = '/home/dgketchum/IrrigationGIS/EE_sample/grid/{}_aea.shp'.format(s)
-        _out = '/home/dgketchum/IrrigationGIS/EE_sample/grid/{}_aea_pts.shp'.format(s)
-        regular_grid(_in, _out)
+    home = os.path.expanduser('~')
+    shpp = os.path.join(home, 'Downloads', 'irrigation_states.shp')
+    get_years(shpp)
 # ========================= EOF ====================================================================

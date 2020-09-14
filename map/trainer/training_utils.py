@@ -1,15 +1,10 @@
 import numpy as np
-import time
 import os
 import json
-import io
-from pprint import pprint
-from PIL import Image
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 import tensorflow as tf
 from google.protobuf.json_format import MessageToJson
-from numpy import median, dstack, sum, count_nonzero, unique, vectorize
 
 from collections import defaultdict
 from sklearn.metrics import confusion_matrix
@@ -258,13 +253,30 @@ def inspect_tfrecord(rec):
         l = m['features']['feature'].keys()
         f_keys = FEATURES_DICT.keys()
         missing = [k for k in f_keys if k not in l]
-        print('{} missing {}'.format(rec, missing))
+        if missing:
+            print('{} missing {}'.format(rec, missing))
+
+
+def check_valid_tf(rec_gz):
+    _files = [os.path.join(rec_gz, x) for x in os.listdir(rec_gz) if x.endswith('.gz')]
+    remove = []
+    for f in _files:
+        dataset = tf.data.TFRecordDataset(f, compression_type='GZIP', num_parallel_reads=8)
+        dataset = dataset.map(parse_tfrecord, num_parallel_calls=5)
+        to_tup = to_tuple(add_ndvi=False)
+        dataset = dataset.map(to_tup, num_parallel_calls=5)
+        try:
+            for j, (features, labels) in enumerate(dataset):
+                labels = labels.numpy().squeeze()
+            print('good record', f)
+        except tf.errors.InvalidArgumentError:
+            print('bad record', f)
+            remove.append(f)
+    print(remove)
 
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     tf_rec = os.path.join(home, 'IrrigationGIS', 'tfrecords')
-    recs = [os.path.join(tf_rec, x) for x in os.listdir(tf_rec) if x.endswith('2015.tfrecord')]
-    for r in recs:
-        inspect_tfrecord(r)
+    check_valid_tf(tf_rec)
 # ==========================================================================================================

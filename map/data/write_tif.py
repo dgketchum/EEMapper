@@ -42,7 +42,7 @@ from matplotlib.colors import ListedColormap
 cmap = ListedColormap(['grey', 'blue', 'purple', 'pink', 'green'])
 
 
-def build_raster(npy_dir, out_tif_dir, plot=True):
+def build_raster(npy_dir, out_tif_dir, plot=False):
     l = [os.path.join(npy_dir, x) for x in os.listdir(npy_dir) if x.endswith('.npy')]
     for j, f in enumerate(l):
 
@@ -63,7 +63,6 @@ def build_raster(npy_dir, out_tif_dir, plot=True):
         rgb = np.dstack(rgb).astype('uint8')
 
         lat, lon = features[:, :, lat_idx].max(), features[:, :, lon_idx].min()
-        print(lat, lon)
         if plot:
             fig, ax = plt.subplots(ncols=4)
             ax[0].imshow(rgb)
@@ -77,7 +76,6 @@ def build_raster(npy_dir, out_tif_dir, plot=True):
         out_proj = Proj('epsg:5070', preserve_units=True)
         x1, y1 = lon, lat
         lon, lat = transform(in_proj, out_proj, y1, x1)
-        print(lat, lon)
         affine = from_origin(lon, lat, 30, 30)
         tif_name = os.path.join(out_tif_dir, '{}.tif'.format(j))
 
@@ -94,7 +92,7 @@ def build_raster(npy_dir, out_tif_dir, plot=True):
 
 
 if __name__ == '__main__':
-    npy = '/home/dgketchum/PycharmProjects/EEMapper/map/data/npy'
+    npy = '/home/dgketchum/PycharmProjects/IrrMapper/data/npy'
     tif = '/home/dgketchum/PycharmProjects/EEMapper/map/data/tif'
-    build_raster(npy, tif)
+    build_raster(npy, tif, plot=False)
 # ========================= EOF ====================================================================

@@ -190,7 +190,15 @@ features_dict_ = OrderedDict([('blue_0',
                                tf.io.FixedLenFeature(shape=[256, 256], dtype=tf.float32, default_value=None)),
                               ('lon',
                                tf.io.FixedLenFeature(shape=[256, 256], dtype=tf.float32, default_value=None)),
-                              ('elev',
+                              ('elv',
+                               tf.io.FixedLenFeature(shape=[256, 256], dtype=tf.float32, default_value=None)),
+                              ('slp',
+                               tf.io.FixedLenFeature(shape=[256, 256], dtype=tf.float32, default_value=None)),
+                              ('asp',
+                               tf.io.FixedLenFeature(shape=[256, 256], dtype=tf.float32, default_value=None)),
+                              ('cdl',
+                               tf.io.FixedLenFeature(shape=[256, 256], dtype=tf.float32, default_value=None)),
+                              ('cconf',
                                tf.io.FixedLenFeature(shape=[256, 256], dtype=tf.float32, default_value=None)),
                               ('irr',
                                tf.io.FixedLenFeature(shape=[256, 256], dtype=tf.float32, default_value=None))])
@@ -211,4 +219,5 @@ def features():
 
 
 if __name__ == '__main__':
-    pass
+    print(len(features()))
+    print(len(bands()))

@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import tensorflow as tf
 from map.trainer.training_utils import make_test_dataset
 
 # dates are generic, dates of each year as below, but data is from many years
@@ -50,7 +51,7 @@ def write_npy(out, recs, n_samples=1000):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    pixel_sets = os.path.join(home, 'PycharmProjects', 'EEMapper', 'map', 'data', 'npy')
+    pixel_sets = os.path.join(home, 'PycharmProjects', 'IrrMapper', 'data', 'npy')
     tf_recs = os.path.join(home, 'IrrigationGIS', 'tfrecords')
     write_npy(pixel_sets, tf_recs, n_samples=1000)
 

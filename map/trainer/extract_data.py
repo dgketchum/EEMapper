@@ -166,53 +166,49 @@ def extract_by_feature(feature_id=1440, split=None):
     years = STATE_YEARS[state]
 
     for year in years:
+        if 2007 < year < 2017:
+            s, e, interval_ = 1, 1, 30
+            image_stack, features = get_sr_stack(year, s, e, interval_, geo)
 
-        s, e, interval_ = 1, 1, 30
-        image_stack, features = get_sr_stack(year, s, e, interval_, geo)
+            masks_ = masks(geo, year)
+            irr = create_class_labels(masks_)
+            terrain_, cdl_ = get_ancillary(year)
+            coords_ = image_stack.pixelLonLat().rename(['lon', 'lat'])
+            image_stack = ee.Image.cat([image_stack, terrain_, coords_, cdl_, irr]).float()
+            features = features + ['elv', 'slp', 'asp', 'lon', 'lat', 'cdl', 'cconf', 'irr']
 
-        masks_ = masks(geo, year)
-        irr = create_class_labels(masks_)
-        terrain_, cdl_ = get_ancillary(year)
-        coords_ = image_stack.pixelLonLat().rename(['lon', 'lat'])
-        image_stack = ee.Image.cat([image_stack, terrain_, coords_, cdl_, irr]).float()
-        features = features + ['elv', 'slp', 'asp', 'lon', 'lat', 'cdl', 'cconf', 'irr']
+            projection = ee.Projection('EPSG:5070')
+            image_stack = image_stack.reproject(projection, None, 30)
 
-        # if irr == 1 and masks_['irrigated'].size().getInfo() == 0:
-        #     print('no irrigated in {} in {}'.format(year, feature_id))
-        #     continue
+            out_filename = '{}_{}_{}_{}'.format(split, state, feature_id, year)
+            data_stack = image_stack.neighborhoodToArray(KERNEL)
+            geometry_sample = ee.ImageCollection([])
 
-        projection = ee.Projection('EPSG:5070')
-        image_stack = image_stack.reproject(projection, None, 30)
+            for i in range(9):
+                region = ee.Feature(points.get(i)).geometry()
+                sample = data_stack.sample(region=region,
+                                           scale=30,
+                                           numPixels=1,
+                                           tileScale=16,
+                                           dropNulls=False)
+                geometry_sample = geometry_sample.merge(sample)
 
-        out_filename = '{}_{}_{}_{}'.format(split, state, feature_id, year)
-        data_stack = image_stack.neighborhoodToArray(KERNEL)
-        geometry_sample = ee.ImageCollection([])
+            task = ee.batch.Export.table.toCloudStorage(
+                collection=geometry_sample,
+                bucket=GS_BUCKET,
+                description=out_filename,
+                fileNamePrefix=out_filename,
+                fileFormat='TFRecord',
+                selectors=features)
 
-        for i in range(9):
-            region = ee.Feature(points.get(i)).geometry()
-            sample = data_stack.sample(region=region,
-                                       scale=30,
-                                       numPixels=1,
-                                       tileScale=16,
-                                       dropNulls=False)
-            geometry_sample = geometry_sample.merge(sample)
-
-        task = ee.batch.Export.table.toCloudStorage(
-            collection=geometry_sample,
-            bucket=GS_BUCKET,
-            description=out_filename,
-            fileNamePrefix=out_filename,
-            fileFormat='TFRecord',
-            selectors=features)
-
-        try:
-            task.start()
-        except ee.ee_exception.EEException:
-            print('waiting to export, sleeping for 50 minutes. Holding at\
-                    {}, feature {}'.format(year, feature_id))
-            time.sleep(3000)
-            task.start()
-        print('exported', split, state, feature_id, year)
+            try:
+                task.start()
+            except ee.ee_exception.EEException:
+                print('waiting to export, sleeping for 50 minutes. Holding at\
+                        {}, feature {}'.format(year, feature_id))
+                time.sleep(3000)
+                task.start()
+            print('exported', split, state, feature_id, year)
 
 
 def run_extract(shp, split):
@@ -226,7 +222,7 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     grids = os.path.join(home, 'IrrigationGIS', 'EE_sample', 'grid')
     splits = ['train', 'test', 'val']
-    shapes = [os.path.join(grids, '{}_grid.shp'.format(splt)) for splt in splits]
+    shapes = [os.path.join(grids, '{}_grid_select.shp'.format(splt)) for splt in splits]
     for shape, split_ in zip(shapes, splits):
         run_extract(shape, split_)
 # =====================================================================================================================
