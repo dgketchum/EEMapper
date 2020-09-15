@@ -30,7 +30,7 @@ structure = np.array([
 ])
 
 
-def write_npy(out, recs, n_samples=1000):
+def write_npy(out, recs):
     dataset = make_test_dataset(recs).batch(1)
     count = 0
     obj_ct = np.array([0, 0, 0, 0])
@@ -44,15 +44,16 @@ def write_npy(out, recs, n_samples=1000):
         count += 1
         if count % 100 == 0:
             print(count)
-        if count > n_samples:
-            print(obj_ct)
-            exit()
+    print(obj_ct)
 
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    pixel_sets = os.path.join(home, 'PycharmProjects', 'IrrMapper', 'data', 'npy')
+    np_images = os.path.join(home, 'PycharmProjects', 'IrrMapper', 'data', 'npy')
     tf_recs = os.path.join(home, 'IrrigationGIS', 'tfrecords')
-    write_npy(pixel_sets, tf_recs, n_samples=1000)
+    for split in ['train', 'test', 'valid']:
+        records = os.path.join(tf_recs, split)
+        npy = os.path.join(np_images, split)
+        write_npy(npy, records)
 
 # ========================= EOF ====================================================================
