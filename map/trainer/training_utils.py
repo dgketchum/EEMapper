@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import shutil
 import json
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
@@ -260,19 +261,37 @@ def inspect_tfrecord(rec):
 def check_valid_tf(rec_gz):
     _files = [os.path.join(rec_gz, x) for x in os.listdir(rec_gz) if x.endswith('.gz')]
     remove = []
+    to_ = None
+    ct = {'testtrain': 0, 'valid': 0, 'hold': 0}
     for f in _files:
+        bn = os.path.basename(f)
+        if bn.startswith('test') or bn.startswith('train'):
+            to_ = 'testtrain'
+        elif bn.startswith('val'):
+            to_ = 'valid'
+        else:
+            print(bn, 'no home')
+
         dataset = tf.data.TFRecordDataset(f, compression_type='GZIP', num_parallel_reads=8)
         dataset = dataset.map(parse_tfrecord, num_parallel_calls=5)
         to_tup = to_tuple(add_ndvi=False)
         dataset = dataset.map(to_tup, num_parallel_calls=5)
+
         try:
             for j, (features, labels) in enumerate(dataset):
                 labels = labels.numpy().squeeze()
-            print('good record', f)
+                ct[to_] += 1
+                break
         except tf.errors.InvalidArgumentError:
-            print('bad record', f)
             remove.append(f)
+            to_ = 'hold'
+            ct[to_] += 1
+
+        dst = os.path.join(rec_gz, to_, bn)
+        shutil.move(f, dst)
+
     print(remove)
+    print(ct)
 
 
 if __name__ == '__main__':
