@@ -83,7 +83,6 @@ class Image():
 
         """
         self.image = ee.Image(image)
-        self.mask = mask
 
         # Set as "lazy_property" below in order to return custom properties
         # self.lst = self.image.select('lst')
@@ -265,7 +264,6 @@ class Image():
 
         """
         sr_image = ee.Image(sr_image)
-
 
         # Use the SATELLITE property identify each Landsat type
         spacecraft_id = ee.String(sr_image.get('SATELLITE'))
