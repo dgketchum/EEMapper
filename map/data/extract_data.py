@@ -3,14 +3,8 @@ import ee
 ee.Initialize()
 import time
 import os
-from pprint import pprint
-import sys
 
-sys.path.append('/home/dgketchum/PycharmProjects/EEMapper')
-
-from collections import OrderedDict
 from datetime import datetime
-import numpy as np
 import fiona
 from map.openet.collection import get_target_dates, Collection, get_target_bands
 
@@ -216,7 +210,7 @@ def run_extract(shp, split):
     with fiona.open(shp, 'r') as src:
         for f in src:
             fid_ = f['properties']['FID']
-            extract_by_feature(fid_, split, cloud_mask=True)
+            extract_by_feature(fid_, split, cloud_mask=False)
 
 
 if __name__ == '__main__':
