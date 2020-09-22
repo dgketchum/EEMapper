@@ -337,75 +337,76 @@ def filter_irrigated(filter_type='filter_low'):
     :return:
     """
     for k, v in IRR.items():
-        plots = ee.FeatureCollection('users/dgketchum/western_states_irr/eastern_irr')
-        plots = plots.filterBounds(ee.FeatureCollection(os.path.join(BOUNDARIES, k)).geometry())
+        if k == 'TX':
+            plots = ee.FeatureCollection('users/dgketchum/western_states_irr/texas_wdb')
+            plots = plots.filterBounds(ee.FeatureCollection(os.path.join(BOUNDARIES, k)).geometry())
 
-        for year in v:
-            # pprint(plots.first().getInfo())
-            start = '{}-01-01'.format(year)
+            for year in v:
+                # pprint(plots.first().getInfo())
+                start = '{}-01-01'.format(year)
 
-            early_summer_s = ee.Date(start).advance(5, 'month')
-            early_summer_e = ee.Date(start).advance(7, 'month')
-            late_summer_s = ee.Date(start).advance(7, 'month')
-            late_summer_e = ee.Date(start).advance(10, 'month')
+                early_summer_s = ee.Date(start).advance(5, 'month')
+                early_summer_e = ee.Date(start).advance(7, 'month')
+                late_summer_s = ee.Date(start).advance(7, 'month')
+                late_summer_e = ee.Date(start).advance(10, 'month')
 
-            if year <= 2011:
-                collection = ndvi5()
-            elif year == 2012:
-                collection = ndvi7()
-            else:
-                collection = ndvi8()
+                if year <= 2011:
+                    collection = ndvi5()
+                elif year == 2012:
+                    collection = ndvi7()
+                else:
+                    collection = ndvi8()
 
-            early_collection = period_stat(collection, early_summer_s, early_summer_e)
-            late_collection = period_stat(collection, late_summer_s, late_summer_e)
-            summer_collection = period_stat(collection, early_summer_s, late_summer_e)
+                early_collection = period_stat(collection, early_summer_s, early_summer_e)
+                late_collection = period_stat(collection, late_summer_s, late_summer_e)
+                summer_collection = period_stat(collection, early_summer_s, late_summer_e)
 
-            if filter_type == 'filter_low':
-                early_nd_max = early_collection.select('nd_mean').reduce(ee.Reducer.intervalMean(0.0, 15.0))
-                early_int_mean = early_nd_max.reduceRegions(collection=plots,
-                                                            reducer=ee.Reducer.mean(),
-                                                            scale=30.0)
+                if filter_type == 'filter_low':
+                    early_nd_max = early_collection.select('nd_mean').reduce(ee.Reducer.intervalMean(0.0, 15.0))
+                    early_int_mean = early_nd_max.reduceRegions(collection=plots,
+                                                                reducer=ee.Reducer.mean(),
+                                                                scale=30.0)
 
-                s_nd_max = late_collection.select('nd_mean').reduce(ee.Reducer.intervalMean(0.0, 15.0))
-                combo_mean = s_nd_max.reduceRegions(collection=early_int_mean,
-                                                    reducer=ee.Reducer.mean(),
-                                                    scale=30.0)
-                filt_fc = combo_mean.filter(ee.Filter.Or(ee.Filter.gt('mean', v[2]), ee.Filter.gt('mean', v[2])))
+                    s_nd_max = late_collection.select('nd_mean').reduce(ee.Reducer.intervalMean(0.0, 15.0))
+                    combo_mean = s_nd_max.reduceRegions(collection=early_int_mean,
+                                                        reducer=ee.Reducer.mean(),
+                                                        scale=30.0)
+                    filt_fc = combo_mean.filter(ee.Filter.Or(ee.Filter.gt('mean', 0.5), ee.Filter.gt('mean', 0.5)))
 
-            elif filter_type == 'filter_high':
+                elif filter_type == 'filter_high':
+                    # only use if there are irrmapper results here
+                    # irrmapper = ee.ImageCollection(ASSET_ROOT)
+                    # img = ee.Image()
+                    # for y in range(1986, 2019):
+                    #     i = irrmapper.filterDate('{}-01-01'.format(y), '{}-12-31'.format(y)).mosaic()
+                    #     i = i.remap([0, 1, 2, 3], [1, 0, 0, 0]).rename('irr')
+                    #     img = img.addBands(i)
+                    #
+                    # img = img.reduce(ee.Reducer.sum())
+                    # equipped = img.gte(10).rename('equip')
+                    # equip = equipped.reduceRegions(collection=plots,
+                    #                                reducer=ee.Reducer.mode(),
+                    #                                scale=30.0)
 
-                irrmapper = ee.ImageCollection(ASSET_ROOT)
-                img = ee.Image()
-                for y in range(1986, 2019):
-                    i = irrmapper.filterDate('{}-01-01'.format(y), '{}-12-31'.format(y)).mosaic()
-                    i = i.remap([0, 1, 2, 3], [1, 0, 0, 0]).rename('irr')
-                    img = img.addBands(i)
+                    summer_nd_max = summer_collection.select('nd_max')
+                    early_int_mean = summer_nd_max.reduceRegions(collection=plots,
+                                                                 reducer=ee.Reducer.mean(),
+                                                                 scale=30.0)
 
-                img = img.reduce(ee.Reducer.sum())
-                equipped = img.gte(10).rename('equip')
-                equip = equipped.reduceRegions(collection=plots,
-                                               reducer=ee.Reducer.mode(),
-                                               scale=30.0)
+                    filt_fc = early_int_mean.filter(ee.Filter.lt('mean', 0.5))
 
-                summer_nd_max = summer_collection.select('nd_max')
-                early_int_mean = summer_nd_max.reduceRegions(collection=equip,
-                                                             reducer=ee.Reducer.mean(),
-                                                             scale=30.0)
+                else:
+                    raise NotImplementedError('must choose from filter_low or filter_high')
 
-                filt_fc = early_int_mean.filter(ee.Filter.lt('mean', 0.5))
-
-            else:
-                raise NotImplementedError('must choose from filter_low or filter_high')
-
-            task = ee.batch.Export.table.toCloudStorage(filt_fc,
-                                                        description='{}_{}_{}'.format(k, filter_type, year),
-                                                        bucket='wudr',
-                                                        fileNamePrefix='{}_{}_{}'.format(k, filter_type, year),
-                                                        fileFormat='KML')
-            size = filt_fc.size().getInfo()
-            print(k, year, filter_type, size)
-            if size > 0:
-                task.start()
+                task = ee.batch.Export.table.toAsset(filt_fc,
+                                                     description='{}_{}_{}'.format(k, filter_type, year),
+                                                     assetId='users/dgketchum/'
+                                                             'western_states_irr/'
+                                                             'texas_wdb_{}_{}'.format(year, filter_type))
+                size = filt_fc.size().getInfo()
+                print(k, year, filter_type, size)
+                if size > 0:
+                    task.start()
 
 
 def request_validation_extract(file_prefix='validation'):
@@ -627,5 +628,5 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    filter_irrigated('filter_high')
+    filter_irrigated('filter_low')
 # ========================= EOF ====================================================================
