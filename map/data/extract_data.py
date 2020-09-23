@@ -208,8 +208,8 @@ def extract_by_patch(feature_id=1440, split=None, cloud_mask=True):
             print('exported', split, state, feature_id, year)
 
 
-def extact_by_point(year, points_to_extract=None, cloud_mask=False,
-                    n_shards=10, feature_id=1440, max_sample=100):
+def extract_by_point(year, points_to_extract=None, cloud_mask=False,
+                     n_shards=10, feature_id=1440, max_sample=100):
     if cloud_mask:
         cloud = 'cm'
     else:
@@ -317,7 +317,7 @@ def run_extract_points(shp, points_assets):
                 pass
     for fid, years in dct.items():
         for year in years:
-            extact_by_point(year, points_to_extract=points_assets, feature_id=fid, cloud_mask=False)
+            extract_by_point(year, points_to_extract=points_assets, feature_id=fid, cloud_mask=True)
 
 
 def subsample_fid():
