@@ -6,7 +6,12 @@ import os
 
 from datetime import datetime
 import fiona
-from map.openet.collection import get_target_dates, Collection, get_target_bands
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+try:
+    from map.openet.collection import get_target_dates, Collection, get_target_bands
+except ModuleNotFoundError:
+    from openet.collection import get_target_dates, Collection, get_target_bands
 
 KERNEL_SIZE = 256
 KERNEL_SHAPE = [KERNEL_SIZE, KERNEL_SIZE]
@@ -304,8 +309,11 @@ def run_extract_patches(shp, split):
             extract_by_patch(fid_, split, cloud_mask=True)
 
 
-def run_extract_points(shp, points_assets):
-    dct = {fid: [] for fid in subsample_fid()}
+def run_extract_points(shp, points_assets, last_touch=None):
+    fids = subsample_fid()
+    if last_touch:
+        fids = fids[fids.index(last_touch):]
+    dct = {fid: [] for fid in fids}
     with fiona.open(shp, 'r') as src:
         for i, f in enumerate(src):
             fid = f['properties']['FID']
@@ -367,8 +375,7 @@ if __name__ == '__main__':
     pts_root = 'users/dgketchum/training_points'
     pts_training = [os.path.join(pts_root, x) for x in ['irrigated', 'fallow']]
     pts_irr = os.path.join(centroids, 'irrigated_train_buf.shp')
-    run_extract_points(pts_irr, pts_training)
-
+    run_extract_points(pts_irr, pts_training, last_touch=211)
     # for yr_ in YEARS:
     #     for fid in subsample_fid():
     #         extact_by_point(yr_, points_to_extract=pts_training, feature_id=fid)

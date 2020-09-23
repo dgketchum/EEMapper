@@ -1,9 +1,12 @@
 import ee
-
-from map.openet import landsat
-from map.openet import utils
-import map.openet.common as common
-
+try:
+    from map.openet import landsat
+    from map.openet import utils
+    import map.openet.common as common
+except ModuleNotFoundError:
+    from openet import landsat
+    from openet import utils
+    import openet.common as common
 PROJECT_FOLDER = 'projects/earthengine-legacy/assets/projects/usgs-ssebop'
 
 

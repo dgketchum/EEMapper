@@ -3,10 +3,12 @@ from pprint import pprint
 from datetime import datetime, timedelta
 from dateutil.rrule import rrule, DAILY
 import ee
-
-from map.openet.image import Image
-import map.openet.inerpolate as interp
-from map.openet.utils import date_0utc
+try:
+    from map.openet.image import Image
+    import map.openet.inerpolate as interp
+except ModuleNotFoundError:
+    from openet.image import Image
+    import openet.inerpolate as interp
 
 
 def lazy_property(fn):
