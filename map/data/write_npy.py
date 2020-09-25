@@ -1,7 +1,10 @@
 import os
 import numpy as np
 import tensorflow as tf
-from map.trainer.training_utils import make_test_dataset
+try:
+    from map.trainer.training_utils import make_test_dataset
+except ModuleNotFoundError:
+    from trainer.training_utils import make_test_dataset
 
 # dates are generic, dates of each year as below, but data is from many years
 # the year of the data is not used in training, just date position
@@ -51,9 +54,9 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     np_images = os.path.join(home, 'PycharmProjects', 'IrrMapper', 'data', 'npy')
     tf_recs = os.path.join(home, 'IrrigationGIS', 'tfrecords')
-    for split in ['train', 'test', 'valid']:
-        records = os.path.join(tf_recs, split)
-        npy = os.path.join(np_images, split)
-        write_npy(npy, records)
+    if not os.path.isdir(np_images):
+        np_images = 'gs://ts_data/cmask/npy'
+        tf_recs = 'gs://ts_data/cmask/points'
+    write_npy(np_images, tf_recs)
 
 # ========================= EOF ====================================================================

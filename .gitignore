@@ -112,3 +112,4 @@ spatial_data/MT
 tests/data
 gee_training.py
 model_data/
+/map/data/bucket.py

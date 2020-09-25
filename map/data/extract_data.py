@@ -8,6 +8,7 @@ from datetime import datetime
 import fiona
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
 try:
     from map.openet.collection import get_target_dates, Collection, get_target_bands
 except ModuleNotFoundError:
@@ -251,7 +252,7 @@ def extract_by_point(year, points_to_extract=None, cloud_mask=False,
 
         points = points.toList(points.size())
 
-        if n_features > max_sample:
+        if max_sample and n_features > max_sample:
             # Error: List.get: List index must be between 0 and 99, or -100 and -1. Found 115.
             points = points.slice(0, max_sample)
             print(n_features, fc)
@@ -286,10 +287,12 @@ def extract_by_point(year, points_to_extract=None, cloud_mask=False,
                     time.sleep(3000)
                     task.start()
 
-                print('exported {} {}, {} features', feature_id, year, n_features)
+                print('exported {} {}, {} features'.format(feature_id, year, n_features))
                 geometry_sample = ee.ImageCollection([])
                 ct += 1
 
+        if ct > 1:
+            ct += 1
         out_filename = '{}_{}_{}_{}_{}'.format(class_, str(year), ct, cloud, feature_id)
         task = ee.batch.Export.table.toCloudStorage(
             collection=geometry_sample,
@@ -364,6 +367,9 @@ def subsample_fid():
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
+    alt_home = os.path.join(home, 'data')
+    if os.path.isdir(alt_home):
+        home = alt_home
     grids = os.path.join(home, 'IrrigationGIS', 'EE_sample', 'grid')
     centroids = os.path.join(home, 'IrrigationGIS', 'EE_sample', 'centroids')
 

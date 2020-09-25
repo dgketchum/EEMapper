@@ -4,8 +4,10 @@ import logging
 
 import ee
 from dateutil.relativedelta import *
-
-from map.openet import utils
+try:
+    from map.openet import utils
+except ModuleNotFoundError:
+    from openet import utils
 
 
 def daily(target_coll, source_coll, interp_days=32,

@@ -10,8 +10,12 @@ from google.protobuf.json_format import MessageToJson
 from collections import defaultdict
 from sklearn.metrics import confusion_matrix
 
-from map.trainer.config import BUFFER_SIZE
-from map.trainer import feature_spec
+try:
+    from map.trainer.config import BUFFER_SIZE
+    from map.trainer import feature_spec
+except ModuleNotFoundError:
+    from trainer.config import BUFFER_SIZE
+    from trainer import feature_spec
 
 MODE = 'irr'
 FEATURES_DICT = feature_spec.features_dict()
