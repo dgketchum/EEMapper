@@ -1,6 +1,8 @@
 import os
 import numpy as np
-import tensorflow as tf
+import tempfile
+from google.cloud import storage
+
 try:
     from map.trainer.training_utils import make_test_dataset
 except ModuleNotFoundError:
@@ -33,7 +35,32 @@ structure = np.array([
 ])
 
 
-def write_npy(out, recs):
+def write_npy_gcs(recs, bucket=None, bucket_dst=None):
+    storage_client = None
+    if bucket:
+        storage_client = storage.Client()
+    dataset = make_test_dataset(recs).batch(1)
+    count = 0
+    obj_ct = np.array([0, 0, 0, 0])
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        for j, (features, labels) in enumerate(dataset):
+            labels = labels.numpy().squeeze()
+            classes = np.array([np.any(labels[:, :, i]) for i in range(4)])
+            obj_ct += classes
+            features = features.numpy().squeeze()
+            a = np.append(features, labels, axis=2)
+            tmp_name = os.path.join(tmpdirname, '{}.npy'.format(count))
+            np.save(tmp_name, a)
+            bucket = storage_client.get_bucket(bucket)
+            blob = bucket.blob(os.path.join(bucket_dst, '{}.npy'.format(count)))
+            blob.upload_from_filename(tmp_name)
+            count += 1
+            if count % 100 == 0:
+                print(count)
+        print(obj_ct)
+
+
+def write_npy_local(out, recs):
     dataset = make_test_dataset(recs).batch(1)
     count = 0
     obj_ct = np.array([0, 0, 0, 0])
@@ -52,11 +79,12 @@ def write_npy(out, recs):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
+    to_cloud = True
     np_images = os.path.join(home, 'PycharmProjects', 'IrrMapper', 'data', 'npy')
-    tf_recs = os.path.join(home, 'IrrigationGIS', 'tfrecords')
-    if not os.path.isdir(np_images):
-        np_images = 'gs://ts_data/cmask/npy'
-        tf_recs = 'gs://ts_data/cmask/points'
-    write_npy(np_images, tf_recs)
+    tf_recs = os.path.join(home, 'IrrigationGIS', 'tfrecords', 'test')
+    out_bucket = 'ts_data'
+    bucket_dir = 'cmask/npy/train'
+    # tf_recs = 'gs://ts_data/cmask/points'
+    write_npy_gcs(tf_recs, bucket=out_bucket, bucket_dst=bucket_dir)
 
 # ========================= EOF ====================================================================
