@@ -2,6 +2,7 @@ import os
 
 from google.cloud import storage
 
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = '/home/dgketchum/ssebop-montana-78fae6d904e1.json'
 client = storage.Client()
 
 
@@ -21,7 +22,7 @@ def get_bucket_contents(bucket_name, glob=None):
             dct[dirname].append((b_name, size))
     for k, v in dct.items():
         print(k, sum([x[1] for x in v]))
-    pass
+    return dct
 
 
 if __name__ == '__main__':
