@@ -316,7 +316,7 @@ def run_extract_points(shp, points_assets, last_touch=None):
     fids = subsample_fid()
     if last_touch:
         fids = fids[fids.index(last_touch):]
-    dct = {fid: [] for fid in fids}
+    dct = {fid: [] for fid in fids[1:]}
     with fiona.open(shp, 'r') as src:
         for i, f in enumerate(src):
             fid = f['properties']['FID']

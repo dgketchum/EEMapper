@@ -63,6 +63,8 @@ def write_npy_gcs(recs, bucket=None, bucket_dst=None):
             print('{} exceeded memory, flushing'.format(e))
             shutil.rmtree(tmpdirname)
             tmpdirname = tempfile.mkdtemp()
+            tmp_name = os.path.join(tmpdirname, '{}.npy'.format(count))
+            np.save(tmp_name, a)
 
         bucket = storage_client.get_bucket(bucket)
         blob = bucket.blob(os.path.join(bucket_dst, '{}.npy'.format(count)))
@@ -70,7 +72,7 @@ def write_npy_gcs(recs, bucket=None, bucket_dst=None):
         count += 1
         if count % 100 == 0:
             print(count)
-        print(obj_ct)
+    print(obj_ct)
 
 
 def write_npy_local(out, recs):
