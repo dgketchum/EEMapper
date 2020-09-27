@@ -12,32 +12,6 @@ except ModuleNotFoundError:
     from data.bucket import get_bucket_contents
     print('used alternate import')
 
-# dates are generic, dates of each year as below, but data is from many years
-# the year of the data is not used in training, just date position
-DATES = {0: '19860101',
-         1: '19860131',
-         2: '19860302',
-         3: '19860401',
-         4: '19860501',
-         5: '19860531',
-         6: '19860630',
-         7: '19860730',
-         8: '19860829',
-         9: '19860928',
-         10: '19861028',
-         11: '19861127',
-         12: '19861227'}
-
-# see feature_spec.py for dict of bands, lat , lon, elev, label
-CHANNELS = 7
-BANDS = 91
-
-structure = np.array([
-    [1, 1, 1],
-    [1, 1, 1],
-    [1, 1, 1]
-])
-
 
 def write_npy_gcs(recs, bucket=None, bucket_dst=None):
     storage_client = storage.Client()
@@ -95,11 +69,11 @@ def write_npy_local(out, recs):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     to_cloud = True
-    np_images = os.path.join(home, 'PycharmProjects', 'IrrMapper', 'data', 'npy')
-    tf_recs = os.path.join(home, 'IrrigationGIS', 'tfrecords', 'test')
+    # np_images = os.path.join(home, 'PycharmProjects', 'IrrMapper', 'data', 'npy')
+    # tf_recs = os.path.join(home, 'IrrigationGIS', 'tfrecords', 'test')
     out_bucket = 'ts_data'
-    bucket_dir = 'cmask/npy/train'
-    # tf_recs = 'gs://ts_data/cmask/points'
+    bucket_dir = 'cmask/npy/train/train_patches'
+    tf_recs = 'gs://ts_data/cmask/train'
     write_npy_gcs(tf_recs, bucket=out_bucket, bucket_dst=bucket_dir)
 
 # ========================= EOF ====================================================================
