@@ -31,21 +31,18 @@ def write_npy_gcs(recs, bucket=None, bucket_dst=None):
         a = np.append(features, labels, axis=2)
         tmp_name = os.path.join(tmpdirname, '{}.npy'.format(count))
 
-        try:
-            np.save(tmp_name, a)
-        except OSError as e:
-            print('{} exceeded memory, flushing'.format(e))
-            shutil.rmtree(tmpdirname)
-            tmpdirname = tempfile.mkdtemp()
-            tmp_name = os.path.join(tmpdirname, '{}.npy'.format(count))
-            np.save(tmp_name, a)
+        np.save(tmp_name, a)
 
         bucket = storage_client.get_bucket(bucket)
         blob = bucket.blob(os.path.join(bucket_dst, '{}.npy'.format(count)))
         blob.upload_from_filename(tmp_name)
         count += 1
-        if count % 100 == 0:
+
+        if count % 1000 == 0:
             print(count)
+            shutil.rmtree(tmpdirname)
+            tmpdirname = tempfile.mkdtemp()
+
     print(obj_ct)
 
 
