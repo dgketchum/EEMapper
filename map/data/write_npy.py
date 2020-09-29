@@ -15,9 +15,8 @@ except ModuleNotFoundError:
     print('used alternate import')
 
 
-def write_and_push_tar():
-
 def write_npy_gcs(recs, bucket=None, bucket_dst=None):
+    """ Write tfrecord.gz to numpy, push .tar of npy to GCS bucket"""
     storage_client = storage.Client()
 
     def push_tar(t_dir, bckt, items):
