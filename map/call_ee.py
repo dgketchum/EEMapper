@@ -213,24 +213,23 @@ def attribute_irrigation():
             task.start()
 
 
-def export_raster(roi, description):
-    fc = ee.FeatureCollection(roi)
-    mask = fc.geometry().bounds().getInfo()['coordinates']
+def export_raster():
+    target_bn = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_RF'
     image_list = list_assets('users/dgketchum/IrrMapper/version_2')
 
     for yr in range(1986, 2019):
-        yr_img = [x for x in image_list if x.endswith(str(yr))]
-        coll = ee.ImageCollection(yr_img)
-        img = ee.ImageCollection(coll.mosaic().select('classification'))
+        images = [x for x in image_list if x.endswith(str(yr))]
+        coll = ee.ImageCollection(images)
+        img = ee.ImageCollection(coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0]))
         img = img.first()
-        task = ee.batch.Export.image.toDrive(
-            img,
-            description='IrrMapper_V2_{}_{}'.format(description, yr),
-            folder='Irrigation',
-            region=mask,
+        id_ = os.path.join(target_bn, '{}'.format(yr))
+        task = ee.batch.Export.image.toAsset(
+            image=img,
+            description='IrrMapper_RF_{}'.format(yr),
+            assetId=id_,
+            pyramidingPolicy={'.default': 'mode'},
             scale=30,
-            maxPixels=1e13,
-            fileNamePrefix='IrrMapper_V2_{}_{}'.format(description, yr))
+            maxPixels=1e13)
         task.start()
         print(yr)
 
@@ -628,5 +627,5 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    filter_irrigated('filter_low')
+    export_raster()
 # ========================= EOF ====================================================================
