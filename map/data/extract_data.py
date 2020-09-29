@@ -381,7 +381,7 @@ if __name__ == '__main__':
     pts_root = 'users/dgketchum/training_points'
     pts_training = [os.path.join(pts_root, x) for x in ['irrigated', 'fallow']]
     pts_irr = os.path.join(centroids, 'irrigated_train_buf.shp')
-    run_extract_points(pts_irr, pts_training, last_touch=211)
+    run_extract_points(pts_irr, pts_training, last_touch=468)
     # for yr_ in YEARS:
     #     for fid in subsample_fid():
     #         extact_by_point(yr_, points_to_extract=pts_training, feature_id=fid)
