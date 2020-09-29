@@ -15,14 +15,33 @@ except ModuleNotFoundError:
     print('used alternate import')
 
 
+def write_and_push_tar():
+
 def write_npy_gcs(recs, bucket=None, bucket_dst=None):
     storage_client = storage.Client()
+
+    def push_tar(t_dir, bckt, items):
+        si, ei = os.path.basename(items[0].split('.')[0]), os.path.basename(items[-1].split('.')[0])
+        tar_filename = '{}_{}_{}.tar'.format(os.path.basename(recs), si, ei)
+        tar_archive = os.path.join(t_dir, tar_filename)
+        with tarfile.open(tar_archive, 'w') as tar:
+            print(count, si, ei, )
+            for i in items:
+                tar.add(i)
+        bucket = storage_client.get_bucket(bckt)
+        blob_name = os.path.join(bucket_dst, tar_filename)
+        blob = bucket.blob(blob_name)
+        print('push {}'.format(blob_name))
+        blob.upload_from_filename(tar_archive)
+        shutil.rmtree(t_dir)
+
     try:
         bucket_content = get_bucket_contents(bucket)
         sub_content = bucket_content[bucket_dst]
         count = sorted([int(x[0].split('.')[0]) for x in sub_content])[-1] + 1
     except:
         count = 0
+
     dataset = make_test_dataset(recs).batch(1)
     obj_ct = np.array([0, 0, 0, 0])
     tmpdirname = tempfile.mkdtemp()
@@ -39,20 +58,11 @@ def write_npy_gcs(recs, bucket=None, bucket_dst=None):
         count += 1
 
         if len(items) == 20:
-            si, ei = os.path.basename(items[0].split('.')[0]), os.path.basename(items[-1].split('.')[0])
-            tar_filename = '{}_{}_{}.tar'.format(os.path.basename(recs), si, ei)
-            tar_archive = os.path.join(tmpdirname, tar_filename)
-            with tarfile.open(tar_archive, 'w') as tar:
-                print(count, si, ei, )
-                for i in items:
-                    tar.add(i)
-            bucket = storage_client.get_bucket(bucket)
-            blob = bucket.blob(os.path.join(bucket_dst, tar_filename))
-            blob.upload_from_filename(tar_archive)
-            shutil.rmtree(tmpdirname)
+            push_tar(tmpdirname, bucket, items)
             tmpdirname = tempfile.mkdtemp()
             items = []
 
+    push_tar(tmpdirname, bucket, items)
     print(obj_ct)
 
 
