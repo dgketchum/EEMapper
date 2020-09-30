@@ -218,9 +218,12 @@ def export_raster():
     image_list = list_assets('users/dgketchum/IrrMapper/version_2')
 
     for yr in range(1986, 2019):
+        _properties = {'image_id': 'IrrMapper_RF_{}'.format(yr), 'system:time_start': ee.Date.fromYMD(yr, 1, 1),
+                       'system:time_end': ee.Date.fromYMD(yr, 12, 31)}
         images = [x for x in image_list if x.endswith(str(yr))]
         coll = ee.ImageCollection(images)
-        img = ee.ImageCollection(coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0]))
+        img = ee.ImageCollection(coll.mosaic().select('classification')
+                                 .remap([0, 1, 2, 3], [1, 0, 0, 0]).rename('classification').set(_properties))
         img = img.first()
         id_ = os.path.join(target_bn, '{}'.format(yr))
         task = ee.batch.Export.image.toAsset(

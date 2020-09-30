@@ -21,7 +21,7 @@ EDIT_STATES = ['KS', 'ND', 'NE', 'OK', 'SD']
 TEST_YEARS = [1986, 1996, 2006, 2016]
 
 home = os.path.expanduser('~')
-EXEC = os.path.join(home, 'miniconda3', 'envs', 'ee', 'bin', 'earthengine')
+EXEC = os.path.join(home, 'miniconda3', 'envs', 'gcs', 'bin', 'earthengine')
 
 
 def change_permissions(ee_asset, user=None):
