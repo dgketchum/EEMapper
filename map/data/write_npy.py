@@ -54,10 +54,11 @@ def write_npy_gcs(recs, bucket=None, bucket_dst=None):
             items = []
             count += 1
 
-        if count >= 49:
-            break
+        if count >= 4:
+            exit()
 
-    push_tar(tmpdirname, bucket, items, count)
+    if len(items) > 0:
+        push_tar(tmpdirname, bucket, items, count)
     print(obj_ct)
 
 
