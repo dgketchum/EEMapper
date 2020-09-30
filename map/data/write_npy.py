@@ -19,7 +19,7 @@ def write_npy_gcs(recs, bucket=None, bucket_dst=None):
     storage_client = storage.Client()
 
     def push_tar(t_dir, bckt, items, ind):
-        tar_filename = 'train_{}.tar'.format(ind)
+        tar_filename = 'train_{}.tar'.format(str(j).zfill(6))
         tar_archive = os.path.join(t_dir, tar_filename)
         with tarfile.open(tar_archive, 'w') as tar:
             for i in items:
@@ -43,9 +43,9 @@ def write_npy_gcs(recs, bucket=None, bucket_dst=None):
         obj_ct += classes
         features = features.numpy().squeeze()
         a = np.append(features, labels, axis=2)
-        a = torch.from_numpy(a)
-        tmp_name = os.path.join(tmpdirname, '{}.pt'.format(str(count).zfill(6)))
-        torch.save(a, tmp_name)
+        # a = torch.from_numpy(a)
+        tmp_name = os.path.join(tmpdirname, '{}.pt'.format(str(j).zfill(7)))
+        np.save(a, tmp_name)
         items.append(tmp_name)
 
         if len(items) == 20:
