@@ -37,8 +37,8 @@ def write_npy_gcs(recs, bucket=None, bucket_dst=None):
     try:
         bucket_content = get_bucket_contents(bucket)
         sub_content = bucket_content[bucket_dst]
-        count = sorted([int(x[0].split('.')[0]) for x in sub_content])[-1] + 1
-    except:
+        count = sorted([int(x[0].split('.')[0].split('_')[-1]) for x in sub_content])[-1] + 1
+    except IndexError:
         count = 0
 
     dataset = make_test_dataset(recs).batch(1)
@@ -88,8 +88,8 @@ if __name__ == '__main__':
     # np_images = os.path.join(home, 'PycharmProjects', 'IrrMapper', 'data', 'npy')
     # tf_recs = os.path.join(home, 'IrrigationGIS', 'tfrecords', 'test')
     out_bucket = 'ts_data'
-    bucket_dir = 'cmask/tar/train/train_patches'
-    tf_recs = 'gs://ts_data/cmask/train'
+    bucket_dir = 'cmask/tar/train/train_points'
+    tf_recs = 'gs://ts_data/cmask/proc'
     write_npy_gcs(tf_recs, bucket=out_bucket, bucket_dst=bucket_dir)
 
 # ========================= EOF ====================================================================
