@@ -45,7 +45,7 @@ def write_npy_gcs(recs, bucket=None, bucket_dst=None):
         a = np.append(features, labels, axis=2)
         # a = torch.from_numpy(a)
         tmp_name = os.path.join(tmpdirname, '{}.pt'.format(str(j).zfill(7)))
-        np.save(a, tmp_name)
+        np.save(tmp_name, a)
         items.append(tmp_name)
 
         if len(items) == 20:
