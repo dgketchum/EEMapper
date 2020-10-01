@@ -14,7 +14,7 @@ except ModuleNotFoundError:
     from data.bucket import get_bucket_contents
 
 
-def write_npy_gcs(recs, bucket=None, bucket_dst=None):
+def write_tfr_to_gcs(recs, bucket=None, bucket_dst=None):
     """ Write tfrecord.gz to numpy, push .tar of npy to GCS bucket"""
     storage_client = storage.Client()
 
@@ -78,13 +78,10 @@ def write_npy_local(out, recs):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    to_cloud = True
-    # np_images = os.path.join(home, 'PycharmProjects', 'IrrMapper', 'data', 'npy')
-    # tf_recs = os.path.join(home, 'IrrigationGIS', 'tfrecords', 'test')
     out_bucket = 'ts_data'
     for mode in ['test', 'train', 'valid']:
         bucket_dir = 'cmask/tar/{}/{}_patches'.format(mode, mode)
         tf_recs = 'gs://ts_data/cmask/{}'.format(mode)
-        write_npy_gcs(tf_recs, bucket=out_bucket, bucket_dst=bucket_dir)
+        write_tfr_to_gcs(tf_recs, bucket=out_bucket, bucket_dst=bucket_dir)
 
 # ========================= EOF ====================================================================
