@@ -19,7 +19,7 @@ def write_npy_gcs(recs, bucket=None, bucket_dst=None):
     storage_client = storage.Client()
 
     def push_tar(t_dir, bckt, items, ind):
-        tar_filename = 'train_{}.tar'.format(str(ind).zfill(6))
+        tar_filename = '{}_{}.tar'.format(os.path.basename(recs), str(ind).zfill(6))
         tar_archive = os.path.join(t_dir, tar_filename)
         with tarfile.open(tar_archive, 'w') as tar:
             for i in items:
@@ -54,9 +54,6 @@ def write_npy_gcs(recs, bucket=None, bucket_dst=None):
             items = []
             count += 1
 
-        if count >= 4:
-            exit()
-
     if len(items) > 0:
         push_tar(tmpdirname, bucket, items, count)
     print(obj_ct)
@@ -85,8 +82,9 @@ if __name__ == '__main__':
     # np_images = os.path.join(home, 'PycharmProjects', 'IrrMapper', 'data', 'npy')
     # tf_recs = os.path.join(home, 'IrrigationGIS', 'tfrecords', 'test')
     out_bucket = 'ts_data'
-    bucket_dir = 'cmask/tar/train/train_patches'
-    tf_recs = 'gs://ts_data/cmask/train'
-    write_npy_gcs(tf_recs, bucket=out_bucket, bucket_dst=bucket_dir)
+    for mode in ['test', 'train', 'valid']:
+        bucket_dir = 'cmask/tar/{}/{}_patches'.format(mode, mode)
+        tf_recs = 'gs://ts_data/cmask/{}'.format(mode)
+        write_npy_gcs(tf_recs, bucket=out_bucket, bucket_dst=bucket_dir)
 
 # ========================= EOF ====================================================================
