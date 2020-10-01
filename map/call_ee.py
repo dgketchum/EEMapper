@@ -630,5 +630,5 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    export_raster()
+    filter_irrigated(filter_type='filter_low')
 # ========================= EOF ====================================================================
