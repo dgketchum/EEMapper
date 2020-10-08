@@ -79,9 +79,8 @@ def write_npy_local(out, recs):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     out_bucket = 'ts_data'
-    for mode in ['test', 'train', 'valid']:
-        bucket_dir = 'cmask/tar/{}/{}_patches'.format(mode, mode)
-        tf_recs = 'gs://ts_data/cmask/{}'.format(mode)
-        write_tfr_to_gcs(tf_recs, bucket=out_bucket, bucket_dst=bucket_dir)
+    bucket_dir = 'cmask/tar/train/train_points'
+    tf_recs = 'gs://ts_data/cmask/points/unproc'
+    write_tfr_to_gcs(tf_recs, bucket=out_bucket, bucket_dst=bucket_dir)
 
 # ========================= EOF ====================================================================

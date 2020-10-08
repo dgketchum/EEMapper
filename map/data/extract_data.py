@@ -260,6 +260,7 @@ def extract_by_point(year, points_to_extract=None, cloud_mask=False,
         geometry_sample = ee.ImageCollection([])
         ct = 1
         for i in range(n_features):
+            # points.get() will only fetch to 99
             sample = data_stack.sample(
                 region=ee.Feature(points.get(i)).geometry(),
                 scale=30,
@@ -290,6 +291,8 @@ def extract_by_point(year, points_to_extract=None, cloud_mask=False,
                 print('exported {} {}, {} features'.format(feature_id, year, n_features))
                 geometry_sample = ee.ImageCollection([])
                 ct += 1
+            if ct >= 11:
+                break
 
         if ct > 1:
             ct += 1
@@ -381,7 +384,7 @@ if __name__ == '__main__':
     pts_root = 'users/dgketchum/training_points'
     pts_training = [os.path.join(pts_root, x) for x in ['irrigated', 'fallow']]
     pts_irr = os.path.join(centroids, 'irrigated_train_buf.shp')
-    run_extract_points(pts_irr, pts_training, last_touch=468)
+    run_extract_points(pts_irr, pts_training, last_touch=874)
     # for yr_ in YEARS:
     #     for fid in subsample_fid():
     #         extact_by_point(yr_, points_to_extract=pts_training, feature_id=fid)
