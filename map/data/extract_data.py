@@ -3,10 +3,12 @@ import ee
 ee.Initialize()
 import time
 import os
+import random
 
 from datetime import datetime
 import fiona
 import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 try:
@@ -229,9 +231,9 @@ def extract_by_point(year, points_to_extract=None, cloud_mask=False,
     image_stack = image_stack.reproject(projection, None, 30)
 
     masks_ = masks(roi, year)
-    if masks_['irrigated'].size().getInfo() == 0:
-        print('no irrigated in {} in {}'.format(year, feature_id))
-        return
+    # if masks_['irrigated'].size().getInfo() == 0:
+    #     print('no irrigated in {} in {}'.format(year, feature_id))
+    #     return
 
     irr = create_class_labels(masks_)
     terrain_, cdl_ = get_ancillary(year)
@@ -255,6 +257,7 @@ def extract_by_point(year, points_to_extract=None, cloud_mask=False,
         if max_sample and n_features > max_sample:
             # Error: List.get: List index must be between 0 and 99, or -100 and -1. Found 115.
             points = points.slice(0, max_sample)
+            n_features = max_sample
             print(n_features, fc)
 
         geometry_sample = ee.ImageCollection([])
@@ -315,7 +318,7 @@ def run_extract_patches(shp, split):
             extract_by_patch(fid_, split, cloud_mask=True)
 
 
-def run_extract_points(shp, points_assets, last_touch=None):
+def run_extract_irr_points(shp, points_assets, last_touch=None):
     fids = subsample_fid()
     if last_touch:
         fids = fids[fids.index(last_touch):]
@@ -332,6 +335,26 @@ def run_extract_points(shp, points_assets, last_touch=None):
     for fid, years in dct.items():
         for year in years:
             extract_by_point(year, points_to_extract=points_assets, feature_id=fid, cloud_mask=True)
+
+
+def run_extract_dryland_points(shp, points_assets, last_touch=None):
+    dct = {}
+    dct_ct = {}
+    with fiona.open(shp, 'r') as src:
+        for i, f in enumerate(src):
+            fid = f['properties']['FID']
+            if fid not in dct.keys():
+                state = f['properties']['STUSPS']
+                dct[fid] = random.sample(STATE_YEARS[state], 5)
+                dct_ct[fid] = 1
+            else:
+                dct_ct[fid] += 1
+    ct = 0
+    for fid, years in dct.items():
+        for year in years:
+            ct += 1
+            extract_by_point(year, points_to_extract=points_assets,
+                             feature_id=fid, cloud_mask=True, max_sample=10)
 
 
 def subsample_fid():
@@ -382,9 +405,9 @@ if __name__ == '__main__':
     #     run_extract(shape, split_)
 
     pts_root = 'users/dgketchum/training_points'
-    pts_training = [os.path.join(pts_root, x) for x in ['irrigated', 'fallow']]
-    pts_irr = os.path.join(centroids, 'irrigated_train_buf.shp')
-    run_extract_points(pts_irr, pts_training, last_touch=874)
+    pts_training = [os.path.join(pts_root, x) for x in ['dryland']]
+    pts_dryland = os.path.join(centroids, 'dryland_train_buf.shp')
+    run_extract_dryland_points(pts_dryland, pts_training)
     # for yr_ in YEARS:
     #     for fid in subsample_fid():
     #         extact_by_point(yr_, points_to_extract=pts_training, feature_id=fid)
