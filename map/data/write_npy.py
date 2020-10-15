@@ -14,16 +14,16 @@ except ModuleNotFoundError:
     from data.bucket import get_bucket_contents
 
 
-def write_tfr_to_gcs(recs, bucket=None, bucket_dst=None, pattern='*gz'):
-    """ Write tfrecord.gz to numpy, push .tar of npy to GCS bucket"""
+def write_tfr_to_gcs(recs, bucket=None, bucket_dst=None, pattern='*gz', category='irrigated', start_count=0):
+    """ Write tfrecord.gz to numpy, push .tar of torch tensor.pth to GCS bucket"""
     storage_client = storage.Client()
 
     def push_tar(t_dir, bckt, items, ind):
-        tar_filename = '{}_{}.tar'.format(os.path.basename(recs), str(ind).zfill(6))
+        tar_filename = '{}_{}.tar'.format(category, str(ind).zfill(6))
         tar_archive = os.path.join(t_dir, tar_filename)
         with tarfile.open(tar_archive, 'w') as tar:
             for i in items:
-                tar.add(i)
+                tar.add(i, arcname=os.path.basename(i))
         bucket = storage_client.get_bucket(bckt)
         blob_name = os.path.join(bucket_dst, tar_filename)
         blob = bucket.blob(blob_name)
@@ -31,7 +31,7 @@ def write_tfr_to_gcs(recs, bucket=None, bucket_dst=None, pattern='*gz'):
         blob.upload_from_filename(tar_archive)
         shutil.rmtree(t_dir)
 
-    count = 0
+    count = start_count
 
     dataset = make_test_dataset(recs, pattern).batch(1)
     obj_ct = np.array([0, 0, 0, 0])
@@ -83,6 +83,6 @@ if __name__ == '__main__':
     bucket_dir = 'cmask/tar/train/train_points/{}'.format(_type)
     tf_recs = 'gs://ts_data/cmask/points/unproc'
     glob_pattern = '*{}*gz'.format(_type)
-    write_tfr_to_gcs(tf_recs, bucket=out_bucket, bucket_dst=bucket_dir)
+    write_tfr_to_gcs(tf_recs, bucket=out_bucket, bucket_dst=bucket_dir, category=_type)
 
 # ========================= EOF ====================================================================
