@@ -14,7 +14,7 @@ except ModuleNotFoundError:
     from data.bucket import get_bucket_contents
 
 
-def write_tfr_to_gcs(recs, bucket=None, bucket_dst=None):
+def write_tfr_to_gcs(recs, bucket=None, bucket_dst=None, pattern='*gz'):
     """ Write tfrecord.gz to numpy, push .tar of npy to GCS bucket"""
     storage_client = storage.Client()
 
@@ -33,7 +33,7 @@ def write_tfr_to_gcs(recs, bucket=None, bucket_dst=None):
 
     count = 0
 
-    dataset = make_test_dataset(recs).batch(1)
+    dataset = make_test_dataset(recs, pattern).batch(1)
     obj_ct = np.array([0, 0, 0, 0])
     tmpdirname = tempfile.mkdtemp()
     items = []
@@ -79,8 +79,10 @@ def write_npy_local(out, recs):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     out_bucket = 'ts_data'
-    bucket_dir = 'cmask/tar/train/train_points'
+    _type = 'fallow'
+    bucket_dir = 'cmask/tar/train/train_points/{}'.format(_type)
     tf_recs = 'gs://ts_data/cmask/points/unproc'
+    glob_pattern = '*{}*gz'.format(_type)
     write_tfr_to_gcs(tf_recs, bucket=out_bucket, bucket_dst=bucket_dir)
 
 # ========================= EOF ====================================================================

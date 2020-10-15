@@ -351,10 +351,11 @@ def run_extract_dryland_points(shp, points_assets, last_touch=None):
                 dct_ct[fid] += 1
     ct = 0
     for fid, years in dct.items():
-        for year in years:
-            ct += 1
-            extract_by_point(year, points_to_extract=points_assets,
-                             feature_id=fid, cloud_mask=True, max_sample=10)
+        if fid >= last_touch:
+            for year in years:
+                ct += 1
+                extract_by_point(year, points_to_extract=points_assets,
+                                 feature_id=fid, cloud_mask=True, max_sample=10)
 
 
 def subsample_fid():

@@ -158,8 +158,7 @@ def make_training_dataset(root, batch_size=16):
     return dataset
 
 
-def make_test_dataset(root):
-    pattern = "*gz"
+def make_test_dataset(root, pattern='*irrigated*gz'):
     training_root = os.path.join(root, pattern)
     datasets = get_dataset(training_root)
     return datasets
