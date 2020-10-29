@@ -357,9 +357,8 @@ if __name__ == '__main__':
     extracts = '/media/research/IrrigationGIS/EE_extracts'
     vals = os.path.join(extracts, 'validation_tables', 'validation_12AUG2019.csv')
     bands = os.path.join(extracts, 'concatenated', 'bands_15JUL_v2_kw_USEDINPAPER.csv')
-    rf_, names_ = random_forest(bands, binary=False, n_estimators=10)
+    rf_ = random_forest(bands, binary=False, n_estimators=10)
     for x in range(10):
         out_file = os.path.join(out_, 'tree_{}.dot'.format(x))
         export_tree(rf_, 0, out_file=out_file)
-        break
 # ========================= EOF ====================================================================
