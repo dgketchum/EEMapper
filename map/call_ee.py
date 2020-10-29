@@ -23,6 +23,7 @@ from pprint import pprint
 
 import ee
 
+sys.path.insert(0, os.path.abspath('..'))
 from map.assets import list_assets
 from map.ee_utils import get_world_climate, ls57mask, ls8mask, ndvi5
 from map.ee_utils import ndvi7, ndvi8, ls5_edge_removal, period_stat, daily_landsat
@@ -34,14 +35,14 @@ BOUNDARIES = 'users/dgketchum/boundaries'
 ASSET_ROOT = 'users/dgketchum/IrrMapper/version_2'
 IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
 
-RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/IrrMapper_RF_training_sample'
+RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/IrrMapper_RF_TrainingData_csv'
 RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/IrrMapper_training_data_points'
 
 HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
 HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
 COUNTIES = 'users/dgketchum/boundaries/western_counties'
 
-TARGET_STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
+TARGET_STATES = ['CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
 
 IRR = {'ND': [2012, 2013, 2014, 2015, 2016],
        'SD': [2007, 2008, 2009, 2013],
@@ -217,14 +218,17 @@ def export_raster():
     target_bn = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_RF'
     image_list = list_assets('users/dgketchum/IrrMapper/version_2')
 
-    for yr in range(1986, 2019):
+    for yr in range(1987, 2021):
+        images = [x for x in image_list if x.endswith(str(yr))]
+
+        coll = ee.ImageCollection(images)
+
         _properties = {'image_id': 'IrrMapper_RF_{}'.format(yr), 'system:time_start': ee.Date.fromYMD(yr, 1, 1),
                        'system:time_end': ee.Date.fromYMD(yr, 12, 31)}
-        images = [x for x in image_list if x.endswith(str(yr))]
-        coll = ee.ImageCollection(images)
-        img = ee.ImageCollection(coll.mosaic().select('classification')
-                                 .remap([0, 1, 2, 3], [1, 0, 0, 0]).rename('classification').set(_properties))
-        img = img.first()
+
+        img = coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
+        img = img.updateMask(img.neq(0)).rename('classification').set(_properties)
+
         id_ = os.path.join(target_bn, '{}'.format(yr))
         task = ee.batch.Export.image.toAsset(
             image=img,
@@ -277,7 +281,7 @@ def export_classification(out_name, asset_root, region, export='asset'):
     :param export:
     :return:
     """
-    fc = ee.FeatureCollection(None)
+    fc = ee.FeatureCollection(RF_TRAINING_DATA)
     roi = ee.FeatureCollection(region)
     mask = roi.geometry().bounds().getInfo()['coordinates']
 
@@ -295,7 +299,7 @@ def export_classification(out_name, asset_root, region, export='asset'):
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
-    for yr in TEST_YEARS:
+    for yr in [2019]:
         input_bands = stack_bands(yr, roi)
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.classify(trained_model).int().set({
@@ -309,10 +313,10 @@ def export_classification(out_name, asset_root, region, export='asset'):
                 image=classified_img,
                 description='{}_{}'.format(out_name, yr),
                 assetId=os.path.join(asset_root, '{}_{}'.format(out_name, yr)),
-                fileNamePrefix='{}_{}'.format(yr, out_name),
                 region=mask,
                 scale=30,
                 maxPixels=1e13)
+
         elif export == 'cloud':
             task = ee.batch.Export.image.toCloudStorage(
                 image=classified_img,
@@ -326,7 +330,7 @@ def export_classification(out_name, asset_root, region, export='asset'):
             raise NotImplementedError('choose asset or cloud for export')
 
         task.start()
-        print(yr)
+        print(os.path.join(asset_root, '{}_{}'.format(out_name, yr)))
 
 
 def filter_irrigated(filter_type='filter_low'):
@@ -597,7 +601,6 @@ def stack_bands(yr, roi):
     temp_ct = 1
     prec_ct = 1
     names = input_bands.bandNames().getInfo()
-    pprint(sorted(names))
     for name in names:
         if 'B' in name and '_1_1' in name:
             replace_ = name.replace('_1_1', '_2')
@@ -630,5 +633,5 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    filter_irrigated(filter_type='filter_low')
+    export_raster()
 # ========================= EOF ====================================================================
