@@ -16,7 +16,8 @@ from sklearn.tree import export_graphviz
 from sklearn.model_selection import RandomizedSearchCV, GridSearchCV, train_test_split, KFold
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
-from datetime import datetime
+from map import FEATURE_NAMES
+
 
 abspath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(abspath)
@@ -59,12 +60,10 @@ def pca(csv):
 
 def random_forest(csv, binary=False, n_estimators=100):
     df = read_csv(csv, engine='python')
-    # df = df.sample(frac=0.5).reset_index(drop=True)
     labels = df['POINT_TYPE'].values
     df.drop(columns=['YEAR', 'POINT_TYPE'], inplace=True)
     df.dropna(axis=1, inplace=True)
     data = df.values
-    names = df.columns
     if binary:
         labels = labels.reshape((labels.shape[0],))
         labels[labels > 1] = 1
@@ -82,16 +81,13 @@ def random_forest(csv, binary=False, n_estimators=100):
                                 bootstrap=False)
 
     rf.fit(x, y)
-    return rf, names
+    return rf
 
 
-def export_tree(rf, tree_idx, names, out_file=None):
+def export_tree(rf, tree_idx, out_file=None):
     tree = rf.estimators_[tree_idx]
-    nodes = tree.tree_.__getstate__()['nodes']
-    feature_idx = [node[2] for node in nodes]
-    feature_names = list(names[feature_idx])
     export_graphviz(tree, out_file=out_file,
-                    feature_names=feature_names,
+                    feature_names=FEATURE_NAMES,
                     class_names=CLASS_NAMES,
                     rounded=True, proportion=False,
                     precision=2, filled=True)
@@ -364,6 +360,6 @@ if __name__ == '__main__':
     rf_, names_ = random_forest(bands, binary=False, n_estimators=10)
     for x in range(10):
         out_file = os.path.join(out_, 'tree_{}.dot'.format(x))
-        export_tree(rf_, 0, names=names_, out_file=out_file)
+        export_tree(rf_, 0, out_file=out_file)
         break
 # ========================= EOF ====================================================================
