@@ -53,14 +53,13 @@ def duplicate_asset(ee_asset):
             check_call(cmd)
 
 
-def set_metadata(ee_asset, key, value):
+def set_metadata(ee_asset, property='--time_start'):
     reader = list_assets(ee_asset)
     for r in reader:
-        if 'dgketchum' in r:
-            cmd = ['{}'.format(EXEC), 'asset', 'set', '-p',
-                   '{}={}'.format(key, value), r]
-            print(cmd)
-            check_call(cmd)
+        year = os.path.basename(r)
+        cmd = ['{}'.format(EXEC), 'asset', 'set', '-p',
+               property, '{}-01-01'.format(year), r]
+        check_call(cmd)
 
 
 def get_metadata(ee_asset):
@@ -121,6 +120,6 @@ def list_assets(location):
 
 
 if __name__ == '__main__':
-    dst = os.path.join('users', 'dgketchum', 'ssebop')
-    delete_assets(dst, years_=True)
+    asset = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_RF'
+    set_metadata(asset, property='--time_start')
 # ========================= EOF ====================================================================
