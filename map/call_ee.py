@@ -41,6 +41,7 @@ RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/IrrMapper_training_dat
 HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
 HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
 COUNTIES = 'users/dgketchum/boundaries/western_counties'
+MT_BASINS = 'users/dgketchum/boundaries/MT_Admin_Basins'
 
 TARGET_STATES = ['CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
 
@@ -84,10 +85,9 @@ def reduce_classification(tables, years=None, description=None, cdl_mask=False, 
 
     # first = True
     for yr in years:
-        if yr not in [2002, 2007, 2012]:
-            yr_img = [x for x in image_list if x.endswith(str(yr))]
-            coll = ee.ImageCollection(yr_img)
-            tot = coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
+        yr_img = [x for x in image_list if x.endswith(str(yr))]
+        coll = ee.ImageCollection(yr_img)
+        tot = coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
 
         if cdl_mask and min_years > 0:
             # cultivated/uncultivated band only available 2013 to 2017
@@ -109,14 +109,15 @@ def reduce_classification(tables, years=None, description=None, cdl_mask=False, 
         reduce = tot.reduceRegions(collection=fc,
                                    reducer=ee.Reducer.sum(),
                                    scale=30)
+        out_desc = '{}_area_{}'.format(description, yr)
         task = ee.batch.Export.table.toCloudStorage(
             reduce,
-            description='{}_area_{}_'.format(description, yr),
+            description=out_desc,
             bucket='wudr',
-            fileNamePrefix='{}_area_{}_'.format(description, yr),
+            fileNamePrefix=out_desc,
             fileFormat='CSV')
         task.start()
-        print(yr)
+        print(out_desc)
 
 
 def get_sr_series(tables, out_name, max_sample=500):
@@ -195,7 +196,7 @@ def attribute_irrigation():
     """
     fc = ee.FeatureCollection(IRRIGATION_TABLE)
     for state in TARGET_STATES:
-        for yr in range(1986, 2019):
+        for yr in range(2011, 2021):
             images = os.path.join(ASSET_ROOT, '{}_{}'.format(state, yr))
             coll = ee.Image(images)
             tot = coll.select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
@@ -226,7 +227,7 @@ def export_raster():
         _properties = {'image_id': 'IrrMapper_RF_{}'.format(yr), 'system:time_start': ee.Date.fromYMD(yr, 1, 1),
                        'system:time_end': ee.Date.fromYMD(yr, 12, 31)}
 
-        img = coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
+        img = coll.select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
         img = img.updateMask(img.neq(0)).rename('classification').set(_properties)
 
         id_ = os.path.join(target_bn, '{}'.format(yr))
@@ -633,5 +634,7 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    export_raster()
+    b = os.path.join(BOUNDARIES, MT_BASINS)
+    reduce_classification(b, [x for x in range(2011, 2021)], description='MT_Admin_Basins',
+                          cdl_mask=False, min_years=5)
 # ========================= EOF ====================================================================
