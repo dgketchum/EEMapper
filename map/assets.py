@@ -58,8 +58,9 @@ def set_metadata(ee_asset, property='--time_start'):
     for r in reader:
         year = os.path.basename(r)
         cmd = ['{}'.format(EXEC), 'asset', 'set', '-p',
-               property, '{}-01-01'.format(year), r]
+               '(date){}={}-12-31'.format(property, year), r]
         check_call(cmd)
+        print(cmd)
 
 
 def get_metadata(ee_asset):
@@ -121,5 +122,5 @@ def list_assets(location):
 
 if __name__ == '__main__':
     asset = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_RF'
-    set_metadata(asset, property='--time_start')
+    set_metadata(asset, property='time_end')
 # ========================= EOF ====================================================================
