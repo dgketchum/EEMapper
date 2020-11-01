@@ -634,7 +634,6 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    b = os.path.join(BOUNDARIES, MT_BASINS)
-    reduce_classification(b, [x for x in range(2011, 2021)], description='MT_Admin_Basins',
+    reduce_classification(MT_BASINS, [x for x in range(2011, 2021)], description='MT_Admin_Basins',
                           cdl_mask=False, min_years=5)
 # ========================= EOF ====================================================================
