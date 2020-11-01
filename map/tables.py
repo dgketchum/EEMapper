@@ -109,7 +109,6 @@ def concatenate_county_data(folder, out_file, glob='counties', acres=False):
 
 
 def concatenate_band_extract(root, out_dir, glob='None'):
-
     l = [os.path.join(root, x) for x in os.listdir(root) if glob in x]
     l.sort()
     print(len(l))
@@ -154,26 +153,26 @@ def rm_dupe_geometry():
         df.to_file(out)
 
 
-def concatenate_irrigation_attrs(_dir, out_filename, glob):
+def concatenate_irrigation_attrs(_dir, out_filename, glob, find_boolean=False, template_geometry=None):
     _files = [os.path.join(_dir, x) for x in os.listdir(_dir) if glob in x]
     _files.sort()
     first_year = True
-    for year in range(1986, 2019):
+    for year in range(2011, 2021):
         yr_files = [f for f in _files if str(year) in f]
         first_state = True
         for f in yr_files:
             if first_state:
                 df = read_csv(f, index_col=0)
-                df.dropna(subset=['mean'], inplace=True)
-                df.rename(columns={'mean': 'IPct_{}'.format(year)}, inplace=True)
+                df.dropna(subset=['sum'], inplace=True)
+                df.rename(columns={'sum': 'ISQMT_{}'.format(year)}, inplace=True)
                 df.drop_duplicates(subset=['.geo'], keep='first', inplace=True)
-                df['Irr_{}'.format(year)] = where(df['IPct_{}'.format(year)].values > 0.5, 1, 0)
+                df['IPCT_{}'.format(year)] = df['ISQMT_{}'.format(year)] / df['AREA_SQMT'.format(year)] * 100.
                 first_state = False
             else:
                 c = read_csv(f, index_col=0)
-                c.dropna(subset=['mean'], inplace=True)
-                c.rename(columns={'mean': 'IPct_{}'.format(year)}, inplace=True)
-                c['Irr_{}'.format(year)] = where(c['IPct_{}'.format(year)].values > 0.5, 1, 0)
+                c.dropna(subset=['sum'], inplace=True)
+                c.rename(columns={'sum': 'ISQMT_{}'.format(year)}, inplace=True)
+                c['IPCT_{}'.format(year)] = c['ISQMT_{}'.format(year)] / c['AREA_SQMT'.format(year)] * 100.
                 df = concat([df, c], sort=False)
                 df.drop_duplicates(subset=['.geo'], keep='first', inplace=True)
 
@@ -182,24 +181,31 @@ def concatenate_irrigation_attrs(_dir, out_filename, glob):
             master = df
             first_year = False
         else:
-            master['IPct_{}'.format(year)] = df['IPct_{}'.format(year)]
-            master['Irr_{}'.format(year)] = df['Irr_{}'.format(year)]
+            master['IPCT_{}'.format(year)] = df['IPCT_{}'.format(year)]
+            master['ISQMT_{}'.format(year)] = df['ISQMT_{}'.format(year)]
 
-    bool_cols = array([master[x].values for x in master.columns if 'Irr_' in x])
-    bool_sum = sum(bool_cols, axis=0)
-    master['IYears'] = bool_sum
-    master.dropna(subset=['.geo'], inplace=True)
-    coords = Series(json_normalize(master['.geo'].apply(json.loads))['coordinates'].values,
-                    index=master.index)
-    master['geometry'] = coords.apply(to_polygon)
-    master.dropna(subset=['geometry'], inplace=True)
-    gpd = GeoDataFrame(master.drop(['.geo'], axis=1),
-                       crs={'init': 'epsg:4326'})
+    if find_boolean:
+        bool_cols = array([master[x].values for x in master.columns if 'Irr_' in x])
+        bool_sum = sum(bool_cols, axis=0)
+        master['IYears'] = bool_sum
+
+    if template_geometry:
+        t_gdf = GeoDataFrame.from_file(template_geometry).to_crs('epsg:4326')
+        geo = t_gdf['geometry']
+        master.drop(['.geo'], axis=1, inplace=True)
+    else:
+        master.dropna(subset=['.geo'], inplace=True)
+        coords = Series(json_normalize(master['.geo'].apply(json.loads))['coordinates'].values,
+                        index=master.index)
+        geo = coords.apply(to_polygon)
+        master.dropna(subset=['geometry'], inplace=True)
+        master.drop(['.geo'], axis=1, inplace=True)
+
+    gpd = GeoDataFrame(master, crs='epsg:4326', geometry=geo)
     gpd.to_file(out_filename)
 
 
 def concatenate_attrs_huc(_dir, out_csv_filename, out_shp_filename, template_geometry):
-
     _files = [os.path.join(_dir, x) for x in os.listdir(_dir) if x.endswith('.csv')]
     _files.sort()
     first = True
@@ -403,7 +409,6 @@ def get_project_totals(csv, out_file):
 
 
 def join_comparison_to_shapefile(csv, shp, out_shape):
-
     df = read_csv(csv, engine='python')
     nass_col = [x for x in list(df.columns) if 'NASS' in x]
     irr_col = [x for x in list(df.columns) if 'IM' in x]
@@ -420,9 +425,12 @@ def join_comparison_to_shapefile(csv, shp, out_shape):
 
 
 if __name__ == '__main__':
-    # home = os.path.expanduser('~')
-    # d = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'processed_csv')
-    # out = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'concatenated')
-    # concatenate_band_extract(d, out, glob='sr_series')
-    rm_dupe_geometry()
+    home = os.path.expanduser('~')
+    data_dir = '/media/research'
+    d = os.path.join(data_dir, 'IrrigationGIS', 'irr_attrs')
+    downloads = os.path.join(home, 'Downloads')
+    out_ = os.path.join(downloads, 'mt_admin_basins', 'mt_admin_basins_2011_2020.shp')
+    template_ = '/media/research/IrrigationGIS/Montana/AdminBasinsShapefile/BasinBoundaries.shp'
+    concatenate_irrigation_attrs(d, out_, glob='MT_Admin_Basins', template_geometry=template_)
+
 # ========================= EOF ====================================================================
