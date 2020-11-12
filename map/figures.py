@@ -1,19 +1,3 @@
-# ===============================================================================
-# Copyright 2018 dgketchum
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ===============================================================================
-
 import os
 from copy import deepcopy
 
@@ -23,12 +7,12 @@ from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 from mpl_toolkits.axes_grid1.inset_locator import InsetPosition
 from numpy import logical_not, isnan, array, where, abs, max, min, vstack, hstack
 from pandas import read_csv, Series, DataFrame
-from sklearn import linear_model
-from sklearn.metrics import r2_score
+# from sklearn import linear_model
+# from sklearn.metrics import r2_score
 
 from map.variable_importance import variable_importance
 
-plt.style.use('presentation.mplstyle')
+# plt.style.use('presentation.mplstyle')
 
 
 def state_sum(csv):
@@ -441,11 +425,11 @@ if __name__ == '__main__':
     irrmapper_all = os.path.join(irr_tables, 'irr_merged_ac.csv')
     totals_figure = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper',
                                  'figures', 'totals_time_series.pdf')
-    # irr_time_series_totals(irrmapper_all, nass_merged)
+    irr_time_series_totals(irrmapper_all, nass_merged)
 
-    nass_irrmapper = os.path.join(irr_tables, 'nass_irrMap.csv')
-    scatter_figure = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper',
-                                  'figures', 'comparison_scatter_6MAY2020.pdf')
+    # nass_irrmapper = os.path.join(irr_tables, 'nass_irrMap.csv')
+    # scatter_figure = os.path.join(home, 'IrrigationGIS', 'paper_irrmapper',
+    #                               'figures', 'comparison_scatter_6MAY2020.pdf')
     # compare_nass_irrmapper_scatter(nass_irrmapper)
 
     # state_irrmapper = os.path.join(irr_tables, 'irrmapper_annual_acres_state.csv')

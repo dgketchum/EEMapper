@@ -201,8 +201,9 @@ def concatenate_irrigation_attrs(_dir, out_filename, glob, find_boolean=False, t
         master.dropna(subset=['geometry'], inplace=True)
         master.drop(['.geo'], axis=1, inplace=True)
 
-    gpd = GeoDataFrame(master, crs='epsg:4326', geometry=geo)
-    gpd.to_file(out_filename)
+    master.to_csv(out_filename.replace('.shp', '.csv'))
+    # gpd = GeoDataFrame(master, crs='epsg:4326', geometry=geo)
+    # gpd.to_file(out_filename)
 
 
 def concatenate_attrs_huc(_dir, out_csv_filename, out_shp_filename, template_geometry):
