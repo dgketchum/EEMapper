@@ -13,8 +13,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 try:
     from map.openet.collection import get_target_dates, Collection, get_target_bands
+    from map.data.bucket import get_bucket_contents
 except ModuleNotFoundError:
     from openet.collection import get_target_dates, Collection, get_target_bands
+    from map.data.bucket import get_bucket_contents
 
 KERNEL_SIZE = 256
 KERNEL_SHAPE = [KERNEL_SIZE, KERNEL_SIZE]
@@ -171,7 +173,7 @@ def extract_by_patch(feature_id=1440, split=None, cloud_mask=True):
     years = STATE_YEARS[state]
 
     for year in years:
-        if 2007 < year < 2017:
+        if year not in [2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016]:
             s, e, interval_ = 1, 1, 30
             image_stack, features = get_sr_stack(year, s, e, interval_, cloud_mask, geo)
 
@@ -312,10 +314,15 @@ def extract_by_point(year, points_to_extract=None, cloud_mask=False,
 
 
 def run_extract_patches(shp, split):
+    bckt = 'cmask/{}'.format(split)
+    contents = get_bucket_contents('ts_data')[0][bckt]
+    records = [x[0] for x in contents]
+    grids = sorted(set([int(x.split('_')[2]) for x in records]))
     with fiona.open(shp, 'r') as src:
         for f in src:
             fid_ = f['properties']['FID']
-            extract_by_patch(fid_, split, cloud_mask=True)
+            if fid_ in grids:
+                extract_by_patch(fid_, split, cloud_mask=True)
 
 
 def run_extract_irr_points(shp, points_assets, last_touch=None):
@@ -397,18 +404,18 @@ if __name__ == '__main__':
     alt_home = os.path.join(home, 'data')
     if os.path.isdir(alt_home):
         home = alt_home
-    grids = os.path.join(home, 'IrrigationGIS', 'EE_sample', 'grid')
+    grids = os.path.join('/media/hdisk', 'IrrigationGIS', 'EE_sample', 'grid')
     centroids = os.path.join(home, 'IrrigationGIS', 'EE_sample', 'centroids')
 
-    # splits = ['train', 'test', 'val']
-    # shapes = [os.path.join(grids, '{}_grid_select.shp'.format(splt)) for splt in splits]
-    # for shape, split_ in zip(shapes, splits):
-    #     run_extract(shape, split_)
+    splits = ['train', 'test', 'val']
+    shapes = [os.path.join(grids, '{}_grid.shp'.format(splt)) for splt in splits]
+    for shape, split_ in zip(shapes, splits):
+        run_extract_patches(shape, split_)
 
-    pts_root = 'users/dgketchum/training_points'
-    pts_training = [os.path.join(pts_root, x) for x in ['dryland']]
-    pts_dryland = os.path.join(centroids, 'dryland_train_buf.shp')
-    run_extract_dryland_points(pts_dryland, pts_training)
+    # pts_root = 'users/dgketchum/training_points'
+    # pts_training = [os.path.join(pts_root, x) for x in ['dryland']]
+    # pts_dryland = os.path.join(centroids, 'dryland_train_buf.shp')
+    # run_extract_dryland_points(pts_dryland, pts_training)
     # for yr_ in YEARS:
     #     for fid in subsample_fid():
     #         extact_by_point(yr_, points_to_extract=pts_training, feature_id=fid)
