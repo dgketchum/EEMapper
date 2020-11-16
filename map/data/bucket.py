@@ -21,7 +21,8 @@ def get_bucket_contents(bucket_name, glob=None):
         else:
             dct[dirname].append((b_name, size))
     for k, v in dct.items():
-        print(k, sum([x[1] for x in v]))
+        pass
+        # print(k, sum([x[1] for x in v]))
     return dct, empty
 
 

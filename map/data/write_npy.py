@@ -78,11 +78,11 @@ def write_npy_local(out, recs):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    out_bucket = 'ts_data'
-    _type = 'dryland'
-    bucket_dir = 'cmask/tar/train/train_points/{}'.format(_type)
-    tf_recs = 'gs://ts_data/cmask/points/unproc'
-    glob_pattern = '*{}*gz'.format(_type)
-    write_tfr_to_gcs(tf_recs, bucket=out_bucket, bucket_dst=bucket_dir, category=_type, start_count=308)
+    out_bucket = 'ta_data'
+    split = 'train'
+    bucket_dir = '/tar/{}'.format(split)
+    tf_recs = 'gs://ta_data/{}'.format(split)
+    glob_pattern = '*{}*gz'.format(split)
+    write_tfr_to_gcs(tf_recs, bucket=out_bucket, bucket_dst=bucket_dir, category=_type, start_count=0)
 
 # ========================= EOF ====================================================================

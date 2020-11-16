@@ -16,14 +16,14 @@ try:
     from map.data.bucket import get_bucket_contents
 except ModuleNotFoundError:
     from openet.collection import get_target_dates, Collection, get_target_bands
-    from map.data.bucket import get_bucket_contents
+    from data.bucket import get_bucket_contents
 
 KERNEL_SIZE = 256
 KERNEL_SHAPE = [KERNEL_SIZE, KERNEL_SIZE]
 list_ = ee.List.repeat(1, KERNEL_SIZE)
 lists = ee.List.repeat(list_, KERNEL_SIZE)
 KERNEL = ee.Kernel.fixed(KERNEL_SIZE, KERNEL_SIZE, lists)
-GS_BUCKET = 'ts_data'
+GS_BUCKET = 'ta_data'
 
 BOUNDARIES = 'users/dgketchum/boundaries'
 MGRS = os.path.join(BOUNDARIES, 'MGRS_TILE')
@@ -61,6 +61,51 @@ STATE_YEARS = {'AZ': [2001, 2003, 2004, 2007, 2010, 2012, 2016],
 DEBUG_SELECT = {'test': [202, 192, 220],
                 'train': [676, 675, 715, 716, 677, 696, 717],
                 'val': [225, 212, 239]}
+
+LC8_BANDS = ['B2', 'B3', 'B4', 'B5', 'B6', 'B7']
+LC7_BANDS = ['B1', 'B2', 'B3', 'B4', 'B5', 'B7']
+LC5_BANDS = ['B1', 'B2', 'B3', 'B4', 'B5', 'B7']
+STD_NAMES = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2']
+
+
+def ls8mask(img):
+    sr_bands = img.select('B2', 'B3', 'B4', 'B5', 'B6', 'B7')
+    mask_sat = sr_bands.neq(20000)
+    img_nsat = sr_bands.updateMask(mask_sat)
+    mask1 = img.select('pixel_qa').bitwiseAnd(8).eq(0)
+    mask2 = img.select('pixel_qa').bitwiseAnd(32).eq(0)
+    mask_p = mask1.And(mask2)
+    img_masked = img_nsat.updateMask(mask_p)
+    mask_mult = img_masked.multiply(0.0001).copyProperties(img, ['system:time_start'])
+    return mask_mult
+
+
+def preprocess_data_l8_cloudmask(year):
+    l8 = ee.ImageCollection('LANDSAT/LC08/C01/T1_SR')
+    l8clean = l8.map(ls8mask).select(LC8_BANDS, STD_NAMES)
+    return temporalCollection(l8clean, ee.Date('{}-05-01'.format(year)), 6, 32, 'days')
+
+
+def preprocess_data(year):
+    l8 = ee.ImageCollection('LANDSAT/LC08/C01/T1_SR').select(LC8_BANDS, STD_NAMES)
+    l7 = ee.ImageCollection('LANDSAT/LE07/C01/T1_SR').select(LC7_BANDS, STD_NAMES)
+    l5 = ee.ImageCollection('LANDSAT/LT05/C01/T1_SR').select(LC5_BANDS, STD_NAMES)
+    l5l7l8 = ee.ImageCollection(l7.merge(l8).merge(l5))
+
+    return temporalCollection(l5l7l8, ee.Date('{}-01-01'.format(year)), 10, 36, 'days')
+
+
+def temporalCollection(collection, start, count, interval, units):
+    sequence = ee.List.sequence(0, ee.Number(count).subtract(1))
+    originalStartDate = ee.Date(start)
+
+    def filt(i):
+        startDate = originalStartDate.advance(ee.Number(interval).multiply(i), units)
+        endDate = originalStartDate.advance(
+            ee.Number(interval).multiply(ee.Number(i).add(1)), units)
+        return collection.filterDate(startDate, endDate).reduce(ee.Reducer.mean())
+
+    return ee.ImageCollection(sequence.map(filt))
 
 
 def masks(roi, year_):
@@ -102,7 +147,7 @@ def create_class_labels(name_fc):
     # paint irrigated last
     for name in ['uncultivated', 'dryland', 'fallow', 'irrigated']:
         class_labels = class_labels.paint(name_fc[name], class_codes()[name])
-    label = class_labels.updateMask(class_labels).rename('irr')
+    label = class_labels.rename('irr')
 
     return label
 
@@ -151,7 +196,7 @@ def get_sr_stack(yr, s, e, interval, mask, geo_):
     return interp, target_rename
 
 
-def extract_by_patch(feature_id=1440, split=None, cloud_mask=True):
+def extract_by_patch(feature_id=1440, split=None, cloud_mask=True, time_series=True):
     if not split:
         raise NotImplementedError
 
@@ -173,9 +218,13 @@ def extract_by_patch(feature_id=1440, split=None, cloud_mask=True):
     years = STATE_YEARS[state]
 
     for year in years:
-        if year not in [2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016]:
+        if year in [2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016]:
             s, e, interval_ = 1, 1, 30
-            image_stack, features = get_sr_stack(year, s, e, interval_, cloud_mask, geo)
+            if time_series:
+                image_stack, features = get_sr_stack(year, s, e, interval_, cloud_mask, geo)
+            else:
+                image_stack = preprocess_data(year).toBands()
+                features = [feat['id'] for feat in image_stack.getInfo()['bands']]
 
             masks_ = masks(geo, year)
             irr = create_class_labels(masks_)
@@ -315,7 +364,9 @@ def extract_by_point(year, points_to_extract=None, cloud_mask=False,
 
 def run_extract_patches(shp, split):
     bckt = 'cmask/{}'.format(split)
-    contents = get_bucket_contents('ts_data')[0][bckt]
+    contents = get_bucket_contents('ts_data')[0]
+    _mean_contents = get_bucket_contents('ta_data')[0]
+    contents = contents[bckt]
     records = [x[0] for x in contents]
     grids = sorted(set([int(x.split('_')[2]) for x in records]))
     with fiona.open(shp, 'r') as src:
@@ -366,6 +417,7 @@ def run_extract_dryland_points(shp, points_assets, last_touch=None):
 
 
 def subsample_fid():
+    """all train grid fid used for points extract"""
     return [2, 3, 5, 6, 7, 8, 11, 12, 14, 21, 22, 23, 24, 25, 26, 27, 29, 30, 34, 35, 36, 38, 39, 40, 42, 43, 44, 45,
             46, 47, 48, 49, 53, 54, 55, 56, 57, 59, 60, 62, 63, 64, 65, 68, 70, 71, 72, 73, 74, 76, 79, 80, 81, 82, 83,
             84, 86, 87, 89, 92, 94, 95, 96, 97, 98, 100, 103, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115,
@@ -399,6 +451,28 @@ def subsample_fid():
             1430, 1432, 1436, 1437, 1443, 1444, 1446, 1448, 1449, 1451, 1452, 1455, 1462, 1463, 1464]
 
 
+def select_fid():
+    """all grid fid that are in the extracted data ts_data"""
+    return [1, 29, 30, 54, 55, 56, 62, 80, 81, 88, 89, 132, 230, 237, 238, 240, 272, 285, 290, 302, 306, 319,
+            331, 345, 346, 358, 364, 365, 381, 397, 406, 421, 484, 485, 567, 586, 609, 633, 637, 638, 659,
+            676, 715, 716, 741, 754, 771, 781, 806, 852, 853, 929, 930, 1001, 1014, 1018, 1019, 1020, 1039,
+            1043, 1044, 1087, 1109, 1135, 1259, 1261, 1273, 1274, 1292, 1293, 1294, 1300, 1335, 1359, 1368,
+            1380, 1387, 1388, 1398, 1399, 1431, 1432, 1434, 1450, 1451, 8, 10, 13, 14, 17, 18, 19, 20, 21, 22, 23, 24,
+            25, 28,
+            30, 31, 46, 47, 51, 53, 70, 81, 88, 97,
+            110, 114, 133, 138, 139, 141, 142, 148, 149, 157, 172, 184, 185, 186, 192, 193, 198, 202, 216,
+            217, 220, 223, 224, 225, 226, 229, 230, 234, 235, 237, 239, 243, 246, 252, 300, 313, 314, 316,
+            318, 321, 331, 338, 339, 340, 342, 353, 358, 373, 381, 382, 387, 389, 397, 398, 399, 404,
+            418, 419, 424, 434, 435, 437, 439, 443, 444, 445, 446, 447, 453, 454, 460, 461, 463, 476,
+            477, 479, 480, 484, 48, 5, 6, 10, 11, 14, 19, 20, 22, 23, 24, 27, 31, 35, 36, 37, 61, 68, 89, 92, 96, 100,
+            101,
+            103, 104, 108, 124, 166, 181, 185, 191, 193, 198, 215, 241, 243, 251, 265, 266, 280, 323, 324, 326, 332,
+            338, 345,
+            380, 386, 392, 393, 397, 398, 401, 402, 408, 409, 412, 413, 417, 424, 426, 428, 442, 443, 444, 445, 449,
+            450, 451,
+            452, 462, 464, 465, 468, 469, 470, 475, 481, 482]
+
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     alt_home = os.path.join(home, 'data')
@@ -407,7 +481,7 @@ if __name__ == '__main__':
     grids = os.path.join('/media/hdisk', 'IrrigationGIS', 'EE_sample', 'grid')
     centroids = os.path.join(home, 'IrrigationGIS', 'EE_sample', 'centroids')
 
-    splits = ['train', 'test', 'val']
+    splits = ['valid']
     shapes = [os.path.join(grids, '{}_grid.shp'.format(splt)) for splt in splits]
     for shape, split_ in zip(shapes, splits):
         run_extract_patches(shape, split_)
