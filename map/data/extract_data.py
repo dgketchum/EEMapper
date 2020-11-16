@@ -62,10 +62,10 @@ DEBUG_SELECT = {'test': [202, 192, 220],
                 'train': [676, 675, 715, 716, 677, 696, 717],
                 'val': [225, 212, 239]}
 
-LC8_BANDS = ['B2', 'B3', 'B4', 'B5', 'B6', 'B7']
-LC7_BANDS = ['B1', 'B2', 'B3', 'B4', 'B5', 'B7']
-LC5_BANDS = ['B1', 'B2', 'B3', 'B4', 'B5', 'B7']
-STD_NAMES = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2']
+LC8_BANDS = ['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B10']
+LC7_BANDS = ['B1', 'B2', 'B3', 'B4', 'B5', 'B7', 'B6']
+LC5_BANDS = ['B1', 'B2', 'B3', 'B4', 'B5', 'B7', 'B6']
+STD_NAMES = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2', 'tir']
 
 
 def ls8mask(img):
@@ -373,7 +373,7 @@ def run_extract_patches(shp, split):
         for f in src:
             fid_ = f['properties']['FID']
             if fid_ in grids:
-                extract_by_patch(fid_, split, cloud_mask=True)
+                extract_by_patch(fid_, split, cloud_mask=True, time_series=False)
 
 
 def run_extract_irr_points(shp, points_assets, last_touch=None):
@@ -481,7 +481,7 @@ if __name__ == '__main__':
     grids = os.path.join('/media/hdisk', 'IrrigationGIS', 'EE_sample', 'grid')
     centroids = os.path.join(home, 'IrrigationGIS', 'EE_sample', 'centroids')
 
-    splits = ['valid']
+    splits = ['train', 'test', 'valid']
     shapes = [os.path.join(grids, '{}_grid.shp'.format(splt)) for splt in splits]
     for shape, split_ in zip(shapes, splits):
         run_extract_patches(shape, split_)

@@ -18,8 +18,13 @@ except ModuleNotFoundError:
     from trainer import feature_spec
 
 MODE = 'irr'
-FEATURES_DICT = feature_spec.features_dict()
-FEATURES = feature_spec.features()
+
+# FEATURES_DICT = feature_spec.features_dict(kind='interp')
+# FEATURES = feature_spec.features(kind='interp')
+
+FEATURES_DICT = feature_spec.features_dict(kind='means')
+FEATURES = feature_spec.features(kind='means')
+
 step_, length_ = 7, len(FEATURES)
 NDVI_INDICES = [(x, y) for x, y in zip(range(2, length_, step_), range(3, length_, step_))]
 
@@ -158,7 +163,7 @@ def make_training_dataset(root, batch_size=16):
     return dataset
 
 
-def make_test_dataset(root, pattern='*irrigated*gz'):
+def make_test_dataset(root, pattern='*gz'):
     training_root = os.path.join(root, pattern)
     datasets = get_dataset(training_root)
     return datasets

@@ -56,6 +56,7 @@ def write_tfr_to_gcs(recs, bucket=None, bucket_dst=None, pattern='*gz', category
 
     if len(items) > 0:
         push_tar(tmpdirname, bucket, items, count)
+
     print(obj_ct)
 
 
