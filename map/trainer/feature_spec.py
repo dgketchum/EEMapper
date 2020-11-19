@@ -389,8 +389,10 @@ features_dict_interp = OrderedDict([
 
 def features_dict(kind='interp'):
     if kind == 'interp':
+        print('PROCESSING {} to {} BANDS'.format(kind.upper(), len(features_dict_interp.keys())))
         return features_dict_interp
     elif kind == 'means':
+        print('PROCESSING {} to {} BANDS'.format(kind.upper(), len(features_dict_means.keys())))
         return features_dict_means
 
 

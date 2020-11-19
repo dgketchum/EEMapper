@@ -80,12 +80,6 @@ def ls8mask(img):
     return mask_mult
 
 
-def preprocess_data_l8_cloudmask(year):
-    l8 = ee.ImageCollection('LANDSAT/LC08/C01/T1_SR')
-    l8clean = l8.map(ls8mask).select(LC8_BANDS, STD_NAMES)
-    return temporalCollection(l8clean, ee.Date('{}-05-01'.format(year)), 6, 32, 'days')
-
-
 def preprocess_data(year):
     l8 = ee.ImageCollection('LANDSAT/LC08/C01/T1_SR').select(LC8_BANDS, STD_NAMES)
     l7 = ee.ImageCollection('LANDSAT/LE07/C01/T1_SR').select(LC7_BANDS, STD_NAMES)
