@@ -449,7 +449,7 @@ def request_band_extract(file_prefix, points_layer, region, filter_bounds=False)
     """
     roi = ee.FeatureCollection(region)
     plots = ee.FeatureCollection(points_layer)
-    for yr in ALL_YEARS:
+    for yr in [2003, 2008, 2009, 2010, 2011, 2012, 2013]:
         stack = stack_bands(yr, roi)
         start = '{}-01-01'.format(yr)
         d = datetime.strptime(start, '%Y-%m-%d')
@@ -502,10 +502,18 @@ def stack_bands(yr, roi):
         roi).filterDate(start, end_date).map(ls8mask)
 
     lsSR_masked = ee.ImageCollection(l7_coll.merge(l8_coll).merge(l5_coll))
-    lsSR_spr_mn = ee.Image(lsSR_masked.filterDate(spring_s, spring_e).mean())
-    lsSR_lspr_mn = ee.Image(lsSR_masked.filterDate(late_spring_s, late_spring_e).mean())
-    lsSR_sum_mn = ee.Image(lsSR_masked.filterDate(summer_s, fall_s).mean())
-    lsSR_fal_mn = ee.Image(lsSR_masked.filterDate(fall_s, fall_e).mean())
+
+    lsSR_spr_mn = ee.Image(lsSR_masked.filterDate(spring_s, spring_e).map(
+        lambda x: x.select('B2', 'B3', 'B4', 'B5', 'B6', 'B7').addBands(x.normalizedDifference(['B4', 'B3']))).mean())
+
+    lsSR_lspr_mn = ee.Image(lsSR_masked.filterDate(spring_s, spring_e).map(
+        lambda x: x.select('B2', 'B3', 'B4', 'B5', 'B6', 'B7').addBands(x.normalizedDifference(['B4', 'B3']))).mean())
+
+    lsSR_sum_mn = ee.Image(lsSR_masked.filterDate(spring_s, spring_e).map(
+        lambda x: x.select('B2', 'B3', 'B4', 'B5', 'B6', 'B7').addBands(x.normalizedDifference(['B4', 'B3']))).mean())
+
+    lsSR_fal_mn = ee.Image(lsSR_masked.filterDate(spring_s, spring_e).map(
+        lambda x: x.select('B2', 'B3', 'B4', 'B5', 'B6', 'B7').addBands(x.normalizedDifference(['B4', 'B3']))).mean())
 
     proj = lsSR_sum_mn.select('B2').projection().getInfo()
     input_bands = lsSR_spr_mn.addBands([lsSR_lspr_mn, lsSR_sum_mn, lsSR_fal_mn])
@@ -617,6 +625,6 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    reduce_classification(MT_BASINS, [x for x in range(2011, 2021)], description='MT_Admin_Basins',
-                          cdl_mask=False, min_years=5)
+    geo_ = os.path.join(BOUNDARIES, 'MT')
+    request_band_extract('bands_24NOV2020', RF_TRAINING_POINTS, geo_, filter_bounds=True)
 # ========================= EOF ====================================================================

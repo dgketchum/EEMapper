@@ -24,13 +24,13 @@ from shapely.geometry import shape, Point, mapping
 
 from map.call_ee import YEARS
 
-training = os.path.join(os.path.expanduser('~'), 'IrrigationGIS', 'EE_sample')
+training = os.path.join('/media/research', 'IrrigationGIS', 'EE_sample', 'aea')
 
-WETLAND = os.path.join(training, 'wetlands_8NOV.shp')
-UNCULTIVATED = os.path.join(training, 'uncultivated_4APR.shp')
-IRRIGATED = os.path.join(training, 'irrigated_15JUL.shp')
-UNIRRIGATED = os.path.join(training, 'unirrigated_9JUL.shp')
-FALLOW = os.path.join(training, 'fallow_11FEB.shp')
+WETLAND = os.path.join(training, 'wetlands_15JUL2020.shp')
+UNCULTIVATED = os.path.join(training, 'uncultivated_27MAR2020.shp')
+IRRIGATED = os.path.join(training, 'irrigated_26MAR2020.shp')
+UNIRRIGATED = os.path.join(training, 'unirrigated_25NOV2020.shp')
+FALLOW = os.path.join(training, 'fallow_25NOV2020.shp')
 
 
 class PointsRunspec(object):
@@ -78,9 +78,9 @@ class PointsRunspec(object):
         print('irrigated: {}'.format(n))
         self.create_sample_points(n, self.irr_path, code=0, attribute='YEAR')
 
-    # def fallowed(self, n):
-    #     print('fallow: {}'.format(n))
-    #     self.create_sample_points(n, self.fallow_path, code=4, attribute='YEAR')
+    def fallowed(self, n):
+        print('fallow: {}'.format(n))
+        self.create_sample_points(n, self.fallow_path, code=1, attribute='YEAR')
 
     def create_sample_points(self, n, shp, code, attribute=None):
 
@@ -191,7 +191,8 @@ class PointsRunspec(object):
 
 
 if __name__ == '__main__':
-    home = os.path.expanduser('~')
+    # home = os.path.expanduser('~')
+    home = '/media/research'
     data = os.path.join(home, 'IrrigationGIS', 'EE_sample')
     extract = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'point_shp')
 
