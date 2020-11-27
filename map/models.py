@@ -151,6 +151,7 @@ def random_forest_k_fold(csv):
         rf.fit(x, y)
         _list = [(f, v) for f, v in zip(names, rf.feature_importances_)]
         important = sorted(_list, key=lambda x: x[1], reverse=True)
+        pprint(important)
         pprint(rf.score(x_test, y_test))
         y_pred = rf.predict(x_test)
         cf = confusion_matrix(y_test, y_pred)
@@ -280,11 +281,7 @@ def get_confusion_matrix(csv, spec=None):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     out_ = os.path.join(home, 'Downloads')
-    extracts = '/media/research/IrrigationGIS/EE_extracts'
-    vals = os.path.join(extracts, 'validation_tables', 'validation_12AUG2019.csv')
-    bands = os.path.join(extracts, 'concatenated', 'bands_15JUL_v2_kw_USEDINPAPER.csv')
-    rf_ = random_forest(bands, binary=False, n_estimators=10)
-    for x in range(10):
-        out_file = os.path.join(out_, 'tree_{}.dot'.format(x))
-        export_tree(rf_, 0, out_file=out_file)
+    extracts = '/media/research/IrrigationGIS/EE_extracts/concatenated/bands_25NOV2020_sub.csv'
+    find_rf_variable_importance(extracts)
+
 # ========================= EOF ====================================================================

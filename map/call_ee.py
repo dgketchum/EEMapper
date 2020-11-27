@@ -13,13 +13,13 @@ from map.ee_utils import ndvi7, ndvi8, ls5_edge_removal, period_stat, daily_land
 
 sys.setrecursionlimit(2000)
 
-GEO_DOMAIN = 'users/dgketchum/boundaries/western_11_union'
+GEO_DOMAIN = 'users/dgketchum/boundaries/western_states_expanded_union'
 BOUNDARIES = 'users/dgketchum/boundaries'
-ASSET_ROOT = 'users/dgketchum/IrrMapper/version_2'
+ASSET_ROOT = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
 IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
 
-RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/IrrMapper_RF_TrainingData_csv'
-RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/IrrMapper_training_data_points'
+RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_25NOV2020_sub'
+RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/train_points_25NOV2020'
 
 HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
 HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
@@ -283,12 +283,13 @@ def export_classification(out_name, asset_root, region, export='asset'):
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
-    for yr in [2019]:
+    for yr in [x for x in range(2008, 2014)]:
         input_bands = stack_bands(yr, roi)
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.classify(trained_model).int().set({
             'system:index': ee.Date('{}-01-01'.format(yr)).format('YYYYMMdd'),
             'system:time_start': ee.Date('{}-01-01'.format(yr)).millis(),
+            'system:time_end': ee.Date('{}-12-31'.format(yr)).millis(),
             'geography': out_name,
             'class_key': '0: irrigated, 1: rainfed, 2: uncultivated, 3: wetland'})
 
@@ -449,7 +450,7 @@ def request_band_extract(file_prefix, points_layer, region, filter_bounds=False)
     """
     roi = ee.FeatureCollection(region)
     plots = ee.FeatureCollection(points_layer)
-    for yr in [2003, 2008, 2009, 2010, 2011, 2012, 2013]:
+    for yr in YEARS:
         stack = stack_bands(yr, roi)
         start = '{}-01-01'.format(yr)
         d = datetime.strptime(start, '%Y-%m-%d')
@@ -459,7 +460,7 @@ def request_band_extract(file_prefix, points_layer, region, filter_bounds=False)
         if filter_bounds:
             plots = plots.filterBounds(roi)
 
-        filtered = plots.filter(ee.Filter.eq('YEAR', ee.Number(start_millisec)))
+        filtered = plots.filter(ee.Filter.eq('YEAR', yr))
 
         plot_sample_regions = stack.sampleRegions(
             collection=filtered,
@@ -625,6 +626,6 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    geo_ = os.path.join(BOUNDARIES, 'MT')
-    request_band_extract('bands_24NOV2020', RF_TRAINING_POINTS, geo_, filter_bounds=True)
+    geo = os.path.join(BOUNDARIES, 'MT')
+    export_classification(out_name='IrrComp', asset_root=ASSET_ROOT, region=geo)
 # ========================= EOF ====================================================================

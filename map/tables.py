@@ -8,6 +8,7 @@ from pandas import read_csv, concat, errors, Series, merge, DataFrame
 from pandas import to_datetime
 from pandas.io.json import json_normalize
 from shapely.geometry import Polygon
+from map.variable_importance import original_names
 
 INT_COLS = ['POINT_TYPE', 'YEAR']
 
@@ -42,6 +43,22 @@ COLS = ['SCENE_ID',
         'BASE_URL']
 
 DROP_COUNTY = ['system:index', 'AFFGEOID', 'COUNTYFP', 'COUNTYNS', 'GEOID', 'LSAD', 'STATEFP', '.geo']
+
+SELECT = ['nd_max_cy',
+          'cdl',
+          'nlcd',
+          'nd_max_m1',
+          'nd_max_m2',
+          'slope',
+          'LAT_GCS',
+          'Lon_GCS',
+          'prec_5',
+          'elevation',
+          'tmin_5_1',
+          'nd',
+          'nd_1',
+          'nd_2',
+          'nd_1_1']
 
 
 def concatenate_county_data(folder, out_file, glob='counties', acres=False):
@@ -92,35 +109,68 @@ def concatenate_county_data(folder, out_file, glob='counties', acres=False):
     print('saved {}'.format(out_file))
 
 
-def concatenate_band_extract(root, out_dir, glob='None'):
+def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=None):
     l = [os.path.join(root, x) for x in os.listdir(root) if glob in x]
     l.sort()
-    print(len(l))
+    first = True
+    for csv in l:
+        try:
+            if first:
+                df = read_csv(csv)
+                cols = list(df.columns)
+                names = [x for x in list(df.columns) if 'nd_max' in x]
+                idx = [list(df.columns).index(x) for x in names]
+                # new_names = ['nd_max_{}'.format(x) for x in ['m2', 'm1', 'cy', 'p1', 'p2']]
+                # cols[idx[0]: idx[-1] + 1] = new_names
+                df.columns = cols
+                print(df.shape, csv)
+                first = False
+            else:
+                c = read_csv(csv)
+                cols = list(c.columns)
+                names = [x for x in list(c.columns) if 'nd_max' in x]
+                idx = [list(c.columns).index(x) for x in names]
+                # new_names = ['nd_max_{}'.format(x) for x in ['m2', 'm1', 'cy', 'p1', 'p2']]
+                # cols[idx[0]: idx[-1] + 1] = new_names
+                c.columns = cols
+                df = concat([df, c], sort=False)
+                print(c.shape, csv)
+        except errors.EmptyDataError:
+            print('{} is empty'.format(csv))
+            pass
 
-    bands = ['B2', 'B3', 'B4', 'B5', 'B6', 'B7']
-    non_bands = ['LAT_GCS', 'Lon_GCS', 'POINT_TYPE', 'YEAR']
-    _ = [['{}{}'.format(str(x).rjust(3, '0'), y) for x in range(1, 367)] for y in bands]
-    cols = sorted([item for sublist in _ for item in sublist]) + non_bands
-    out_file = os.path.join(out_dir, '{}.csv'.format(glob))
-    ct = 0
-    with open(out_file, 'w') as fo:
-        for line in open(l[0], 'r'):
-            fo.write(line)
-            ct += 1
-        for fi in l[1:]:
-            with open(fi, 'r') as fi:
-                next(fi)
-                for line in fi:
-                    ct += 1
-                    fo.write(line)
-    print('done {} ct'.format(ct))
+    df.drop(columns=['system:index', '.geo'], inplace=True)
 
-    #
-    #
-    # print(df['POINT_TYPE'].value_counts())
-    # print('size: {}'.format(df.shape))
-    # print('file: {}'.format(out_file))
-    # df.to_csv(out_file, index=False)
+    if sample:
+        _len = int(df.shape[0] / 1e3 * sample)
+        out_file = os.path.join(out_dir, '{}_{}.csv'.format(glob, _len))
+    else:
+        out_file = os.path.join(out_dir, '{}.csv'.format(glob))
+
+    for c in df.columns:
+        if c in INT_COLS:
+            df[c] = df[c].astype(int, copy=True)
+        else:
+            df[c] = df[c].astype(float, copy=True)
+    if sample:
+        df = df.sample(frac=sample).reset_index(drop=True)
+
+    if select:
+        print(df['POINT_TYPE'].value_counts())
+        top = [x[0] for x in original_names()[:25]]
+        df = df[top + select + ['POINT_TYPE', 'YEAR']]
+        df = df.loc[:, ~df.columns.duplicated()]
+        out_file = os.path.join(out_dir, '{}_sub.csv'.format(glob))
+        sub_df = df[df['POINT_TYPE'] == 0].sample(n=40000)
+        for x in range(1, 4):
+            sub = df[df['POINT_TYPE'] == x].sample(n=13500)
+            sub_df = concat([sub_df, sub], sort=False)
+        df = sub_df
+
+    print('size: {}'.format(df.shape))
+    print(df['POINT_TYPE'].value_counts())
+    print('file: {}'.format(out_file))
+    df.to_csv(out_file, index=False)
 
 
 def rm_dupe_geometry():
@@ -412,10 +462,8 @@ def join_comparison_to_shapefile(csv, shp, out_shape):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     data_dir = '/media/research'
-    d = os.path.join(data_dir, 'IrrigationGIS', 'irr_attrs')
-    downloads = os.path.join(home, 'Downloads')
-    out_ = os.path.join(downloads, 'mt_admin_basins', 'mt_admin_basins_2011_2020.shp')
-    template_ = '/media/research/IrrigationGIS/Montana/AdminBasinsShapefile/BasinBoundaries.shp'
-    concatenate_irrigation_attrs(d, out_, glob='MT_Admin_Basins', template_geometry=template_)
-
+    d = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'to_concatenate')
+    glob = 'bands_25NOV2020'
+    o = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'concatenated')
+    concatenate_band_extract(d, o, glob, select=SELECT)
 # ========================= EOF ====================================================================

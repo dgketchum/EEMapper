@@ -1,19 +1,3 @@
-# ===============================================================================
-# Copyright 2018 dgketchum
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ===============================================================================
-
 import os
 
 import fiona
@@ -22,13 +6,15 @@ from numpy.random import shuffle, choice
 from pandas import DataFrame
 from shapely.geometry import shape, Point, mapping
 
-from map.call_ee import YEARS
+YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
+         2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
+         2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
 
 training = os.path.join('/media/research', 'IrrigationGIS', 'EE_sample', 'aea')
 
 WETLAND = os.path.join(training, 'wetlands_15JUL2020.shp')
 UNCULTIVATED = os.path.join(training, 'uncultivated_27MAR2020.shp')
-IRRIGATED = os.path.join(training, 'irrigated_26MAR2020.shp')
+IRRIGATED = os.path.join(training, 'irrigated_25NOV2020.shp')
 UNIRRIGATED = os.path.join(training, 'unirrigated_25NOV2020.shp')
 FALLOW = os.path.join(training, 'fallow_25NOV2020.shp')
 
@@ -197,13 +183,14 @@ if __name__ == '__main__':
     extract = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'point_shp')
 
     kwargs = {
-        'irrigated': 40000,
-        'wetlands': 60000,
-        'uncultivated': 40000,
-        'unirrigated': 40000,
+        'irrigated': 50000,
+        'wetlands': 50000,
+        'fallowed': 50000,
+        'uncultivated': 50000,
+        'unirrigated': 50000,
     }
 
     prs = PointsRunspec(data, buffer=-20, **kwargs)
-    prs.save_sample_points(os.path.join(extract, 'points_17JUL_val.shp'.format()))
+    prs.save_sample_points(os.path.join(extract, 'points_25NOV2020.shp'.format()))
 
 # ========================= EOF ====================================================================
