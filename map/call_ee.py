@@ -19,7 +19,7 @@ ASSET_ROOT = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
 IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
 
 RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_25NOV2020_sub'
-RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/train_points_25NOV2020'
+RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/train_pts_27NOV2020'
 
 HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
 HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
@@ -508,26 +508,30 @@ def stack_bands(yr, roi):
 
     lsSR_wnt_mn = ee.Image(lsSR_masked.filterDate(winter_s, winter_e).map(
         lambda x: x.select('B2', 'B3', 'B4', 'B5', 'B6', 'B7').addBands(
-            x.normalizedDifference(['B4', 'B3']).rename('nd_1'))).mean())
+            x.normalizedDifference(['B4', 'B3']).rename('nd'))).mean())
 
     lsSR_spr_mn = ee.Image(lsSR_masked.filterDate(spring_s, spring_e).map(
-        lambda x: x.select('B2', 'B3', 'B4', 'B5', 'B6', 'B7').addBands(
+        lambda x: x.select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
+                           ['B2_1', 'B3_1', 'B4_1', 'B5_1', 'B6_1', 'B7_1']).addBands(
+            x.normalizedDifference(['B4', 'B3']).rename('nd_1'))).mean())
+
+    lsSR_lspr_mn = ee.Image(lsSR_masked.filterDate(late_spring_s, late_spring_e).map(
+        lambda x: x.select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
+                           ['B2_2', 'B3_2', 'B4_2', 'B5_2', 'B6_2', 'B7_2']).addBands(
             x.normalizedDifference(['B4', 'B3']).rename('nd_2'))).mean())
 
-    lsSR_lspr_mn = ee.Image(lsSR_masked.filterDate(spring_s, spring_e).map(
-        lambda x: x.select('B2', 'B3', 'B4', 'B5', 'B6', 'B7').addBands(
+    lsSR_sum_mn = ee.Image(lsSR_masked.filterDate(summer_s, summer_e).map(
+        lambda x: x.select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
+                           ['B2_3', 'B3_3', 'B4_3', 'B5_3', 'B6_3', 'B7_3']).addBands(
             x.normalizedDifference(['B4', 'B3']).rename('nd_3'))).mean())
 
-    lsSR_sum_mn = ee.Image(lsSR_masked.filterDate(spring_s, spring_e).map(
-        lambda x: x.select('B2', 'B3', 'B4', 'B5', 'B6', 'B7').addBands(
+    lsSR_fal_mn = ee.Image(lsSR_masked.filterDate(fall_s, fall_e).map(
+        lambda x: x.select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
+                           ['B2_4', 'B3_4', 'B4_4', 'B5_4', 'B6_4', 'B7_4']).addBands(
             x.normalizedDifference(['B4', 'B3']).rename('nd_4'))).mean())
 
-    lsSR_fal_mn = ee.Image(lsSR_masked.filterDate(spring_s, spring_e).map(
-        lambda x: x.select('B2', 'B3', 'B4', 'B5', 'B6', 'B7').addBands(
-            x.normalizedDifference(['B4', 'B3']).rename('nd_5'))).mean())
-
-    proj = lsSR_sum_mn.select('B2').projection().getInfo()
-    input_bands = lsSR_spr_mn.addBands([lsSR_wnt_mn, lsSR_lspr_mn, lsSR_sum_mn, lsSR_fal_mn])
+    proj = lsSR_wnt_mn.select('B2').projection().getInfo()
+    input_bands = lsSR_wnt_mn.addBands([lsSR_spr_mn, lsSR_lspr_mn, lsSR_sum_mn, lsSR_fal_mn])
 
     nd_list_ = []
     for pos, year in zip(['m2', 'm1', 'cy'], range(yr - 2, yr + 1)):
@@ -595,7 +599,11 @@ def stack_bands(yr, roi):
     nlcd = ee.Image('USGS/NLCD/NLCD2011').select('landcover').reproject(crs=proj['crs'], scale=30).rename('nlcd')
     cdl = ee.Image('USDA/NASS/CDL/2017').select('cultivated').remap([1, 2], [0, 1]).reproject(crs=proj['crs'],
                                                                                               scale=30).rename('cdl')
-    static_input_bands = static_input_bands.addBands([nlcd, cdl])
+    gsw = ee.Image('JRC/GSW1_0/GlobalSurfaceWater')
+    occ_pos = gsw.select('occurrence').gt(0)
+    water = occ_pos.unmask(0).rename('gsw')
+
+    static_input_bands = static_input_bands.addBands([nlcd, cdl, water])
 
     input_bands = input_bands.addBands(static_input_bands).clip(roi)
 
@@ -605,13 +613,7 @@ def stack_bands(yr, roi):
     prec_ct = 1
     names = input_bands.bandNames().getInfo()
     for name in names:
-        if 'B' in name and '_1_1' in name:
-            replace_ = name.replace('_1_1', '_2')
-            standard_names.append(replace_)
-        elif 'B' in name and '_2' in name:
-            replace_ = name.replace('_2', '_3')
-            standard_names.append(replace_)
-        elif 'tavg' in name and 'tavg' in standard_names:
+        if 'tavg' in name and 'tavg' in standard_names:
             standard_names.append('tavg_{}'.format(temp_ct))
             temp_ct += 1
         elif 'prec' in name and 'prec' in standard_names:
@@ -636,7 +638,8 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    for s in TARGET_STATES:
-        geo = os.path.join(BOUNDARIES, s)
-        export_classification(out_name='IrrComp_{}'.format(s), asset_root=ASSET_ROOT, region=geo)
+    request_band_extract('bands_27NOV2020', RF_TRAINING_POINTS, GEO_DOMAIN, filter_bounds=True)
+    # for s in TARGET_STATES:
+    #     geo = os.path.join(BOUNDARIES, s)
+    #     export_classification(out_name='IrrComp_{}'.format(s), asset_root=ASSET_ROOT, region=geo)
 # ========================= EOF ====================================================================
