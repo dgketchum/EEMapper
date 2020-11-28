@@ -14,9 +14,9 @@ training = os.path.join('/media/research', 'IrrigationGIS', 'EE_sample', 'aea')
 
 WETLAND = os.path.join(training, 'wetlands_15JUL2020.shp')
 UNCULTIVATED = os.path.join(training, 'uncultivated_27MAR2020.shp')
-IRRIGATED = os.path.join(training, 'irrigated_25NOV2020.shp')
-UNIRRIGATED = os.path.join(training, 'unirrigated_25NOV2020.shp')
-FALLOW = os.path.join(training, 'fallow_25NOV2020.shp')
+IRRIGATED = os.path.join(training, 'irrigated_27NOV2020.shp')
+UNIRRIGATED = os.path.join(training, 'unirrigated_27NOV2020.shp')
+FALLOW = os.path.join(training, 'fallow_27NOV2020.shp')
 
 
 class PointsRunspec(object):
@@ -183,14 +183,14 @@ if __name__ == '__main__':
     extract = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'point_shp')
 
     kwargs = {
-        'irrigated': 50000,
-        'wetlands': 50000,
-        'fallowed': 50000,
-        'uncultivated': 50000,
-        'unirrigated': 50000,
+        'irrigated': 80000,
+        'wetlands': 80000,
+        'fallowed': 80000,
+        'uncultivated': 80000,
+        'unirrigated': 80000,
     }
 
     prs = PointsRunspec(data, buffer=-20, **kwargs)
-    prs.save_sample_points(os.path.join(extract, 'points_25NOV2020.shp'.format()))
+    prs.save_sample_points(os.path.join(extract, 'points_27NOV2020.shp'.format()))
 
 # ========================= EOF ====================================================================

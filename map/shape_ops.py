@@ -54,11 +54,15 @@ def fiona_merge_MT(out_shp, file_list):
 
 def fiona_merge(out_shp, file_list):
     meta = fiona.open(file_list[0]).meta
+    ct = 1
     with fiona.open(out_shp, 'w', **meta) as output:
         for s in file_list:
-            for features in fiona.open(s):
-                output.write(features)
-
+            first = True
+            for feat in fiona.open(s):
+                feat = {'type': 'Feature', 'properties': {'FID': ct},
+                        'geometry': feat['geometry']}
+                output.write(feat)
+                ct += 1
     return None
 
 
@@ -838,14 +842,14 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     gis = os.path.join('/media/research', 'IrrigationGIS')
 
-    inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
-    files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    out_ = os.path.join(gis, 'EE_sample', 'wgs', 'irrigated_25NOV2020.shp')
-    fiona_merge_attribute(out_, files_)
+    # inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
+    # files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
+    # out_ = os.path.join(gis, 'EE_sample', 'wgs', 'irrigated_27NOV2020.shp')
+    # fiona_merge_attribute(out_, files_)
 
-    inspected = os.path.join(gis, 'training_data', 'fallow', 'inspected')
+    inspected = os.path.join(gis, 'training_data', 'unirrigated', 'to_merge')
     files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    out_ = os.path.join(gis, 'EE_sample', 'wgs', 'fallow_25NOV2020.shp')
-    fiona_merge_attribute(out_, files_)
+    out_ = os.path.join(gis, 'EE_sample', 'wgs', 'unirrigated_27NOV2020.shp')
+    fiona_merge(out_, files_)
 
 # ========================= EOF ====================================================================

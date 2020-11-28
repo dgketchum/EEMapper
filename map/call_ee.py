@@ -26,7 +26,8 @@ HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
 COUNTIES = 'users/dgketchum/boundaries/western_counties'
 MT_BASINS = 'users/dgketchum/boundaries/MT_Admin_Basins'
 
-TARGET_STATES = ['CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
+TARGET_STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT',
+                 'WA', 'WY', 'ND', 'SD', 'NE', 'KS', 'OK', 'TX']
 
 IRR = {'ND': [2012, 2013, 2014, 2015, 2016],
        'SD': [2007, 2008, 2009, 2013],
@@ -283,14 +284,14 @@ def export_classification(out_name, asset_root, region, export='asset'):
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
-    for yr in [x for x in range(2008, 2014)]:
+    for yr in [2013]:
         input_bands = stack_bands(yr, roi)
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.classify(trained_model).int().set({
             'system:index': ee.Date('{}-01-01'.format(yr)).format('YYYYMMdd'),
             'system:time_start': ee.Date('{}-01-01'.format(yr)).millis(),
             'system:time_end': ee.Date('{}-12-31'.format(yr)).millis(),
-            'geography': out_name,
+            'image_name': out_name,
             'class_key': '0: irrigated, 1: rainfed, 2: uncultivated, 3: wetland'})
 
         if export == 'asset':
@@ -490,6 +491,7 @@ def stack_bands(yr, roi):
     end_date = '{}-01-01'.format(yr + 1)
     water_year_start = '{}-10-01'.format(yr - 1)
 
+    winter_s, winter_e = '{}-01-01'.format(yr), '{}-03-01'.format(yr),
     spring_s, spring_e = '{}-03-01'.format(yr), '{}-05-01'.format(yr),
     late_spring_s, late_spring_e = '{}-05-01'.format(yr), '{}-07-01'.format(yr)
     summer_s, summer_e = '{}-07-01'.format(yr), '{}-09-01'.format(yr)
@@ -504,20 +506,28 @@ def stack_bands(yr, roi):
 
     lsSR_masked = ee.ImageCollection(l7_coll.merge(l8_coll).merge(l5_coll))
 
+    lsSR_wnt_mn = ee.Image(lsSR_masked.filterDate(winter_s, winter_e).map(
+        lambda x: x.select('B2', 'B3', 'B4', 'B5', 'B6', 'B7').addBands(
+            x.normalizedDifference(['B4', 'B3']).rename('nd_1'))).mean())
+
     lsSR_spr_mn = ee.Image(lsSR_masked.filterDate(spring_s, spring_e).map(
-        lambda x: x.select('B2', 'B3', 'B4', 'B5', 'B6', 'B7').addBands(x.normalizedDifference(['B4', 'B3']))).mean())
+        lambda x: x.select('B2', 'B3', 'B4', 'B5', 'B6', 'B7').addBands(
+            x.normalizedDifference(['B4', 'B3']).rename('nd_2'))).mean())
 
     lsSR_lspr_mn = ee.Image(lsSR_masked.filterDate(spring_s, spring_e).map(
-        lambda x: x.select('B2', 'B3', 'B4', 'B5', 'B6', 'B7').addBands(x.normalizedDifference(['B4', 'B3']))).mean())
+        lambda x: x.select('B2', 'B3', 'B4', 'B5', 'B6', 'B7').addBands(
+            x.normalizedDifference(['B4', 'B3']).rename('nd_3'))).mean())
 
     lsSR_sum_mn = ee.Image(lsSR_masked.filterDate(spring_s, spring_e).map(
-        lambda x: x.select('B2', 'B3', 'B4', 'B5', 'B6', 'B7').addBands(x.normalizedDifference(['B4', 'B3']))).mean())
+        lambda x: x.select('B2', 'B3', 'B4', 'B5', 'B6', 'B7').addBands(
+            x.normalizedDifference(['B4', 'B3']).rename('nd_4'))).mean())
 
     lsSR_fal_mn = ee.Image(lsSR_masked.filterDate(spring_s, spring_e).map(
-        lambda x: x.select('B2', 'B3', 'B4', 'B5', 'B6', 'B7').addBands(x.normalizedDifference(['B4', 'B3']))).mean())
+        lambda x: x.select('B2', 'B3', 'B4', 'B5', 'B6', 'B7').addBands(
+            x.normalizedDifference(['B4', 'B3']).rename('nd_5'))).mean())
 
     proj = lsSR_sum_mn.select('B2').projection().getInfo()
-    input_bands = lsSR_spr_mn.addBands([lsSR_lspr_mn, lsSR_sum_mn, lsSR_fal_mn])
+    input_bands = lsSR_spr_mn.addBands([lsSR_wnt_mn, lsSR_lspr_mn, lsSR_sum_mn, lsSR_fal_mn])
 
     nd_list_ = []
     for pos, year in zip(['m2', 'm1', 'cy'], range(yr - 2, yr + 1)):
@@ -626,6 +636,7 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    geo = os.path.join(BOUNDARIES, 'MT')
-    export_classification(out_name='IrrComp', asset_root=ASSET_ROOT, region=geo)
+    for s in TARGET_STATES:
+        geo = os.path.join(BOUNDARIES, s)
+        export_classification(out_name='IrrComp_{}'.format(s), asset_root=ASSET_ROOT, region=geo)
 # ========================= EOF ====================================================================
