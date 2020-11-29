@@ -13,13 +13,13 @@ from map.ee_utils import ndvi7, ndvi8, ls5_edge_removal, period_stat, daily_land
 
 sys.setrecursionlimit(2000)
 
-GEO_DOMAIN = 'users/dgketchum/boundaries/western_states_expanded_union'
+GEO_DOMAIN = 'users/dgketchum/boundaries/western_11_union'
 BOUNDARIES = 'users/dgketchum/boundaries'
 ASSET_ROOT = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
 IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
 
-RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_25NOV2020_sub'
-RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/train_pts_27NOV2020'
+RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_27NOV2020'
+RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/train_pts_29NOV2020'
 
 HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
 HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
@@ -284,7 +284,7 @@ def export_classification(out_name, asset_root, region, export='asset'):
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
-    for yr in [2013]:
+    for yr in [2014]:
         input_bands = stack_bands(yr, roi)
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.classify(trained_model).int().set({
@@ -467,7 +467,7 @@ def request_band_extract(file_prefix, points_layer, region, filter_bounds=False)
             collection=filtered,
             properties=['POINT_TYPE', 'YEAR'],
             scale=30,
-            tileScale=2)
+            tileScale=16)
 
         task = ee.batch.Export.table.toCloudStorage(
             plot_sample_regions,
@@ -638,7 +638,7 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    request_band_extract('bands_27NOV2020', RF_TRAINING_POINTS, GEO_DOMAIN, filter_bounds=True)
+    request_band_extract('bands_29NOV2020', RF_TRAINING_POINTS, GEO_DOMAIN, filter_bounds=True)
     # for s in TARGET_STATES:
     #     geo = os.path.join(BOUNDARIES, s)
     #     export_classification(out_name='IrrComp_{}'.format(s), asset_root=ASSET_ROOT, region=geo)

@@ -63,6 +63,7 @@ def fiona_merge(out_shp, file_list):
                         'geometry': feat['geometry']}
                 output.write(feat)
                 ct += 1
+    print('{} features'.format(ct))
     return None
 
 
@@ -849,7 +850,7 @@ if __name__ == '__main__':
 
     inspected = os.path.join(gis, 'training_data', 'unirrigated', 'to_merge')
     files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    out_ = os.path.join(gis, 'EE_sample', 'wgs', 'unirrigated_27NOV2020.shp')
+    out_ = os.path.join(gis, 'EE_sample', 'wgs', 'unirrigated_29NOV2020.shp')
     fiona_merge(out_, files_)
 
 # ========================= EOF ====================================================================
