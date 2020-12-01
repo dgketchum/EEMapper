@@ -14,7 +14,7 @@ training = os.path.join('/media/research', 'IrrigationGIS', 'EE_sample', 'aea')
 
 WETLAND = os.path.join(training, 'wetlands_15JUL2020.shp')
 UNCULTIVATED = os.path.join(training, 'uncultivated_27MAR2020.shp')
-IRRIGATED = os.path.join(training, 'irrigated_27NOV2020.shp')
+IRRIGATED = os.path.join(training, 'irrigated_29NOV2020.shp')
 UNIRRIGATED = os.path.join(training, 'unirrigated_29NOV2020.shp')
 FALLOW = os.path.join(training, 'fallow_27NOV2020.shp')
 
@@ -66,7 +66,7 @@ class PointsRunspec(object):
 
     def fallowed(self, n):
         print('fallow: {}'.format(n))
-        self.create_sample_points(n, self.fallow_path, code=1, attribute='YEAR')
+        self.create_sample_points(n, self.fallow_path, code=4, attribute='YEAR')
 
     def create_sample_points(self, n, shp, code, attribute=None):
 
@@ -156,10 +156,10 @@ class PointsRunspec(object):
 
     def _get_polygons(self, vector, attr=None):
         with fiona.open(vector, 'r') as src:
-            if not self.crs:
-                self.crs = src.crs
-            else:
-                assert src.crs == self.crs
+            # if not self.crs:
+            #     self.crs = src.crs
+            # else:
+            #     assert src.crs == self.crs
             polys = []
             bad_geo_count = 0
             for feat in src:
@@ -185,12 +185,12 @@ if __name__ == '__main__':
     kwargs = {
         'irrigated': 80000,
         'wetlands': 80000,
-        'fallowed': 80000,
+        # 'fallowed': 80000,
         'uncultivated': 80000,
         'unirrigated': 80000,
     }
 
     prs = PointsRunspec(data, buffer=-20, **kwargs)
-    prs.save_sample_points(os.path.join(extract, 'points_29NOV2020.shp'.format()))
+    prs.save_sample_points(os.path.join(extract, 'points_30NOV2020.shp'.format()))
 
 # ========================= EOF ====================================================================

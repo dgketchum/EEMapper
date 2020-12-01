@@ -13,13 +13,14 @@ from map.ee_utils import ndvi7, ndvi8, ls5_edge_removal, period_stat, daily_land
 
 sys.setrecursionlimit(2000)
 
-GEO_DOMAIN = 'users/dgketchum/boundaries/western_11_union'
+GEO_DOMAIN = 'users/dgketchum/boundaries/western_states_expanded_union'
 BOUNDARIES = 'users/dgketchum/boundaries'
-ASSET_ROOT = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+ASSET_ROOT = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_RF2'
 IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
 
-RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_27NOV2020'
-RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/train_pts_29NOV2020'
+RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_29NOV2020_sub'
+RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/train_pts_30NOV2020'
+RF_TRAINING_POINTS_ = 'projects/ee-dgketchum/assets/points/train_pts_2013i_30NOV2020'
 
 HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
 HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
@@ -27,7 +28,9 @@ COUNTIES = 'users/dgketchum/boundaries/western_counties'
 MT_BASINS = 'users/dgketchum/boundaries/MT_Admin_Basins'
 
 TARGET_STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT',
-                 'WA', 'WY', 'ND', 'SD', 'NE', 'KS', 'OK', 'TX']
+                 'WA', 'WY']
+
+other = ['ND', 'SD', 'NE', 'KS', 'OK', 'TX']
 
 IRR = {'ND': [2012, 2013, 2014, 2015, 2016],
        'SD': [2007, 2008, 2009, 2013],
@@ -284,7 +287,7 @@ def export_classification(out_name, asset_root, region, export='asset'):
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
-    for yr in [2014]:
+    for yr in range(2014, 2015):
         input_bands = stack_bands(yr, roi)
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.classify(trained_model).int().set({
@@ -301,6 +304,7 @@ def export_classification(out_name, asset_root, region, export='asset'):
                 assetId=os.path.join(asset_root, '{}_{}'.format(out_name, yr)),
                 region=mask,
                 scale=30,
+                pyramidingPolicy={'.default': 'mode'},
                 maxPixels=1e13)
 
         elif export == 'cloud':
@@ -311,6 +315,7 @@ def export_classification(out_name, asset_root, region, export='asset'):
                 fileNamePrefix='{}_{}'.format(yr, out_name),
                 region=mask,
                 scale=30,
+                pyramidingPolicy={'.default': 'mode'},
                 maxPixels=1e13)
         else:
             raise NotImplementedError('choose asset or cloud for export')
@@ -453,10 +458,6 @@ def request_band_extract(file_prefix, points_layer, region, filter_bounds=False)
     plots = ee.FeatureCollection(points_layer)
     for yr in YEARS:
         stack = stack_bands(yr, roi)
-        start = '{}-01-01'.format(yr)
-        d = datetime.strptime(start, '%Y-%m-%d')
-        epoch = datetime.utcfromtimestamp(0)
-        start_millisec = (d - epoch).total_seconds() * 1000
 
         if filter_bounds:
             plots = plots.filterBounds(roi)
@@ -508,27 +509,27 @@ def stack_bands(yr, roi):
 
     lsSR_wnt_mn = ee.Image(lsSR_masked.filterDate(winter_s, winter_e).map(
         lambda x: x.select('B2', 'B3', 'B4', 'B5', 'B6', 'B7').addBands(
-            x.normalizedDifference(['B4', 'B3']).rename('nd'))).mean())
+            x.normalizedDifference(['B4', 'B3']).rename('nd'))).max())
 
     lsSR_spr_mn = ee.Image(lsSR_masked.filterDate(spring_s, spring_e).map(
         lambda x: x.select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
                            ['B2_1', 'B3_1', 'B4_1', 'B5_1', 'B6_1', 'B7_1']).addBands(
-            x.normalizedDifference(['B4', 'B3']).rename('nd_1'))).mean())
+            x.normalizedDifference(['B4', 'B3']).rename('nd_1'))).max())
 
     lsSR_lspr_mn = ee.Image(lsSR_masked.filterDate(late_spring_s, late_spring_e).map(
         lambda x: x.select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
                            ['B2_2', 'B3_2', 'B4_2', 'B5_2', 'B6_2', 'B7_2']).addBands(
-            x.normalizedDifference(['B4', 'B3']).rename('nd_2'))).mean())
+            x.normalizedDifference(['B4', 'B3']).rename('nd_2'))).max())
 
     lsSR_sum_mn = ee.Image(lsSR_masked.filterDate(summer_s, summer_e).map(
         lambda x: x.select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
                            ['B2_3', 'B3_3', 'B4_3', 'B5_3', 'B6_3', 'B7_3']).addBands(
-            x.normalizedDifference(['B4', 'B3']).rename('nd_3'))).mean())
+            x.normalizedDifference(['B4', 'B3']).rename('nd_3'))).max())
 
     lsSR_fal_mn = ee.Image(lsSR_masked.filterDate(fall_s, fall_e).map(
         lambda x: x.select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
                            ['B2_4', 'B3_4', 'B4_4', 'B5_4', 'B6_4', 'B7_4']).addBands(
-            x.normalizedDifference(['B4', 'B3']).rename('nd_4'))).mean())
+            x.normalizedDifference(['B4', 'B3']).rename('nd_4'))).max())
 
     proj = lsSR_wnt_mn.select('B2').projection().getInfo()
     input_bands = lsSR_wnt_mn.addBands([lsSR_spr_mn, lsSR_lspr_mn, lsSR_sum_mn, lsSR_fal_mn])
@@ -638,8 +639,9 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    request_band_extract('bands_29NOV2020', RF_TRAINING_POINTS, GEO_DOMAIN, filter_bounds=True)
+    # request_band_extract('bands_30NOV2020', RF_TRAINING_POINTS_, GEO_DOMAIN, filter_bounds=False)
+    request_band_extract('bands_30NOV2020', RF_TRAINING_POINTS, GEO_DOMAIN, filter_bounds=False)
     # for s in TARGET_STATES:
     #     geo = os.path.join(BOUNDARIES, s)
-    #     export_classification(out_name='IrrComp_{}'.format(s), asset_root=ASSET_ROOT, region=geo)
+    #     export_classification(out_name='IM_{}'.format(s), asset_root=ASSET_ROOT, region=geo)
 # ========================= EOF ====================================================================

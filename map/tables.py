@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 
 from geopandas import GeoDataFrame, read_file
-from numpy import where, sum, nan, std, array, min, max, mean, int16
+from numpy import where, sum, nan, std, array, min, max, mean, int16, vectorize
 from pandas import read_csv, concat, errors, Series, merge, DataFrame
 from pandas import to_datetime
 from pandas.io.json import json_normalize
@@ -43,6 +43,15 @@ COLS = ['SCENE_ID',
         'BASE_URL']
 
 DROP_COUNTY = ['system:index', 'AFFGEOID', 'COUNTYFP', 'COUNTYNS', 'GEOID', 'LSAD', 'STATEFP', '.geo']
+
+NLCD_W = {11: 1, 12: 0, 21: 0, 22: 0, 23: 0, 24: 0, 31: 0, 41: 0, 42: 0,
+          43: 0, 51: 0, 52: 0, 71: 0, 81: 0, 82: 0, 90: 1, 95: 1}
+
+NLCD_C = {11: 0, 12: 0, 21: 0, 22: 0, 23: 0, 24: 0, 31: 0, 41: 0, 42: 0,
+          43: 0, 51: 0, 52: 0, 71: 0, 81: 1, 82: 1, 90: 0, 95: 0}
+
+NLCD_U = {11: 1, 12: 1, 21: 1, 22: 1, 23: 1, 24: 1, 31: 1, 41: 1, 42: 1,
+          43: 1, 51: 1, 52: 1, 71: 1, 81: 0, 82: 0, 90: 1, 95: 1}
 
 SELECT = ['cdl',
           'nlcd',
@@ -177,18 +186,19 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=Non
 
     if select:
         print(df['POINT_TYPE'].value_counts())
-        df = df[select + ['POINT_TYPE', 'YEAR']]
+        # df = df[select + ['POINT_TYPE', 'YEAR']]
         out_file = os.path.join(out_dir, '{}_sub.csv'.format(glob))
-        sub_df = df[df['POINT_TYPE'] == 0].sample(n=55000)
+        sub_df = df[df['POINT_TYPE'] == 0].sample(n=38000)
         for x in range(1, 4):
-            sub = df[df['POINT_TYPE'] == x].sample(n=35000)
+            sub = df[df['POINT_TYPE'] == x].sample(n=10000)
             sub_df = concat([sub_df, sub], sort=False)
         df = sub_df
 
+    df[(df['POINT_TYPE'] == 1) & (df['nd_max_cy'] > 0.5)]
     print('size: {}'.format(df.shape))
     print(df['POINT_TYPE'].value_counts())
     print('file: {}'.format(out_file))
-    df.to_csv(out_file, index=False)
+    # df.to_csv(out_file, index=False)
 
 
 def rm_dupe_geometry():
@@ -481,7 +491,7 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     data_dir = '/media/research'
     d = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'to_concatenate')
-    glob = 'bands_27NOV2020'
+    glob = 'bands_29NOV2020'
     o = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'concatenated')
-    concatenate_band_extract(d, o, glob, select=SELECT)
+    concatenate_band_extract(d, o, glob, select=True)
 # ========================= EOF ====================================================================

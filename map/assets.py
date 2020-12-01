@@ -58,21 +58,13 @@ def get_metadata(ee_asset):
             check_call(cmd)
 
 
-def delete_assets(ee_asset_path, years_=False):
-    reader = None
-
-    if years_:
-        for year in range(2008, 2014):
-            _dir = os.path.join(ee_asset_path, str(year))
-            reader = list_assets(_dir)
-    else:
-        reader = list_assets(ee_asset_path)
+def delete_assets(ee_asset_path):
+    reader = list_assets(ee_asset_path)
 
     for r in reader:
-        if 'projects' in r:
-            command = 'rm'
-            cmd = ['{}'.format(EXEC), '{}'.format(command), '{}'.format(r)]
-            check_call(cmd)
+        command = 'rm'
+        cmd = ['{}'.format(EXEC), '{}'.format(command), '{}'.format(r)]
+        check_call(cmd)
 
 
 def rename_assets(ee_asset_path, new_path, years_=None):
@@ -107,6 +99,6 @@ def list_assets(location):
 
 
 if __name__ == '__main__':
-    asset = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_RF'
-    set_metadata(asset, property='--time_end')
+    asset = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+    delete_assets(asset)
 # ========================= EOF ====================================================================
