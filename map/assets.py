@@ -2,6 +2,8 @@ import csv
 import os
 from subprocess import Popen, PIPE, check_call
 
+import ee
+
 EDIT_STATES = ['KS', 'ND', 'NE', 'OK', 'SD']
 TEST_YEARS = [1986, 1996, 2006, 2016]
 
@@ -85,6 +87,15 @@ def rename_assets(ee_asset_path, new_path, years_=None):
         print(old_name, new_name)
 
 
+def cancel_tasks():
+    task_list = ee.data.getTaskList()
+    for t in task_list:
+        if t['state'] == 'READY' and 'IM_' in t['description']:
+            cmd = ['{}'.format(EXEC), 'task', 'cancel', '{}'.format(t['id'])]
+            check_call(cmd)
+            print(cmd)
+
+
 def list_assets(location):
     command = 'ls'
     cmd = ['{}'.format(EXEC), '{}'.format(command), '{}'.format(location)]
@@ -98,7 +109,18 @@ def list_assets(location):
     return assets
 
 
+def is_authorized():
+    try:
+        ee.Initialize()  # investigate (use_cloud_api=True)
+        print('Authorized')
+        return True
+    except Exception as e:
+        print('You are not authorized: {}'.format(e))
+        return False
+
+
 if __name__ == '__main__':
+    is_authorized()
     asset = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-    delete_assets(asset)
+    cancel_tasks()
 # ========================= EOF ====================================================================

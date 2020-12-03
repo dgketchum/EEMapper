@@ -44,46 +44,7 @@ COLS = ['SCENE_ID',
 
 DROP_COUNTY = ['system:index', 'AFFGEOID', 'COUNTYFP', 'COUNTYNS', 'GEOID', 'LSAD', 'STATEFP', '.geo']
 
-SELECT = ['cdl',
-          'nlcd',
-          'nd_max_cy',
-          'nd_3',
-          'B5_3',
-          'slope',
-          'B7_3',
-          'LAT_GCS',
-          'nd_max_m1',
-          'B4_3',
-          'Lon_GCS',
-          'nd_max_m2',
-          'B5_4',
-          'nd_4',
-          'elevation',
-          'B7_4',
-          'B6_3',
-          'B2_3',
-          'prec_5',
-          'B3_3',
-          'prec_3',
-          'B6_4',
-          'tmin_5_1',
-          'B4_4',
-          'prec_4',
-          'tmin_4_1',
-          'prec_7',
-          'prec_6',
-          'tpi_250',
-          'B5_2',
-          'B3_4',
-          'B2_4',
-          'tpi_150',
-          'prec_8',
-          'tmin_6_1',
-          'nd_2',
-          'gsw',
-          'prec_2',
-          'tmin_7_1',
-          'tpi_1250']
+SELECT = [x for x in original_names()[:50]]
 
 
 def concatenate_county_data(folder, out_file, glob='counties', acres=False):
@@ -176,15 +137,15 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=Non
 
     if select:
         print(df['POINT_TYPE'].value_counts())
-        # df = df[select + ['POINT_TYPE', 'YEAR']]
+        df = df[SELECT + ['POINT_TYPE', 'YEAR']]
         out_file = os.path.join(out_dir, '{}_sub.csv'.format(glob))
-        sub_df = df[df['POINT_TYPE'] == 0].sample(n=27000)
+        sub_df = df[df['POINT_TYPE'] == 0]
         for x in range(1, 4):
-            sub = df[df['POINT_TYPE'] == x].sample(n=9000)
+            sub = df[df['POINT_TYPE'] == x].sample(n=20000)
             sub_df = concat([sub_df, sub], sort=False)
         df = sub_df
 
-    df[(df['POINT_TYPE'] == 1) & (df['nd_max_cy'] > 0.5)]
+    # df[(df['POINT_TYPE'] == 1) & (df['nd_max_cy'] > 0.5)]
     print('size: {}'.format(df.shape))
     print(df['POINT_TYPE'].value_counts())
     print('file: {}'.format(out_file))

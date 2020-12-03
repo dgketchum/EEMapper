@@ -77,6 +77,7 @@ def fiona_merge_attribute(out_shp, file_list):
         ct = 0
         for s in file_list:
             year, source = int(s.split('.')[0][-4:]), os.path.basename(s.split('.')[0][:-5])
+            print(year, s)
             if year not in years:
                 years.append(year)
             for feat in fiona.open(s):
@@ -856,11 +857,16 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     gis = os.path.join('/media/research', 'IrrigationGIS')
 
-    count_points(os.path.join(gis, 'EE_extracts', 'point_shp', 'train_pts_30NOV2020.shp'))
+    # count_points(os.path.join(gis, 'EE_extracts', 'point_shp', 'train_pts_30NOV2020.shp'))
 
-    # inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
+    inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
+    files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
+    out_ = os.path.join(gis, 'EE_sample', 'wgs', 'irrigated_2DEC2020.shp')
+    fiona_merge_attribute(out_, files_)
+
+    # inspected = os.path.join(gis, 'training_data', 'fallow', 'inspected')
     # files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    # out_ = os.path.join(gis, 'EE_sample', 'wgs', 'irrigated_29NOV2020.shp')
+    # out_ = os.path.join(gis, 'EE_sample', 'wgs', 'fallow_2DEC2020.shp')
     # fiona_merge_attribute(out_, files_)
 
     # inspected = os.path.join(gis, 'training_data', 'unirrigated', 'to_merge')

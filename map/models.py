@@ -17,7 +17,7 @@ from sklearn.model_selection import RandomizedSearchCV, GridSearchCV, train_test
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 from map import FEATURE_NAMES
-
+from map.variable_importance import original_names
 
 abspath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(abspath)
@@ -28,12 +28,12 @@ CLASS_NAMES = ['IRR', 'DRYL', 'WETl', 'UNCULT']
 
 def consumer(arr):
     c = [(arr[x, x] / sum(arr[x, :])) for x in range(0, arr.shape[1])]
-    print('consumer accuracy: {}'.format(c))
+    return c
 
 
 def producer(arr):
     c = [(arr[x, x] / sum(arr[:, x])) for x in range(0, arr.shape[0])]
-    print('producer accuracy: {}'.format(c))
+    return c
 
 
 def pca(csv):
@@ -74,14 +74,43 @@ def random_forest(csv, binary=False, n_estimators=100):
                                             random_state=None)
 
     rf = RandomForestClassifier(n_estimators=n_estimators,
-                                max_features=11,
-                                max_depth=4,
-                                min_samples_split=11,
                                 n_jobs=-1,
                                 bootstrap=False)
 
     rf.fit(x, y)
-    return rf
+    y_pred = rf.predict(x_test)
+    cf = confusion_matrix(y_test, y_pred)
+    pprint(cf)
+    producer(cf)
+    return
+
+
+def random_forest_feature_select(csv, n_estimators=100):
+    df = read_csv(csv, engine='python')
+    labels = df['POINT_TYPE'].values
+    df.drop(columns=['YEAR', 'POINT_TYPE'], inplace=True)
+    df.dropna(axis=1, inplace=True)
+    labels = labels.reshape((labels.shape[0],))
+    features = original_names()
+    precision = []
+    for i, c in enumerate(features, start=1):
+        cols = [f for f in features[:i]]
+        sub_df = df[cols]
+        data = sub_df.values
+        x, x_test, y, y_test = train_test_split(data, labels, test_size=0.33,
+                                                random_state=None)
+
+        rf = RandomForestClassifier(n_estimators=n_estimators,
+                                    n_jobs=-1,
+                                    bootstrap=False)
+
+        rf.fit(x, y)
+        y_pred = rf.predict(x_test)
+        cf = confusion_matrix(y_test, y_pred)
+        prec = consumer(cf)
+        print(i, cols[-1:], prec[0])
+        precision.append(prec[0])
+    print(precision)
 
 
 def export_tree(rf, tree_idx, out_file=None):
@@ -281,7 +310,7 @@ def get_confusion_matrix(csv, spec=None):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     out_ = os.path.join(home, 'Downloads')
-    extracts = os.path.join(out_, 'bands_29NOV2020_sub.csv')
-    random_forest_k_fold(extracts)
+    extracts = os.path.join(out_, 'bands_30NOV2020.csv')
+    random_forest_feature_select(extracts)
 
 # ========================= EOF ====================================================================
