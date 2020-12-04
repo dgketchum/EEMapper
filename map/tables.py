@@ -18,10 +18,11 @@ KML_DROP = ['system:index', 'altitudeMo', 'descriptio',
             'sourcefeat', 'sourceorig', 'system_ind', 'tessellate',
             'tnmid', 'visibility', ]
 
-DUPLICATE_HUC8_NAMES = ['Beaver', 'Big Sandy', 'Blackfoot', 'Carrizo', 'Cedar', 'Clear', 'Colorado Headwaters', 'Crow',
-                        'Frenchman', 'Horse', 'Jordan', 'Lower Beaver', 'Lower White', 'Medicine', 'Muddy', 'Palo Duro',
-                        'Pawnee', 'Redwater', 'Rock', 'Salt', 'San Francisco', 'Santa Maria', 'Silver', 'Smith',
-                        'Stillwater', 'Teton', 'Upper Bear', 'Upper White', 'White', 'Willow']
+DUPLICATE_HUC8_NAMES = \
+    ['Beaver', 'Big Sandy', 'Blackfoot', 'Carrizo', 'Cedar', 'Clear', 'Colorado Headwaters', 'Crow',
+     'Frenchman', 'Horse', 'Jordan', 'Lower Beaver', 'Lower White', 'Medicine', 'Muddy', 'Palo Duro',
+     'Pawnee', 'Redwater', 'Rock', 'Salt', 'San Francisco', 'Santa Maria', 'Silver', 'Smith',
+     'Stillwater', 'Teton', 'Upper Bear', 'Upper White', 'White', 'Willow']
 
 COLS = ['SCENE_ID',
         'PRODUCT_ID',
@@ -97,7 +98,6 @@ def concatenate_county_data(folder, out_file, glob='counties', acres=False):
 
 def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=None):
     l = [os.path.join(root, x) for x in os.listdir(root) if glob in x]
-    # TODO: remove this
     l.sort()
     first = True
     for csv in l:
@@ -139,6 +139,7 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=Non
         print(df['POINT_TYPE'].value_counts())
         df = df[SELECT + ['POINT_TYPE', 'YEAR']]
         out_file = os.path.join(out_dir, '{}_sub.csv'.format(glob))
+        df[df['POINT_TYPE'] == 4] = 1
         sub_df = df[df['POINT_TYPE'] == 0]
         for x in range(1, 4):
             sub = df[df['POINT_TYPE'] == x].sample(n=20000)
@@ -442,7 +443,7 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     data_dir = '/media/research'
     d = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'to_concatenate')
-    glob = 'bands_30NOV2020'
+    glob = 'bands_3DEC2020'
     o = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'concatenated')
     concatenate_band_extract(d, o, glob, select=True)
 # ========================= EOF ====================================================================

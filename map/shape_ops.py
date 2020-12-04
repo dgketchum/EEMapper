@@ -28,6 +28,7 @@ CLU_ONLY = ['ne', 'ks', 'nd', 'ok', 'sd', 'tx']
 
 irrmapper_states = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
 
+east_states = ['ND', 'SD', 'NE', 'KS', 'OK', 'TX']
 
 def fiona_merge_MT(out_shp, file_list):
     meta = fiona.open(file_list[0]).meta
@@ -54,9 +55,12 @@ def fiona_merge_MT(out_shp, file_list):
 
 def fiona_merge(out_shp, file_list):
     meta = fiona.open(file_list[0]).meta
+    meta['schema'] = {'type': 'Feature', 'properties': OrderedDict(
+        [('FID', 'int:9')]), 'geometry': 'Polygon'}
     ct = 1
     with fiona.open(out_shp, 'w', **meta) as output:
         for s in file_list:
+            print(s)
             first = True
             for feat in fiona.open(s):
                 feat = {'type': 'Feature', 'properties': {'FID': ct},
@@ -76,15 +80,18 @@ def fiona_merge_attribute(out_shp, file_list):
     with fiona.open(out_shp, 'w', **meta) as output:
         ct = 0
         for s in file_list:
-            year, source = int(s.split('.')[0][-4:]), os.path.basename(s.split('.')[0][:-5])
-            print(year, s)
-            if year not in years:
-                years.append(year)
-            for feat in fiona.open(s):
-                feat = {'type': 'Feature', 'properties': {'SOURCE': source, 'YEAR': year},
-                        'geometry': feat['geometry']}
-                output.write(feat)
-                ct += 1
+            if  os.path.basename(s.split('.')[0][:2]) in east_states:
+                pass
+            else:
+                year, source = int(s.split('.')[0][-4:]), os.path.basename(s.split('.')[0][:-5])
+                print(year, s)
+                if year not in years:
+                    years.append(year)
+                for feat in fiona.open(s):
+                    feat = {'type': 'Feature', 'properties': {'SOURCE': source, 'YEAR': year},
+                            'geometry': feat['geometry']}
+                    output.write(feat)
+                    ct += 1
         print(sorted(years))
 
 
@@ -847,7 +854,7 @@ def count_points(shp):
             y = f['properties']['YEAR']
             t = f['properties']['POINT_TYPE']
             if y not in dct.keys():
-                dct[y] = [0,0,0,0]
+                dct[y] = [0,0,0,0,0]
             dct[y][t] += 1
     for k, v in dct.items():
         print(k, v, sum(v))
@@ -857,21 +864,10 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     gis = os.path.join('/media/research', 'IrrigationGIS')
 
-    # count_points(os.path.join(gis, 'EE_extracts', 'point_shp', 'train_pts_30NOV2020.shp'))
+    count_points(os.path.join(gis, 'EE_extracts', 'point_shp', 'train_pts_3DEC2020.shp'))
 
-    inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
-    files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    out_ = os.path.join(gis, 'EE_sample', 'wgs', 'irrigated_2DEC2020.shp')
-    fiona_merge_attribute(out_, files_)
-
-    # inspected = os.path.join(gis, 'training_data', 'fallow', 'inspected')
+    # inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
     # files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    # out_ = os.path.join(gis, 'EE_sample', 'wgs', 'fallow_2DEC2020.shp')
+    # out_ = os.path.join(gis, 'EE_sample', 'wgs', 'irrigated_2DEC2020.shp')
     # fiona_merge_attribute(out_, files_)
-
-    # inspected = os.path.join(gis, 'training_data', 'unirrigated', 'to_merge')
-    # files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    # out_ = os.path.join(gis, 'EE_sample', 'wgs', 'unirrigated_29NOV2020.shp')
-    # fiona_merge(out_, files_)
-
 # ========================= EOF ====================================================================

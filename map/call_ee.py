@@ -20,9 +20,8 @@ ASSET_ROOT = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
 IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
 FILTER_TARGET = 'users/dgketchum/western_states_irr/CA_subselect'
 
-RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_30NOV2020'
-RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/train_pts_30NOV2020'
-RF_TRAINING_POINTS_ = 'projects/ee-dgketchum/assets/points/train_pts_2013i_30NOV2020'
+RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_3DEC2020'
+RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/train_pts_3DEC2020'
 
 HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
 HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
@@ -290,7 +289,7 @@ def export_classification(out_name, asset_root, region, export='asset'):
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
-    for yr in ALL_YEARS:
+    for yr in range(2015, 2016):
         input_bands = stack_bands(yr, roi)
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.classify(trained_model).int().set({
@@ -654,12 +653,9 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    # request_band_extract('bands_30NOV2020_i', RF_TRAINING_POINTS_, GEO_DOMAIN, filter_bounds=False)
-    # request_band_extract('bands_30NOV2020', RF_TRAINING_POINTS, GEO_DOMAIN, filter_bounds=False)
+    # request_band_extract('bands_3DEC2020', RF_TRAINING_POINTS, GEO_DOMAIN, filter_bounds=True)
 
-    filter_irrigated(FILTER_TARGET, 2014)
-
-    # for s in TARGET_STATES:
-    #     geo = os.path.join(BOUNDARIES, s)
-    #     export_classification(out_name='IM_{}'.format(s), asset_root=ASSET_ROOT, region=geo)
+    for s in TARGET_STATES:
+        geo = os.path.join(BOUNDARIES, s)
+        export_classification(out_name='IM_{}'.format(s), asset_root=ASSET_ROOT, region=geo)
 # ========================= EOF ====================================================================

@@ -309,8 +309,8 @@ def get_confusion_matrix(csv, spec=None):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    out_ = os.path.join(home, 'Downloads')
-    extracts = os.path.join(out_, 'bands_30NOV2020.csv')
+    out_ = os.path.join('/media/research', 'IrrigationGIS', 'EE_extracts', 'concatenated')
+    extracts = os.path.join(out_, 'bands_3DEC2020_sub.csv')
     random_forest_feature_select(extracts)
 
 # ========================= EOF ====================================================================
