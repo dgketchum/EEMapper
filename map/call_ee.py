@@ -20,7 +20,7 @@ ASSET_ROOT = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
 IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
 FILTER_TARGET = 'users/dgketchum/western_states_irr/CA_subselect'
 
-RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_3DEC2020'
+RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_4DEC2020'
 RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/train_pts_3DEC2020'
 
 HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
@@ -289,7 +289,7 @@ def export_classification(out_name, asset_root, region, export='asset'):
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
-    for yr in range(2015, 2016):
+    for yr in range(2017, 2018):
         input_bands = stack_bands(yr, roi)
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.classify(trained_model).int().set({

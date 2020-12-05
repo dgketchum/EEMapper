@@ -294,8 +294,7 @@ def original_names():
             'B3_1',
             'tmin_6',
             'B2_1',
-            'aspect',
-            'gsw']
+            'aspect']
 
 
 def precision_curve():

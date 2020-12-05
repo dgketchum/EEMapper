@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 
 from geopandas import GeoDataFrame, read_file
-from numpy import where, sum, nan, std, array, min, max, mean, int16, vectorize
+from numpy import where, sum, nan, std, array, min, max, mean, int16, ones_like
 from pandas import read_csv, concat, errors, Series, merge, DataFrame
 from pandas import to_datetime
 from pandas.io.json import json_normalize
@@ -119,7 +119,16 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=Non
             pass
 
     df.drop(columns=['system:index', '.geo'], inplace=True)
-    df.drop(df[(df['gsw'] == 1) & (df['POINT_TYPE'] == 0)].index, inplace=True)
+    print(df['POINT_TYPE'].value_counts())
+
+    points = df['POINT_TYPE'].values
+    nines = ones_like(points) * 9
+    points = where((df.POINT_TYPE == 0) & (df.nd_max_cy < 0.55), nines, points)
+    df['POINT_TYPE'] = points
+    print(df['POINT_TYPE'].value_counts())
+    points = where((df['POINT_TYPE'] == 4) & (df['nd_max_cy'] > 0.6), nines, points)
+    df['POINT_TYPE'] = points
+    print(df['POINT_TYPE'].value_counts())
 
     if sample:
         _len = int(df.shape[0] / 1e3 * sample)
@@ -139,14 +148,13 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=Non
         print(df['POINT_TYPE'].value_counts())
         df = df[SELECT + ['POINT_TYPE', 'YEAR']]
         out_file = os.path.join(out_dir, '{}_sub.csv'.format(glob))
-        df[df['POINT_TYPE'] == 4] = 1
-        sub_df = df[df['POINT_TYPE'] == 0]
-        for x in range(1, 4):
-            sub = df[df['POINT_TYPE'] == x].sample(n=20000)
+        sub_df = df[df['POINT_TYPE'] == 0].sample(n=40000)
+        for i, x in zip([1, 2, 3, 4], [20000, 20000, 20000, 10000]):
+            sub = df[df['POINT_TYPE'] == i].sample(n=x)
             sub_df = concat([sub_df, sub], sort=False)
         df = sub_df
+        df[df['POINT_TYPE'] == 4] = 1
 
-    # df[(df['POINT_TYPE'] == 1) & (df['nd_max_cy'] > 0.5)]
     print('size: {}'.format(df.shape))
     print(df['POINT_TYPE'].value_counts())
     print('file: {}'.format(out_file))
