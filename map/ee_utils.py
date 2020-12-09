@@ -46,7 +46,6 @@ def get_world_climate(proj):
 
 
 def daily_landsat(year, roi):
-
     start = '{}-01-01'.format(year)
     end_date = '{}-01-01'.format(year + 1)
     l5_coll = ee.ImageCollection('LANDSAT/LT05/C01/T1_SR').filterBounds(
@@ -60,7 +59,7 @@ def daily_landsat(year, roi):
 
     d1 = datetime(year, 1, 1)
     d2 = datetime(year + 1, 1, 1)
-    d_times = [(d1 + timedelta(days=x), d1 + timedelta(days=x + 1)) for x in range((d2-d1).days)]
+    d_times = [(d1 + timedelta(days=x), d1 + timedelta(days=x + 1)) for x in range((d2 - d1).days)]
     date_tups = [(x.strftime('%Y-%m-%d'), y.strftime('%Y-%m-%d')) for x, y in d_times]
     bands = ['B2', 'B3', 'B4', 'B5', 'B6', 'B7']
 
@@ -131,6 +130,21 @@ def ls8mask(img):
     return mask_mult
 
 
+def landsat_masked(yr, roi):
+    start = '{}-01-01'.format(yr)
+    end_date = '{}-01-01'.format(yr + 1)
+
+    l5_coll = ee.ImageCollection('LANDSAT/LT05/C01/T1_SR').filterBounds(
+        roi).filterDate(start, end_date).map(ls5_edge_removal).map(ls57mask)
+    l7_coll = ee.ImageCollection('LANDSAT/LE07/C01/T1_SR').filterBounds(
+        roi).filterDate(start, end_date).map(ls57mask)
+    l8_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_SR').filterBounds(
+        roi).filterDate(start, end_date).map(ls8mask)
+
+    lsSR_masked = ee.ImageCollection(l7_coll.merge(l8_coll).merge(l5_coll))
+    return lsSR_masked
+
+
 def ndvi5():
     l = ee.ImageCollection('LANDSAT/LT05/C01/T1_SR').map(ls5_edge_removal).map(lambda x: x.select().addBands(
         x.normalizedDifference(['B4', 'B3'])))
@@ -165,4 +179,3 @@ def period_stat(collection, start, end):
 if __name__ == '__main__':
     pass
 # ========================= EOF ====================================================================
-

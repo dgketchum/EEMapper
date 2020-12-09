@@ -123,7 +123,13 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=Non
 
     points = df['POINT_TYPE'].values
     nines = ones_like(points) * 9
+    points = where((df.LAT_GCS < 46.1) & (df.LAT_GCS > 35.55), points, nines)
+    points = where((df.Lon_GCS < -101.3) & (df.Lon_GCS > -112.0), points, nines)
+
+    df['POINT_TYPE'] = points
+    print(df['POINT_TYPE'].value_counts())
     points = where((df.POINT_TYPE == 0) & (df.nd_max_cy < 0.55), nines, points)
+
     df['POINT_TYPE'] = points
     print(df['POINT_TYPE'].value_counts())
     points = where((df['POINT_TYPE'] == 4) & (df['nd_max_cy'] > 0.6), nines, points)
@@ -147,9 +153,9 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=Non
     if select:
         print(df['POINT_TYPE'].value_counts())
         df = df[SELECT + ['POINT_TYPE', 'YEAR']]
-        out_file = os.path.join(out_dir, '{}_sub.csv'.format(glob))
-        sub_df = df[df['POINT_TYPE'] == 0].sample(n=40000)
-        for i, x in zip([1, 2, 3, 4], [20000, 20000, 20000, 10000]):
+        out_file = os.path.join(out_dir, '{}_sub_COWY.csv'.format(glob))
+        sub_df = df[df['POINT_TYPE'] == 0].sample(n=19900)
+        for i, x in zip([1, 2, 3, 4], [5000, 5000, 5000, 5000]):
             sub = df[df['POINT_TYPE'] == i].sample(n=x)
             sub_df = concat([sub_df, sub], sort=False)
         df = sub_df

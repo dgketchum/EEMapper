@@ -8,7 +8,7 @@ import ee
 
 sys.path.insert(0, os.path.abspath('..'))
 from map.assets import list_assets
-from map.ee_utils import get_world_climate, ls57mask, ls8mask, ndvi5
+from map.ee_utils import get_world_climate, ls57mask, ls8mask, ndvi5, landsat_masked
 from map.ee_utils import ndvi7, ndvi8, ls5_edge_removal, period_stat, daily_landsat
 from map.tables import SELECT
 
@@ -20,16 +20,19 @@ ASSET_ROOT = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
 IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
 FILTER_TARGET = 'users/dgketchum/western_states_irr/CA_subselect'
 
-RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_4DEC2020'
-RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/train_pts_3DEC2020'
+RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_3DEC2020_COWY'
+# RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/train_pts_3DEC2020'
+RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/train_pts_7DEC2020_CIMOW'
 
 HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
 HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
 COUNTIES = 'users/dgketchum/boundaries/western_counties'
 MT_BASINS = 'users/dgketchum/boundaries/MT_Admin_Basins'
 
-TARGET_STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT',
-                 'WA', 'WY']
+# TARGET_STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT',
+#                  'WA', 'WY']
+
+TARGET_STATES = ['CO', 'WY']
 
 other = ['ND', 'SD', 'NE', 'KS', 'OK', 'TX']
 
@@ -46,7 +49,7 @@ YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
          2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
 
 TEST_YEARS = [2005]
-ALL_YEARS = [x for x in range(1997, 2021) if x not in [2013]]
+ALL_YEARS = [x for x in range(1997, 2021) if x not in [2017]]
 
 
 def reduce_classification(tables, years=None, description=None, cdl_mask=False, min_years=0):
@@ -289,7 +292,7 @@ def export_classification(out_name, asset_root, region, export='asset'):
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
-    for yr in range(2017, 2018):
+    for yr in ALL_YEARS:
         input_bands = stack_bands(yr, roi)
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.classify(trained_model).int().set({
@@ -326,7 +329,7 @@ def export_classification(out_name, asset_root, region, export='asset'):
         print(os.path.join(asset_root, '{}_{}'.format(out_name, yr)))
 
 
-def filter_irrigated(asset, year, filter_type='filter_low'):
+def filter_irrigated(asset, yr, roi, filter_type='filter_low'):
     """
     Takes a field polygon vector and filters it based on NDVI rules. At present, the function keeps features
     where the lower 15 percentile reach NDVI greater than 0.5 in either early or late summer.
@@ -337,67 +340,39 @@ def filter_irrigated(asset, year, filter_type='filter_low'):
     """
     plots = ee.FeatureCollection(asset).geometry()
 
-    winter_s, winter_e = ee.Date('{}-01-01'.format(year)), ee.Date('{}-03-01'.format(year)),
-    spring_s, spring_e = ee.Date('{}-03-01'.format(year)), ee.Date('{}-05-01'.format(year)),
-    late_spring_s, late_spring_e = ee.Date('{}-05-01'.format(year)), ee.Date('{}-07-01'.format(year))
-    summer_s, summer_e = ee.Date('{}-07-01'.format(year)), ee.Date('{}-09-01'.format(year))
-    fall_s, fall_e = ee.Date('{}-09-01'.format(year)), ee.Date('{}-12-31'.format(year))
-
-    if year <= 2011:
-        collection = ndvi5()
-    elif year == 2012:
-        collection = ndvi7()
-    else:
-        collection = ndvi8()
-
-    early_collection = period_stat(collection, winter_s, spring_e)
-    late_collection = period_stat(collection, fall_s, fall_e)
-
     if filter_type == 'filter_low':
-        early_nd_max = early_collection.select('nd_max')
-        early_int_mean = early_nd_max.reduceRegions(collection=plots,
-                                                    reducer=ee.Reducer.mean(),
-                                                    scale=30.0)
 
-        s_nd_max = late_collection.select('nd_max')
-        combo_mean = s_nd_max.reduceRegions(collection=early_int_mean,
-                                            reducer=ee.Reducer.mean(),
-                                            scale=30.0)
+        late_spring_s, late_spring_e = '{}-05-01'.format(yr), '{}-07-01'.format(yr)
+        summer_s, summer_e = '{}-07-01'.format(yr), '{}-10-31'.format(yr)
 
-        filt_fc = combo_mean.filter(ee.Filter.Or(ee.Filter.gt('mean', 0.7), ee.Filter.gt('mean', 0.7)))
+        lsSR_masked = landsat_masked(yr, roi)
 
-    elif filter_type == 'filter_high':
-        # only use if there are irrmapper results here
-        # irrmapper = ee.ImageCollection(ASSET_ROOT)
-        # img = ee.Image()
-        # for y in range(1986, 2019):
-        #     i = irrmapper.filterDate('{}-01-01'.format(y), '{}-12-31'.format(y)).mosaic()
-        #     i = i.remap([0, 1, 2, 3], [1, 0, 0, 0]).rename('irr')
-        #     img = img.addBands(i)
-        #
-        # img = img.reduce(ee.Reducer.sum())
-        # equipped = img.gte(10).rename('equip')
-        # equip = equipped.reduceRegions(collection=plots,
-        #                                reducer=ee.Reducer.mode(),
-        #                                scale=30.0)
+        early_nd = ee.Image(lsSR_masked.filterDate(late_spring_s, late_spring_e).map(
+            lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd')
 
-        summer_nd_max = summer_collection.select('nd_max')
-        early_int_mean = summer_nd_max.reduceRegions(collection=plots,
-                                                     reducer=ee.Reducer.mean(),
-                                                     scale=30.0)
+        late_nd = ee.Image(lsSR_masked.filterDate(summer_s, summer_e).map(
+            lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_1')
 
-        filt_fc = early_int_mean.filter(ee.Filter.lt('mean', 0.5))
+        early_int_mean = early_nd.reduceRegions(collection=plots,
+                                                reducer=ee.Reducer.mean(),
+                                                scale=30.0)
+
+        combo = late_nd.reduceRegions(collection=early_int_mean,
+                                      reducer=ee.Reducer.mean(),
+                                      scale=30.0)
+
+        filt_fc = combo.filter(ee.Filter.Or(ee.Filter.gt('nd', 0.7), ee.Filter.gt('nd_1', 0.7)))
 
     else:
         raise NotImplementedError('must choose from filter_low or filter_high')
 
     task = ee.batch.Export.table.toAsset(filt_fc,
-                                         description='CA_{}_{}'.format(year, filter_type),
+                                         description='CA_{}_{}'.format(yr, filter_type),
                                          assetId='users/dgketchum/'
                                                  'western_states_irr/'
-                                                 'CA_{}_{}'.format(year, filter_type))
+                                                 'CA_{}_{}'.format(yr, filter_type))
     size = filt_fc.size().getInfo()
-    print(year, filter_type, size)
+    print(yr, filter_type, size)
     if size > 0:
         task.start()
 
@@ -484,8 +459,7 @@ def stack_bands(yr, roi):
     :param roi:
     :return:
     """
-    start = '{}-01-01'.format(yr)
-    end_date = '{}-01-01'.format(yr + 1)
+
     water_year_start = '{}-10-01'.format(yr - 1)
 
     winter_s, winter_e = '{}-01-01'.format(yr), '{}-03-01'.format(yr),
@@ -494,14 +468,7 @@ def stack_bands(yr, roi):
     summer_s, summer_e = '{}-07-01'.format(yr), '{}-09-01'.format(yr)
     fall_s, fall_e = '{}-09-01'.format(yr), '{}-12-31'.format(yr)
 
-    l5_coll = ee.ImageCollection('LANDSAT/LT05/C01/T1_SR').filterBounds(
-        roi).filterDate(start, end_date).map(ls5_edge_removal).map(ls57mask)
-    l7_coll = ee.ImageCollection('LANDSAT/LE07/C01/T1_SR').filterBounds(
-        roi).filterDate(start, end_date).map(ls57mask)
-    l8_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_SR').filterBounds(
-        roi).filterDate(start, end_date).map(ls8mask)
-
-    lsSR_masked = ee.ImageCollection(l7_coll.merge(l8_coll).merge(l5_coll))
+    lsSR_masked = landsat_masked(yr, roi)
 
     lsSR_wnt_mn = ee.Image(lsSR_masked.filterDate(winter_s, winter_e).map(
         lambda x: x.select('B2', 'B3', 'B4', 'B5', 'B6', 'B7')).mean())
@@ -653,9 +620,8 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    # request_band_extract('bands_3DEC2020', RF_TRAINING_POINTS, GEO_DOMAIN, filter_bounds=True)
-
-    for s in TARGET_STATES:
-        geo = os.path.join(BOUNDARIES, s)
-        export_classification(out_name='IM_{}'.format(s), asset_root=ASSET_ROOT, region=geo)
+    request_band_extract('bands_i_cimow_7DEC2020', )
+    # for s in TARGET_STATES:
+    #     geo = os.path.join(BOUNDARIES, s)
+    #     export_classification(out_name='IM_{}'.format(s), asset_root=ASSET_ROOT, region=geo)
 # ========================= EOF ====================================================================
