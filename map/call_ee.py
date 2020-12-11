@@ -583,13 +583,19 @@ def stack_bands(yr, roi):
     static_input_bands = coords.addBands([temp_perc, wd_estimate, terrain, tpi_1250, tpi_250, tpi_150, world_climate])
 
     nlcd = ee.Image('USGS/NLCD/NLCD2011').select('landcover').reproject(crs=proj['crs'], scale=30).rename('nlcd')
-    cdl = ee.Image('USDA/NASS/CDL/2017').select('cultivated').remap([1, 2], [0, 1]).reproject(crs=proj['crs'],
-                                                                                              scale=30).rename('cdl')
+
+    cdl_cult = ee.Image('USDA/NASS/CDL/2017').select('cultivated').remap([1, 2], [0, 1]).reproject(crs=proj['crs'],
+                                                                                                   scale=30).rename(
+        'cdlclt')
+    cdl_crop = ee.Image('USDA/NASS/CDL/2017').select('cultivated').remap([1, 2], [0, 1]).reproject(crs=proj['crs'],
+                                                                                                   scale=30).rename(
+        'cdlcrp')
+
     gsw = ee.Image('JRC/GSW1_0/GlobalSurfaceWater')
     occ_pos = gsw.select('occurrence').gt(0)
     water = occ_pos.unmask(0).rename('gsw')
 
-    static_input_bands = static_input_bands.addBands([nlcd, cdl, water])
+    static_input_bands = static_input_bands.addBands([nlcd, cdl_cult, cdl_crop, water])
 
     input_bands = input_bands.addBands(static_input_bands).clip(roi)
 
@@ -624,13 +630,13 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    for s in ['CO']:
-        # shp = '/media/research/IrrigationGIS/EE_extracts/state_point_shp/train/{}/points_10DEC2020.shp'.format(s)
-        # years_ = count_points(shp)
-        # pts = os.path.join('projects/ee-dgketchum/assets/points/state', 'pts_{}_10DEC2020'.format(s))
-        # roi = os.path.join(BOUNDARIES, 'CO')
-        # request_band_extract('bands_{}_10DEC2020'.format(s), pts, roi, years_, filter_bounds=False)
-        csv = 'projects/ee-dgketchum/assets/bands/state/bands_{}_10DEC2020'.format(s)
-        geo = os.path.join(BOUNDARIES, s)
-        export_classification(out_name='IM_{}'.format(s), table=csv, asset_root=ASSET_ROOT, region=geo)
+    for s in ['CO', 'MT', 'CA', 'OR']:
+        shp = '/media/research/IrrigationGIS/EE_extracts/state_point_shp/train/{}/points_10DEC2020.shp'.format(s)
+        years_ = count_points(shp)
+        pts = os.path.join('projects/ee-dgketchum/assets/points/state', 'pts_{}_10DEC2020'.format(s))
+        roi = os.path.join(BOUNDARIES, s)
+        request_band_extract('bands_{}_10DEC2020'.format(s), pts, roi, years_, filter_bounds=False)
+        # csv = 'projects/ee-dgketchum/assets/bands/state/bands_{}_10DEC2020'.format(s)
+        # geo = os.path.join(BOUNDARIES, s)
+        # export_classification(out_name='IM_{}'.format(s), table=csv, asset_root=ASSET_ROOT, region=geo)
 # ========================= EOF ====================================================================
