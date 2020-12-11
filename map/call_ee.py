@@ -11,17 +11,17 @@ from map.assets import list_assets
 from map.ee_utils import get_world_climate, ls57mask, ls8mask, ndvi5, landsat_masked
 from map.ee_utils import ndvi7, ndvi8, ls5_edge_removal, period_stat, daily_landsat
 from map.tables import SELECT
+from shape_ops import count_points
 
 sys.setrecursionlimit(2000)
 
 GEO_DOMAIN = 'users/dgketchum/boundaries/western_states_expanded_union'
 BOUNDARIES = 'users/dgketchum/boundaries'
-ASSET_ROOT = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+ASSET_ROOT = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_RF2'
 IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
 FILTER_TARGET = 'users/dgketchum/western_states_irr/CA_subselect'
 
 RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_3DEC2020_COWY'
-# RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/train_pts_3DEC2020'
 RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/train_pts_7DEC2020_CIMOW'
 
 HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
@@ -262,7 +262,7 @@ def export_special(roi, description):
     task.start()
 
 
-def export_classification(out_name, asset_root, region, export='asset'):
+def export_classification(out_name, table, asset_root, region, export='asset'):
     """
     Trains a Random Forest classifier using a training table input, creates a stack of raster images of the same
     features, and classifies it.  I run this over a for-loop iterating state by state.
@@ -273,7 +273,7 @@ def export_classification(out_name, asset_root, region, export='asset'):
     :param export:
     :return:
     """
-    fc = ee.FeatureCollection(RF_TRAINING_DATA)
+    fc = ee.FeatureCollection(table)
     roi = ee.FeatureCollection(region)
     mask = roi.geometry().bounds().getInfo()['coordinates']
 
@@ -292,7 +292,7 @@ def export_classification(out_name, asset_root, region, export='asset'):
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
-    for yr in ALL_YEARS:
+    for yr in [2018, 2019, 2020]:
         input_bands = stack_bands(yr, roi)
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.classify(trained_model).int().set({
@@ -415,7 +415,7 @@ def request_validation_extract(file_prefix='validation'):
         print(yr)
 
 
-def request_band_extract(file_prefix, points_layer, region, filter_bounds=False):
+def request_band_extract(file_prefix, points_layer, region, years, filter_bounds=False):
     """
     Extract raster values from a points kml file in Fusion Tables. Send annual extracts .csv to GCS wudr bucket.
     Concatenate them using map.tables.concatenate_band_extract().
@@ -427,29 +427,33 @@ def request_band_extract(file_prefix, points_layer, region, filter_bounds=False)
     """
     roi = ee.FeatureCollection(region)
     plots = ee.FeatureCollection(points_layer)
-    for yr in YEARS:
-        stack = stack_bands(yr, roi)
+    for yr in years:
+        try:
+            stack = stack_bands(yr, roi)
 
-        if filter_bounds:
-            plots = plots.filterBounds(roi)
+            if filter_bounds:
+                plots = plots.filterBounds(roi)
 
-        filtered = plots.filter(ee.Filter.eq('YEAR', yr))
+            filtered = plots.filter(ee.Filter.eq('YEAR', yr))
 
-        plot_sample_regions = stack.sampleRegions(
-            collection=filtered,
-            properties=['POINT_TYPE', 'YEAR'],
-            scale=30,
-            tileScale=16)
+            plot_sample_regions = stack.sampleRegions(
+                collection=filtered,
+                properties=['POINT_TYPE', 'YEAR'],
+                scale=30,
+                tileScale=16)
 
-        task = ee.batch.Export.table.toCloudStorage(
-            plot_sample_regions,
-            description='{}_{}'.format(file_prefix, yr),
-            bucket='wudr',
-            fileNamePrefix='{}_{}'.format(file_prefix, yr),
-            fileFormat='CSV')
+            task = ee.batch.Export.table.toCloudStorage(
+                plot_sample_regions,
+                description='{}_{}'.format(file_prefix, yr),
+                bucket='wudr',
+                fileNamePrefix='{}_{}'.format(file_prefix, yr),
+                fileFormat='CSV')
 
-        task.start()
-        print(yr)
+            task.start()
+            print(yr)
+        except ee.ee_exception.EEException as e:
+            print(yr, e)
+            pass
 
 
 def stack_bands(yr, roi):
@@ -620,8 +624,13 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    request_band_extract('bands_i_cimow_7DEC2020', )
-    # for s in TARGET_STATES:
-    #     geo = os.path.join(BOUNDARIES, s)
-    #     export_classification(out_name='IM_{}'.format(s), asset_root=ASSET_ROOT, region=geo)
+    for s in ['CO']:
+        # shp = '/media/research/IrrigationGIS/EE_extracts/state_point_shp/train/{}/points_10DEC2020.shp'.format(s)
+        # years_ = count_points(shp)
+        # pts = os.path.join('projects/ee-dgketchum/assets/points/state', 'pts_{}_10DEC2020'.format(s))
+        # roi = os.path.join(BOUNDARIES, 'CO')
+        # request_band_extract('bands_{}_10DEC2020'.format(s), pts, roi, years_, filter_bounds=False)
+        csv = 'projects/ee-dgketchum/assets/bands/state/bands_{}_10DEC2020'.format(s)
+        geo = os.path.join(BOUNDARIES, s)
+        export_classification(out_name='IM_{}'.format(s), table=csv, asset_root=ASSET_ROOT, region=geo)
 # ========================= EOF ====================================================================

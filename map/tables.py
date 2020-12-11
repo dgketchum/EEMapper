@@ -123,11 +123,6 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=Non
 
     points = df['POINT_TYPE'].values
     nines = ones_like(points) * 9
-    points = where((df.LAT_GCS < 46.1) & (df.LAT_GCS > 35.55), points, nines)
-    points = where((df.Lon_GCS < -101.3) & (df.Lon_GCS > -112.0), points, nines)
-
-    df['POINT_TYPE'] = points
-    print(df['POINT_TYPE'].value_counts())
     points = where((df.POINT_TYPE == 0) & (df.nd_max_cy < 0.55), nines, points)
 
     df['POINT_TYPE'] = points
@@ -153,9 +148,9 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=Non
     if select:
         print(df['POINT_TYPE'].value_counts())
         df = df[SELECT + ['POINT_TYPE', 'YEAR']]
-        out_file = os.path.join(out_dir, '{}_sub_COWY.csv'.format(glob))
-        sub_df = df[df['POINT_TYPE'] == 0].sample(n=19900)
-        for i, x in zip([1, 2, 3, 4], [5000, 5000, 5000, 5000]):
+        out_file = os.path.join(out_dir, '{}.csv'.format(glob))
+        sub_df = df[df['POINT_TYPE'] == 0]
+        for i, x in zip([1, 2, 3, 4], [2000, 2000, 2000, 1000]):
             sub = df[df['POINT_TYPE'] == i].sample(n=x)
             sub_df = concat([sub_df, sub], sort=False)
         df = sub_df
@@ -456,8 +451,9 @@ def join_comparison_to_shapefile(csv, shp, out_shape):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     data_dir = '/media/research'
-    d = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'to_concatenate')
-    glob = 'bands_3DEC2020'
-    o = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'concatenated')
-    concatenate_band_extract(d, o, glob, select=True)
+    for state in ['CO']:
+        d = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'state_bands', 'to_concatenate')
+        glob = 'bands_{}_7DEC2020'.format(state)
+        o = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'state_bands', 'concatenated')
+        concatenate_band_extract(d, o, glob, select=True)
 # ========================= EOF ====================================================================

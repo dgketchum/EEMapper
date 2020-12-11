@@ -10,14 +10,6 @@ YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
          2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
          2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
 
-training = os.path.join('/media/research', 'IrrigationGIS', 'EE_sample', 'aea')
-
-WETLAND = os.path.join(training, 'wetlands_15JUL2020.shp')
-UNCULTIVATED = os.path.join(training, 'uncultivated_3DEC2020.shp')
-IRRIGATED = os.path.join(training, 'irrigated_7DEC2020_CIMOW.shp')
-UNIRRIGATED = os.path.join(training, 'unirrigated_29NOV2020.shp')
-FALLOW = os.path.join(training, 'fallow_2DEC2020.shp')
-
 
 class PointsRunspec(object):
 
@@ -158,6 +150,7 @@ class PointsRunspec(object):
                 pt = Point(row['X'], row['Y'])
                 output.write({'properties': props,
                               'geometry': mapping(pt)})
+        print('write {}'.format(path))
         return None
 
     def _get_polygons(self, vector, attr=None):
@@ -184,19 +177,31 @@ class PointsRunspec(object):
 
 if __name__ == '__main__':
     # home = os.path.expanduser('~')
-    home = '/media/research'
-    data = os.path.join(home, 'IrrigationGIS', 'EE_sample')
-    extract = os.path.join(home, 'IrrigationGIS', 'EE_extracts', 'point_shp')
+    home = '/media/research/IrrigationGIS'
+    data = os.path.join(home, 'EE_sample', 'state_clip_aea')
 
-    kwargs = {
-        'irrigated': 80000,
-        # 'wetlands': 80000,
-        # 'fallowed': 80000,
-        # 'uncultivated': 80000,
-        # 'unirrigated': 80000,
-    }
+    for state in ['MT']:
+        extract = os.path.join(home, 'EE_extracts', 'state_point_shp')
+        FALLOW = os.path.join(data, state, 'fallow_2DEC2020.shp')
+        IRRIGATED = os.path.join(data, state, 'irrigated_7DEC2020.shp')
+        UNCULTIVATED = os.path.join(data, state, 'uncultivated_3DEC2020.shp')
+        UNIRRIGATED = os.path.join(data, state, 'unirrigated_29NOV2020.shp')
+        WETLAND = os.path.join(data, state, 'wetlands_15JUL2020.shp')
 
-    prs = PointsRunspec(data, buffer=-20, **kwargs)
-    prs.save_sample_points(os.path.join(extract, 'points_7DEC2020_CIMOW.shp'.format()))
+        kwargs = {
+            'irrigated': 10000,
+            'wetlands': 10000,
+            'fallowed': 5000,
+            'uncultivated': 10000,
+            'unirrigated': 10000,
+        }
+
+        outdir = os.path.join(extract, 'raw', state)
+        if not os.path.isdir(outdir):
+            os.mkdir(outdir)
+        out_name = os.path.join(outdir, 'points_10DEC2020.shp'.format())
+
+        prs = PointsRunspec(data, buffer=-20, **kwargs)
+        prs.save_sample_points(out_name)
 
 # ========================= EOF ====================================================================

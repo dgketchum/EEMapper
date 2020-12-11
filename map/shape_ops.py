@@ -884,6 +884,7 @@ def count_points(shp):
             dct[y][t] += 1
     for k, v in dct.items():
         print(k, v, sum(v))
+    return list(set(dct.keys()))
 
 
 if __name__ == '__main__':
@@ -892,11 +893,11 @@ if __name__ == '__main__':
     # out = os.path.join(gis, 'out')
     # compile_years(gis, out, 'WY')
 
-    # count_points(os.path.join(gis, 'EE_extracts', 'point_shp', 'train_pts_3DEC2020.shp'))
+    count_points('/media/research/IrrigationGIS/EE_extracts/state_point_shp/train/CO/points_10DEC2020.shp')
 
-    gis = os.path.join('/media/research', 'IrrigationGIS')
-    inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
-    files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    out_ = os.path.join(gis, 'EE_sample', 'wgs', 'irrigated_7DEC2020.shp')
-    fiona_merge_attribute(out_, files_)
+    # gis = os.path.join('/media/research', 'IrrigationGIS')
+    # inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
+    # files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
+    # out_ = os.path.join(gis, 'EE_sample', 'wgs', 'irrigated_7DEC2020.shp')
+    # fiona_merge_attribute(out_, files_)
 # ========================= EOF ====================================================================
