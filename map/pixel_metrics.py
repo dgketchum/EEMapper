@@ -7,10 +7,10 @@ ee.Initialize()
 
 
 def confusion(irr_labels, unirr_labels, irr_image, unirr_image):
-    mt = 'users/tcolligan0/Montana'
-    mt = ee.FeatureCollection(mt)
-    mt = mt.toList(mt.size()).get(0)
-    mt = ee.Feature(mt)
+    domain = 'users/dgketchum/boundaries/western_11_union'
+    domain = ee.FeatureCollection(domain)
+    domain = domain.toList(domain.size()).get(0)
+    domain = ee.Feature(domain)
 
     true_positive = irr_image.eq(irr_labels)  # pred. irrigated, labeled irrigated
     false_positive = irr_image.eq(unirr_labels)  # pred. irrigated, labeled unirrigated
@@ -19,28 +19,28 @@ def confusion(irr_labels, unirr_labels, irr_image, unirr_image):
     false_negative = unirr_image.eq(irr_labels)  # pred unirrigated, labeled irrigated
 
     TP = true_positive.reduceRegion(
-        geometry=mt.geometry(),
+        geometry=domain.geometry(),
         reducer=ee.Reducer.count(),
         maxPixels=1e9,
         crs='EPSG:5070',
         scale=30
     )
     FP = false_positive.reduceRegion(
-        geometry=mt.geometry(),
+        geometry=domain.geometry(),
         reducer=ee.Reducer.count(),
         maxPixels=1e9,
         crs='EPSG:5070',
         scale=30
     )
     FN = false_negative.reduceRegion(
-        geometry=mt.geometry(),
+        geometry=domain.geometry(),
         reducer=ee.Reducer.count(),
         maxPixels=1e9,
         crs='EPSG:5070',
         scale=30
     )
     TN = true_negative.reduceRegion(
-        geometry=mt.geometry(),
+        geometry=domain.geometry(),
         reducer=ee.Reducer.count(),
         maxPixels=1e9,
         crs='EPSG:5070',
@@ -59,22 +59,11 @@ def create_lanid_labels(year):
     begin = '{}-01-01'.format(year)
     end = '{}-12-31'.format(year)
     lanid = ee.Image('projects/openet/irrigated_area/LANID').filterDate(begin, end).first().select("irr_land")
-    irr_mask = lanid.eq(1)  # lanid is already masked
+    irr_mask = lanid.eq(1)
     unmasked = lanid.unmask(0)
     unirr_image = ee.Image(1).byte().updateMask(unmasked.Not())
     irr_image = ee.Image(1).byte().updateMask(irr_mask)
     return irr_image, unirr_image
-
-
-def create_unet_labels(year):
-    unet = ee.Image('users/tcolligan0/irrigationMT/irrMT{}'.format(year))
-    unet = unet.select(['b1', 'b2', 'b3'], ['irr', 'uncult', 'unirr'])
-    irrImage = unet.select('irr')
-    irrMask = irrImage.gt(unet.select('uncult'))
-    irrMask = irrMask.And(unet.select('irr').gt(unet.select('unirr')))
-    unirrImage = ee.Image(1).byte().updateMask(irrMask.neq(1))
-    irrImage = ee.Image(1).byte().updateMask(irrMask.eq(1))
-    return irrImage, unirrImage
 
 
 def create_rf_labels(year):
@@ -88,19 +77,11 @@ def create_rf_labels(year):
     return irrImage, unirrImage
 
 
-def create_mirad_labels(year):
-    mirad = ee.Image('users/tcolligan0/MIRAD/mirad{}MT'.format(year))
-    irrMask = mirad.eq(1)
-    unirrImage = ee.Image(1).byte().updateMask(irrMask.Not())
-    irrImage = ee.Image(1).byte().updateMask(irrMask)
-    return irrImage, unirrImage
-
-
 def create_irrigated_labels(all_data, year):
     if all_data:
-        non_irrigated = ee.FeatureCollection('users/tcolligan0/merged_shapefile_unirr_wetlands_unc')
-        fallow = ee.FeatureCollection('users/tcolligan0/fallow_11FEB')
-        irrigated = ee.FeatureCollection('users/tcolligan0/irrigated_MT_13MAR2020')
+        non_irrigated = ee.FeatureCollection('projects/ee-dgketchum/assets/training_polygons/dryland')
+        fallow = ee.FeatureCollection('projects/ee-dgketchum/assets/training_polygons/fallow')
+        irrigated = ee.FeatureCollection('projects/ee-dgketchum/assets/training_polygons/irrigated')
         fallow = fallow.filter(ee.Filter.eq('YEAR', year))
         non_irrigated = non_irrigated.merge(fallow)
         irrigated = irrigated.filter(ee.Filter.eq('YEAR', year))

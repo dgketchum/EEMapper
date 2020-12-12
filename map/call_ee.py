@@ -584,9 +584,9 @@ def stack_bands(yr, roi):
 
     nlcd = ee.Image('USGS/NLCD/NLCD2011').select('landcover').reproject(crs=proj['crs'], scale=30).rename('nlcd')
 
-    cdl_cult = ee.Image('USDA/NASS/CDL/2017').select('cultivated').remap([1, 2], [0, 1]).reproject(crs=proj['crs'],
-                                                                                                   scale=30).rename(
-        'cdlclt')
+    cdl_cult = ee.Image('USDA/NASS/CDL/2017').select('cultivated').\
+        remap([1, 2], [0, 1]).reproject(crs=proj['crs'], scale=30).rename('cdlclt')
+
     cdl_crop = ee.Image('USDA/NASS/CDL/2017').select('cropland').reproject(crs=proj['crs'],
                                                                            scale=30).rename('cdlcrp')
 
@@ -629,7 +629,7 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    for s in ['CA', 'CO', 'ID', 'MT', 'OR', 'WA']:
+    for s in ['ID']:
         shp = '/media/research/IrrigationGIS/EE_extracts/state_point_shp/train/{}/points_10DEC2020.shp'.format(s)
         years_ = count_points(shp)
         pts = os.path.join('projects/ee-dgketchum/assets/points/state', 'pts_{}_10DEC2020'.format(s))

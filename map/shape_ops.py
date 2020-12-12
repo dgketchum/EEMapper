@@ -889,11 +889,12 @@ def count_points(shp):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    # gis = os.path.join(home, 'Downloads', 'state_joins', 'WY')
-    # out = os.path.join(gis, 'out')
-    # compile_years(gis, out, 'WY')
+    for s in ['NM', 'TX']:
+        gis = os.path.join(home, 'Downloads', 'state_joins', s)
+        out = os.path.join(gis, 'out')
+        compile_years(gis, out, s)
 
-    count_points('/media/research/IrrigationGIS/EE_extracts/state_point_shp/train/CO/points_10DEC2020.shp')
+    # count_points('/media/research/IrrigationGIS/EE_extracts/state_point_shp/train/CO/points_10DEC2020.shp')
 
     # gis = os.path.join('/media/research', 'IrrigationGIS')
     # inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')

@@ -6,10 +6,6 @@ from numpy.random import shuffle, choice
 from pandas import DataFrame
 from shapely.geometry import shape, Point, mapping
 
-YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
-         2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
-         2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
-
 
 class PointsRunspec(object):
 
@@ -175,15 +171,29 @@ class PointsRunspec(object):
         return polys
 
 
+def get_training_years(shapes):
+    years = []
+    for shape in shapes:
+        with fiona.open(shape, 'r') as src:
+            for feat in src:
+                yr = feat['properties']['YEAR']
+                if yr not in years:
+                    years.append(yr)
+    return years
+
+
 if __name__ == '__main__':
     # home = os.path.expanduser('~')
     home = '/media/research/IrrigationGIS'
     data = os.path.join(home, 'EE_sample', 'state_clip_aea')
 
-    for state in ['MT']:
+    for state in ['CA', 'CO', 'ID', 'MT', 'OR', 'WA']:
         extract = os.path.join(home, 'EE_extracts', 'state_point_shp')
         FALLOW = os.path.join(data, state, 'fallow_2DEC2020.shp')
         IRRIGATED = os.path.join(data, state, 'irrigated_7DEC2020.shp')
+
+        YEARS = get_training_years([IRRIGATED, FALLOW])
+
         UNCULTIVATED = os.path.join(data, state, 'uncultivated_3DEC2020.shp')
         UNIRRIGATED = os.path.join(data, state, 'unirrigated_29NOV2020.shp')
         WETLAND = os.path.join(data, state, 'wetlands_15JUL2020.shp')

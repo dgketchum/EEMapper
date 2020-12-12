@@ -153,7 +153,8 @@ def variable_importance():
 
 def original_names():
     return ['nlcd',
-            'cdl',
+            'cdlclt',
+            'cdlcrp',
             'LAT_GCS',
             'nd_max_cy',
             'B5_3',
