@@ -103,15 +103,22 @@ def mask_move(min_years=3):
 
     image_list = list_assets('projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp')
     image_list = [x for x in image_list if 'MT' in x]
-    coll = ee.ImageCollection(image_list)
-    sum = ee.ImageCollection(coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum()
-    sum_mask = sum.gt(min_years)
+    coll = ee.ImageCollection('projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp').select('classification')
+    remap = coll.map(lambda x: x.lt(1))
+    sum_mask = remap.sum().lt(min_years)
 
     for image in image_list:
-
-        img = ee.Image(image).remap([0, 1, 2, 3], [1, 0, 0, 0]).mask(sum_mask)
-        img = img.unmask(0).select('remapped').rename('classification')
         desc = os.path.basename(image)
+        yr = int(desc[-4:])
+        img = ee.Image(image).remap([0, 1, 2, 3], [1, 0, 0, 0]).mask(sum_mask)
+        img = img.unmask(0).select(['remapped'], ['classification'])
+        img = img.set({
+            'system:index': ee.Date('{}-01-01'.format(yr)).format('YYYYMMdd'),
+            'system:time_start': ee.Date('{}-01-01'.format(yr)).millis(),
+            'system:time_end': ee.Date('{}-12-31'.format(yr)).millis(),
+            'image_name': desc,
+            'class_key': '1: irrigated, 0: unirrigated'})
+
         task = ee.batch.Export.image.toAsset(
             image=img,
             description=desc,

@@ -17,7 +17,7 @@ sys.setrecursionlimit(2000)
 
 GEO_DOMAIN = 'users/dgketchum/boundaries/western_states_expanded_union'
 BOUNDARIES = 'users/dgketchum/boundaries'
-ASSET_ROOT = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_RF2'
+ASSET_ROOT = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_test'
 IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
 FILTER_TARGET = 'users/dgketchum/western_states_irr/CA_subselect'
 
@@ -623,13 +623,13 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    for s in ['CA', 'CO', 'ID', 'OR', 'WA']:
+    for s in ['CO']:
         # shp = '/media/research/IrrigationGIS/EE_extracts/state_point_shp/train/{}/points_10DEC2020.shp'.format(s)
         # years_ = count_points(shp)
         # pts = os.path.join('projects/ee-dgketchum/assets/points/state', 'pts_{}_10DEC2020'.format(s))
         # roi = os.path.join(BOUNDARIES, s)
         # request_band_extract('bands_{}_10DEC2020'.format(s), pts, roi, years_, filter_bounds=False)
-        csv = 'projects/ee-dgketchum/assets/bands/state/bands_{}_10DEC2020'.format(s)
+        csv = 'projects/ee-dgketchum/assets/bands/bands_14DEC2020'
         geo = os.path.join(BOUNDARIES, s)
         export_classification(out_name='IM_{}'.format(s), table=csv, asset_root=ASSET_ROOT, region=geo)
 # ========================= EOF ====================================================================
