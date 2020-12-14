@@ -106,7 +106,16 @@ def create_irrigated_labels(all_data, year):
     return irr_labels, unirr_labels
 
 
+def metrics(arr):
+    recall = arr[0, 0] / (arr[0, 1] + arr[0, 0])
+    precision = arr[0, 0] / (arr[1, 0] + arr[0, 0])
+    return precision, recall
+
+
 if __name__ == '__main__':
+
+    # im = np.array([[804828, 56825], [563617, 42072843]])
+    # lid = np.array([[710976, 150677], [273559, 42362906]])
 
     conf = np.zeros((2, 2))
     for year in [2013]:
@@ -119,5 +128,7 @@ if __name__ == '__main__':
             for pos, ct in zip([(0, 0), (0, 1), (1, 0), (1, 1)], ['TP', 'FN', 'FP', 'TN']):
                 conf[pos] += cmt[ct]['constant']
     print(conf)
+    p, r = metrics(conf)
+    print('prec {}, rec {}'.format(p, r))
 
 # ========================= EOF ====================================================================

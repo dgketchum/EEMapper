@@ -150,7 +150,10 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=Non
         df = df[SELECT + ['POINT_TYPE', 'YEAR']]
         out_file = os.path.join(out_dir, '{}.csv'.format(glob))
         sub_df = df[df['POINT_TYPE'] == 0]
-        for i, x in zip([1, 2, 3, 4], [2000, 2000, 2000, 1000]):
+        shape = sub_df.shape[0]
+        target = int(shape / 3.)
+        target_f = int(shape / 6.)
+        for i, x in zip([1, 2, 3, 4], [target, target, target, target_f]):
             try:
                 sub = df[df['POINT_TYPE'] == i].sample(n=x)
                 sub_df = concat([sub_df, sub], sort=False)
@@ -454,7 +457,7 @@ def join_comparison_to_shapefile(csv, shp, out_shape):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     data_dir = '/media/research'
-    for state in ['CA']:
+    for state in ['CA', 'CO', 'ID', 'MT', 'OR', 'WA']:
         d = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'state_bands', 'to_concatenate')
         glob = 'bands_{}_10DEC2020'.format(state)
         o = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'state_bands', 'concatenated')

@@ -5,7 +5,7 @@ from time import time
 from subprocess import call
 
 # import tensorflow as tf
-from numpy import dot, mean, flatnonzero, unique
+from numpy import dot, mean, flatnonzero, unique, array
 from numpy.random import randint
 from pandas import read_csv, concat, get_dummies, DataFrame
 from scipy.stats import randint as sp_randint

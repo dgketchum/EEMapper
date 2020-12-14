@@ -29,8 +29,8 @@ HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
 COUNTIES = 'users/dgketchum/boundaries/western_counties'
 MT_BASINS = 'users/dgketchum/boundaries/MT_Admin_Basins'
 
-# TARGET_STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT',
-#                  'WA', 'WY']
+TARGET_STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT',
+                 'WA', 'WY']
 
 TARGET_STATES = ['CO', 'WY']
 
@@ -49,7 +49,7 @@ YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
          2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
 
 TEST_YEARS = [2005]
-ALL_YEARS = [x for x in range(1997, 2021) if x not in [2017]]
+ALL_YEARS = [x for x in range(1997, 2018)]
 
 
 def reduce_classification(tables, years=None, description=None, cdl_mask=False, min_years=0):
@@ -284,15 +284,10 @@ def export_classification(out_name, table, asset_root, region, export='asset'):
         outOfBagMode=False).setOutputMode('CLASSIFICATION')
 
     input_props = fc.first().propertyNames().remove('YEAR').remove('POINT_TYPE').remove('system:index')
-    # input_props = ee.List(SELECT)
-
-    feature_bands = sorted([b for b in fc.first().getInfo()['properties']])
-    feature_bands.remove('POINT_TYPE')
-    feature_bands.remove('YEAR')
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
-    for yr in [2018, 2019, 2020]:
+    for yr in ALL_YEARS:
         input_bands = stack_bands(yr, roi)
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.classify(trained_model).int().set({
@@ -427,33 +422,32 @@ def request_band_extract(file_prefix, points_layer, region, years, filter_bounds
     """
     roi = ee.FeatureCollection(region)
     plots = ee.FeatureCollection(points_layer)
-    for yr in years:
-        try:
-            stack = stack_bands(yr, roi)
+    try:
+        stack = stack_bands(yr, roi)
 
-            if filter_bounds:
-                plots = plots.filterBounds(roi)
+        if filter_bounds:
+            plots = plots.filterBounds(roi)
 
-            filtered = plots.filter(ee.Filter.eq('YEAR', yr))
+        filtered = plots.filter(ee.Filter.eq('YEAR', yr))
 
-            plot_sample_regions = stack.sampleRegions(
-                collection=filtered,
-                properties=['POINT_TYPE', 'YEAR'],
-                scale=30,
-                tileScale=16)
+        plot_sample_regions = stack.sampleRegions(
+            collection=filtered,
+            properties=['POINT_TYPE', 'YEAR'],
+            scale=30,
+            tileScale=16)
 
-            task = ee.batch.Export.table.toCloudStorage(
-                plot_sample_regions,
-                description='{}_{}'.format(file_prefix, yr),
-                bucket='wudr',
-                fileNamePrefix='{}_{}'.format(file_prefix, yr),
-                fileFormat='CSV')
+        task = ee.batch.Export.table.toCloudStorage(
+            plot_sample_regions,
+            description='{}_{}'.format(file_prefix, yr),
+            bucket='wudr',
+            fileNamePrefix='{}_{}'.format(file_prefix, yr),
+            fileFormat='CSV')
 
-            task.start()
-            print(yr)
-        except ee.ee_exception.EEException as e:
-            print(yr, e)
-            pass
+        task.start()
+        print(yr)
+    except ee.ee_exception.EEException as e:
+        print(yr, e)
+        pass
 
 
 def stack_bands(yr, roi):
@@ -629,13 +623,13 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    for s in ['ID']:
-        shp = '/media/research/IrrigationGIS/EE_extracts/state_point_shp/train/{}/points_10DEC2020.shp'.format(s)
-        years_ = count_points(shp)
-        pts = os.path.join('projects/ee-dgketchum/assets/points/state', 'pts_{}_10DEC2020'.format(s))
-        roi = os.path.join(BOUNDARIES, s)
-        request_band_extract('bands_{}_10DEC2020'.format(s), pts, roi, years_, filter_bounds=False)
-        # csv = 'projects/ee-dgketchum/assets/bands/state/bands_{}_10DEC2020'.format(s)
-        # geo = os.path.join(BOUNDARIES, s)
-        # export_classification(out_name='IM_{}'.format(s), table=csv, asset_root=ASSET_ROOT, region=geo)
+    for s in ['CA', 'CO', 'ID', 'OR', 'WA']:
+        # shp = '/media/research/IrrigationGIS/EE_extracts/state_point_shp/train/{}/points_10DEC2020.shp'.format(s)
+        # years_ = count_points(shp)
+        # pts = os.path.join('projects/ee-dgketchum/assets/points/state', 'pts_{}_10DEC2020'.format(s))
+        # roi = os.path.join(BOUNDARIES, s)
+        # request_band_extract('bands_{}_10DEC2020'.format(s), pts, roi, years_, filter_bounds=False)
+        csv = 'projects/ee-dgketchum/assets/bands/state/bands_{}_10DEC2020'.format(s)
+        geo = os.path.join(BOUNDARIES, s)
+        export_classification(out_name='IM_{}'.format(s), table=csv, asset_root=ASSET_ROOT, region=geo)
 # ========================= EOF ====================================================================
