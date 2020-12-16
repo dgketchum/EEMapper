@@ -23,8 +23,7 @@ def change_permissions(ee_asset, user=None):
 
 def copy_asset(ee_asset, dst):
     reader = list_assets(ee_asset)
-    _list = [x for x in reader if x[-4:] in ['2016', '2017', '2018']]
-    for r in _list:
+    for r in reader:
         cmd = ['{}'.format(EXEC), 'cp', '{}'.format(r), '{}'.format(os.path.join(dst, os.path.basename(r)))]
         print(cmd)
         check_call(cmd)
@@ -64,10 +63,11 @@ def delete_assets(ee_asset_path):
     reader = list_assets(ee_asset_path)
 
     for r in reader:
-        command = 'rm'
-        cmd = ['{}'.format(EXEC), '{}'.format(command), '{}'.format(r)]
-        check_call(cmd)
-        print(cmd)
+        if 'CO' in os.path.basename(r):
+            command = 'rm'
+            cmd = ['{}'.format(EXEC), '{}'.format(command), '{}'.format(r)]
+            print(cmd)
+            check_call(cmd)
 
 
 def rename_assets(ee_asset_path, new_path, years_=None):
@@ -155,5 +155,8 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    mask_move()
+    images = 'users/dpendergraph/IrrMapper_test'
+    dest = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+    # delete_assets(dest)
+    copy_asset(images, dest)
 # ========================= EOF ====================================================================

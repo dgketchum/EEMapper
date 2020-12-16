@@ -2,9 +2,11 @@ import os
 import ee
 import numpy as np
 import os
+import datetime
 from collections import defaultdict
 
 ee.Initialize()
+BOUNDARIES = 'users/dgketchum/boundaries'
 
 
 def confusion(irr_labels, unirr_labels, irr_image, unirr_image, state):
@@ -56,10 +58,11 @@ def confusion(irr_labels, unirr_labels, irr_image, unirr_image, state):
     return out
 
 
-def create_lanid_labels(year):
+def create_lanid_labels(year, geo):
     begin = '{}-01-01'.format(year)
     end = '{}-12-31'.format(year)
-    lanid = ee.ImageCollection('projects/openet/irrigated_area/LANID').filterDate(begin, end).first().select("irr_land")
+    lanid = ee.ImageCollection('projects/openet/irrigated_area/LANID'
+                               ).filterDate(begin, end).filterBounds(geo).first().select("irr_land")
     irr_mask = lanid.eq(1)
     unmasked = lanid.unmask(0)
     unirr_image = ee.Image(1).byte().updateMask(unmasked.Not())
@@ -67,11 +70,10 @@ def create_lanid_labels(year):
     return irr_image, unirr_image
 
 
-def create_rf_labels(year):
-    begin = '{}-01-01'.format(year)
-    end = '{}-12-31'.format(year)
-    rf = ee.ImageCollection('projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp')
-    rf = rf.filter(ee.Filter.date(begin, end)).select('classification').mosaic()
+def create_rf_labels(year, state_abv):
+
+    rf = ee.Image('projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp/IM_{}_{}'.format(state_abv, year))
+
     irrMask = rf.lt(1)
     unirrImage = ee.Image(1).byte().updateMask(irrMask.Not())
     irrImage = ee.Image(1).byte().updateMask(irrMask)
@@ -115,20 +117,53 @@ def metrics(arr):
 if __name__ == '__main__':
 
     # im = np.array([[804828, 56825], [563617, 42072843]])
+    # p, r = metrics(im)
+    # print('IM prec {}, rec {}'.format(p, r))
+    #
     # lid = np.array([[710976, 150677], [273559, 42362906]])
+    # p, r = metrics(lid)
+    # print('LANID prec {}, rec {}'.format(p, r))
 
+    print(datetime.datetime.now())
     conf = np.zeros((2, 2))
-    for year in [2013]:
+    print('\n\n\n IrrMapper')
+    for year in [x for x in range(1997, 2018)]:
         print('\n {}'.format(year))
         for state in ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']:
-            irr_labels, unirr_labels = create_irrigated_labels(False, year)
-            irr_image, unirr_image = create_lanid_labels(year)
-            cmt = confusion(irr_labels, unirr_labels, irr_image, unirr_image, state)
-            print('{} {}'.format(state, cmt))
-            for pos, ct in zip([(0, 0), (0, 1), (1, 0), (1, 1)], ['TP', 'FN', 'FP', 'TN']):
-                conf[pos] += cmt[ct]['constant']
+            try:
+                irr_labels, unirr_labels = create_irrigated_labels(False, year)
+                irr_image, unirr_image = create_rf_labels(year, state_abv=state)
+                cmt = confusion(irr_labels, unirr_labels, irr_image, unirr_image, state)
+                print('{} {}'.format(state, cmt))
+                for pos, ct in zip([(0, 0), (0, 1), (1, 0), (1, 1)], ['TP', 'FN', 'FP', 'TN']):
+                    conf[pos] += cmt[ct]['constant']
+            except Exception as e:
+                print(e, state, year)
+                pass
     print(conf)
     p, r = metrics(conf)
     print('prec {}, rec {}'.format(p, r))
+    print(datetime.datetime.now())
+
+    print('\n\n\n LANID')
+    conf = np.zeros((2, 2))
+    for year in [x for x in range(1997, 2018)]:
+        print('\n {}'.format(year))
+        for state in ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']:
+            try:
+                irr_labels, unirr_labels = create_irrigated_labels(False, year)
+                geo = ee.FeatureCollection(os.path.join(BOUNDARIES, state))
+                irr_image, unirr_image = create_lanid_labels(year, geo)
+                cmt = confusion(irr_labels, unirr_labels, irr_image, unirr_image, state)
+                print('{} {}'.format(state, cmt))
+                for pos, ct in zip([(0, 0), (0, 1), (1, 0), (1, 1)], ['TP', 'FN', 'FP', 'TN']):
+                    conf[pos] += cmt[ct]['constant']
+            except Exception as e:
+                print(e, state, year)
+                pass
+    print(conf)
+    p, r = metrics(conf)
+    print('prec {}, rec {}'.format(p, r))
+    print(datetime.datetime.now())
 
 # ========================= EOF ====================================================================
