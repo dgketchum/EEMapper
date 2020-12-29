@@ -19,7 +19,8 @@ GEO_DOMAIN = 'users/dgketchum/boundaries/western_states_expanded_union'
 BOUNDARIES = 'users/dgketchum/boundaries'
 ASSET_ROOT = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_test'
 IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
-FILTER_TARGET = 'users/dgketchum/western_states_irr/CA_subselect'
+FILTER_TARGET = 'users/dgketchum/to_filter'
+FILTER_DEST = 'users/dgketchum/filtered'
 
 RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_3DEC2020_COWY'
 RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/train_pts_7DEC2020_CIMOW'
@@ -36,12 +37,19 @@ TARGET_STATES = ['CO', 'WY']
 
 other = ['ND', 'SD', 'NE', 'KS', 'OK', 'TX']
 
-IRR = {'ND': [2012, 2013, 2014, 2015, 2016],
-       'SD': [2007, 2008, 2009, 2013],
-       'NE': [2003, 2009, 2012, 2013, 2014, 2015, 2016],
-       'KS': [2002, 2006, 2009, 2013, 2016],
-       'OK': [2006, 2007, 2001, 2013, 2014],
-       'TX': [2005, 2006, 2009, 2015, 2016]}
+IRR = {'ND': [2013, 2017],
+       'SD': [2017, 2019],
+       'NE': [2012, 2013, 2016],
+       'KS': [2018, 2019],
+       'OK': [2011, 2019]}
+
+DRY = {
+    # 'ND': [2006, 2012],
+    # 'SD': [2006, 2012],
+    # 'NE': [2002, 2012],
+    # 'KS': [2002, 2012],
+    'OK': [2001, 2011],
+    'TX': [2011, 2020]}
 
 # list of years we have verified irrigated fields
 YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
@@ -324,52 +332,83 @@ def export_classification(out_name, table, asset_root, region, export='asset'):
         print(os.path.join(asset_root, '{}_{}'.format(out_name, yr)))
 
 
-def filter_irrigated(asset, yr, roi, filter_type='filter_low'):
+def filter_irrigated(asset, yr, region, filter_type='filter_irrigated', addl_yr=None):
     """
-    Takes a field polygon vector and filters it based on NDVI rules. At present, the function keeps features
-    where the lower 15 percentile reach NDVI greater than 0.5 in either early or late summer.
+    Takes a field polygon vector and filters it based on NDVI rules.
 
     :filter_type: filter_low is to filter out low ndvi fields (thus saving and returning high-ndvi fields,
             likely irrigated), filter_high filters out high-ndvi feilds, leaving likely fallowed fields
     :return:
     """
-    plots = ee.FeatureCollection(asset).geometry()
+    filt_fc = None
+    plots = ee.FeatureCollection(asset)
+    roi = ee.FeatureCollection(region)
+    if filter_type == 'irrigated':
 
-    if filter_type == 'filter_low':
-
-        late_spring_s, late_spring_e = '{}-05-01'.format(yr), '{}-07-01'.format(yr)
-        summer_s, summer_e = '{}-07-01'.format(yr), '{}-10-31'.format(yr)
+        late_summer_s, late_summer_e = '{}-05-01'.format(yr), '{}-07-15'.format(yr)
+        late_summer_s_, summer_e = '{}-07-01'.format(yr), '{}-10-31'.format(yr)
 
         lsSR_masked = landsat_masked(yr, roi)
 
-        early_nd = ee.Image(lsSR_masked.filterDate(late_spring_s, late_spring_e).map(
+        early_nd = ee.Image(lsSR_masked.filterDate(late_summer_s, late_summer_e).map(
             lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd')
+        early_nd_max = early_nd.select('nd').reduce(ee.Reducer.intervalMean(0.0, 15.0))
+        early_int_mean = early_nd_max.reduceRegions(collection=plots,
+                                                    reducer=ee.Reducer.mean(),
+                                                    scale=30.0)
+        early_int_mean = early_int_mean.select(['mean', 'MGRS_TILE', 'system:index', 'popper'],
+                                               ['nd_e', 'MGRS_TILE', 'system:index', 'popper'])
 
-        late_nd = ee.Image(lsSR_masked.filterDate(summer_s, summer_e).map(
+        late_nd = ee.Image(lsSR_masked.filterDate(late_summer_s_, summer_e).map(
             lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_1')
+        late_nd_max = late_nd.select('nd_1').reduce(ee.Reducer.intervalMean(0.0, 15.0))
 
-        early_int_mean = early_nd.reduceRegions(collection=plots,
-                                                reducer=ee.Reducer.mean(),
-                                                scale=30.0)
+        combo = late_nd_max.reduceRegions(collection=early_int_mean,
+                                          reducer=ee.Reducer.mean(),
+                                          scale=30.0)
 
-        combo = late_nd.reduceRegions(collection=early_int_mean,
-                                      reducer=ee.Reducer.mean(),
-                                      scale=30.0)
+        filt_fc = combo.filter(ee.Filter.Or(ee.Filter.gt('nd_e', 0.9), ee.Filter.gt('mean', 0.8)))
+        desc = '{}_{}_irr'.format(os.path.basename(region), yr)
 
-        filt_fc = combo.filter(ee.Filter.Or(ee.Filter.gt('nd', 0.7), ee.Filter.gt('nd_1', 0.7)))
+    elif filter_type == 'dryland':
+
+        late_summer_s, late_summer_e = '{}-07-01'.format(yr), '{}-10-31'.format(yr)
+        late_summer_s_, late_summer_e_ = '{}-07-01'.format(addl_yr), '{}-10-31'.format(addl_yr)
+
+        lsSR_masked = landsat_masked(yr, roi)
+        early_nd = ee.Image(lsSR_masked.filterDate(late_summer_s, late_summer_e).map(
+            lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd')
+        early_nd_max = early_nd.select('nd').reduce(ee.Reducer.intervalMean(0.0, 15.0))
+        early_int_mean = early_nd_max.reduceRegions(collection=plots,
+                                                    reducer=ee.Reducer.mean(),
+                                                    scale=30.0)
+        early_int_mean = early_int_mean.select(['mean', 'MGRS_TILE', 'system:index', 'popper'],
+                                               ['nd_e', 'MGRS_TILE', 'system:index', 'popper'])
+
+        lsSR_masked = landsat_masked(addl_yr, roi)
+        late_nd = ee.Image(lsSR_masked.filterDate(late_summer_s_, late_summer_e_).map(
+            lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_1')
+        late_nd_max = late_nd.select('nd_1').reduce(ee.Reducer.intervalMean(0.0, 15.0))
+
+        combo = late_nd_max.reduceRegions(collection=early_int_mean,
+                                          reducer=ee.Reducer.mean(),
+                                          scale=30.0)
+
+        filt_fc = combo.filter(ee.Filter.Or(ee.Filter.lt('nd_e', 0.7), ee.Filter.lt('mean', 0.7)))
+        desc = '{}_dry'.format(os.path.basename(region))
 
     else:
         raise NotImplementedError('must choose from filter_low or filter_high')
 
-    task = ee.batch.Export.table.toAsset(filt_fc,
-                                         description='CA_{}_{}'.format(yr, filter_type),
-                                         assetId='users/dgketchum/'
-                                                 'western_states_irr/'
-                                                 'CA_{}_{}'.format(yr, filter_type))
-    size = filt_fc.size().getInfo()
-    print(yr, filter_type, size)
-    if size > 0:
-        task.start()
+    filt_fc = filt_fc.map(lambda x: x.set('geo_type', x.geometry().type()))
+    filt_fc = filt_fc.filter(ee.Filter.eq('geo_type', 'Polygon'))
+
+    task = ee.batch.Export.table.toCloudStorage(filt_fc,
+                                                description=desc,
+                                                bucket='wudr',
+                                                fileFormat='SHP')
+    print(yr, filter_type)
+    task.start()
 
 
 def request_validation_extract(file_prefix='validation'):
@@ -578,7 +617,7 @@ def stack_bands(yr, roi):
 
     nlcd = ee.Image('USGS/NLCD/NLCD2011').select('landcover').reproject(crs=proj['crs'], scale=30).rename('nlcd')
 
-    cdl_cult = ee.Image('USDA/NASS/CDL/2017').select('cultivated').\
+    cdl_cult = ee.Image('USDA/NASS/CDL/2017').select('cultivated'). \
         remap([1, 2], [0, 1]).reproject(crs=proj['crs'], scale=30).rename('cdlclt')
 
     cdl_crop = ee.Image('USDA/NASS/CDL/2017').select('cropland').reproject(crs=proj['crs'],
@@ -623,13 +662,9 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    for s in ['CO']:
-        # shp = '/media/research/IrrigationGIS/EE_extracts/state_point_shp/train/{}/points_10DEC2020.shp'.format(s)
-        # years_ = count_points(shp)
-        # pts = os.path.join('projects/ee-dgketchum/assets/points/state', 'pts_{}_10DEC2020'.format(s))
-        # roi = os.path.join(BOUNDARIES, s)
-        # request_band_extract('bands_{}_10DEC2020'.format(s), pts, roi, years_, filter_bounds=False)
-        csv = 'projects/ee-dgketchum/assets/bands/bands_14DEC2020'
-        geo = os.path.join(BOUNDARIES, s)
-        export_classification(out_name='IM_{}'.format(s), table=csv, asset_root=ASSET_ROOT, region=geo)
+    for k, v in DRY.items():
+        print('\n{}'.format(k))
+        asset_ = os.path.join(FILTER_TARGET, '{}_dryland'.format(k))
+        roi_ = os.path.join(BOUNDARIES, k)
+        filter_irrigated(asset_, v[0], roi_, filter_type='dryland', addl_yr=v[1])
 # ========================= EOF ====================================================================
