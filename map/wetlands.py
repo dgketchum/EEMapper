@@ -409,6 +409,7 @@ def zonal_cdl(in_shp, in_raster, out_shp=None,
                 bad_geo_ct += 1
 
     input_feats = len(geo)
+    print('{} features in {}'.format(input_feats, in_shp))
     temp_file = out_shp.replace('.shp', '_temp.shp')
     with fiona.open(temp_file, 'w', **meta) as tmp:
         for feat in geo:
@@ -425,6 +426,8 @@ def zonal_cdl(in_shp, in_raster, out_shp=None,
         include_codes = [k for k in cdl_crops().keys()]
 
     ct_inval = 0
+    ct_crop = 0
+    ct_non_crop = 0
     with fiona.open(out_shp, mode='w', **meta) as out:
         for attr, g in zip(stats, geo):
             try:
@@ -444,6 +447,7 @@ def zonal_cdl(in_shp, in_raster, out_shp=None,
                 else:
                     out.write(feat)
                     ct += 1
+                    ct_crop += 1
 
             elif write_non_crop and cdl not in include_codes:
                 feat = {'type': 'Feature',
@@ -457,6 +461,7 @@ def zonal_cdl(in_shp, in_raster, out_shp=None,
                 else:
                     out.write(feat)
                     ct += 1
+                    ct_non_crop += 1
 
         print('{} in, {} out, {} invalid, {}'.format(input_feats, ct - 1, ct_inval, out_shp))
         os.remove(temp_file)
@@ -512,11 +517,14 @@ if __name__ == '__main__':
 
     states = irrmapper_states + east_states
     gis = os.path.join(home, 'IrrigationGIS', 'wetlands')
-    raw = os.path.join(gis, 'raw_shp')
-    out_dir = os.path.join(gis, 'state_select_harn')
+    in_dir = os.path.join(gis, 'state_select_wgs')
+    out_dir = os.path.join(gis, 'state_select_cdl')
+    cdl = os.path.join(home, 'IrrigationGIS', 'cdl', 'wgs')
     for s in states:
-        files_ = [os.path.join(raw, x) for x in os.listdir(raw) if s in x and x.endswith('.shp')]
-        out_ = os.path.join(out_dir, '{}_wetlands.shp'.format(s))
-        select_wetlands(files_, out_)
+        raster = os.path.join(cdl, 'CDL_2017_{}.tif'.format(s))
+        shape_ = os.path.join(in_dir, '{}_wetlands.shp'.format(s))
+        out_shape = os.path.join(out_dir, '{}_wetlands.shp'.format(s))
+        codes = [111, 131, 141, 142, 143, 152, 190, 195]
+        zonal_cdl(shape_, raster, out_shape, select_codes=codes)
 
 # ========================= EOF ====================================================================
