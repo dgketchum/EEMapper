@@ -23,6 +23,8 @@ irrmapper_states = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 
 
 east_states = ['ND', 'SD', 'NE', 'KS', 'OK', 'TX']
 
+nhd_props = ['Shape_Leng', 'ACRES', 'WETLAND_TY', 'ATTRIBUTE', 'Shape_Area']
+
 
 def cdl_crops():
     return {1: 'Corn',
@@ -460,72 +462,44 @@ def zonal_cdl(in_shp, in_raster, out_shp=None,
         os.remove(temp_file)
 
 
-def split_by_mgrs(shapes, out_dir):
+def select_wetlands(shapes, out_shape, popper=0.15, min_acres=10):
     """attribute source code, split into MGRS tiles"""
     out_features = []
-    tiles = []
-    idx = index.Index()
-    in_features = []
-
+    inval_ct = 0
     with fiona.open(shapes[0]) as src:
         meta = src.meta
         schema = src.schema
-        schema['properties']['MGRS_TILE'] = 'str:15'
         schema['properties']['popper'] = 'float:19.11'
         meta['schema'] = schema
 
+    ct = 0
     for _file in shapes:
+        print('reading {}'.format(_file))
         with fiona.open(_file) as src:
             for f in src:
+                ct += 1
+                acres = f['properties']['ACRES']
                 a = f['properties']['Shape_Area']
                 l = f['properties']['Shape_Leng']
                 p = (4 * np.pi * a) / (l ** 2.)
                 f['properties']['popper'] = p
-                in_features.append(f)
+                if p > popper and acres > min_acres:
+                    out_features.append(f)
 
-    print('{} features in {}'.format(len(in_features), shapes))
+    print('{} features of {} in {}'.format(len(out_features), ct, shapes))
 
-    with fiona.open(MGRS_PATH, 'r') as mgrs:
-        [idx.insert(i, shape(tile['geometry']).bounds) for i, tile in enumerate(mgrs)]
-        for f in in_features:
-            try:
-                point = shape(f['geometry']).centroid
-                for j in idx.intersection(point.coords[0]):
-                    if point.within(shape(mgrs[j]['geometry'])):
-                        tile = mgrs[j]['properties']['MGRS_TILE']
-                        if tile not in tiles:
-                            tiles.append(tile)
-                        break
-                f['properties']['MGRS_TILE'] = tile
-                out_features.append(f)
+    with fiona.open(out_shape, 'w', **meta) as output:
+        ct = 0
+        for feat in out_features:
+            if not feat['geometry']:
+                inval_ct += 1
+            elif not shape(feat['geometry']).is_valid:
+                inval_ct += 1
+            else:
+                output.write(feat)
+                ct += 1
 
-            except AttributeError as e:
-                print(e)
-
-    for tile in tiles:
-        dir_ = os.path.join(out_dir, tile)
-        if not os.path.isdir(out_dir):
-            os.mkdir(out_dir)
-        if not os.path.isdir(dir_):
-            os.mkdir(dir_)
-        file_name = '{}.shp'.format(tile)
-        out_shape = os.path.join(dir_, file_name)
-        with fiona.open(out_shape, 'w', **meta) as output:
-            ct = 0
-            for feat in out_features:
-                if feat['properties']['MGRS_TILE'] == tile:
-                    if not feat['geometry']:
-                        print('None Geo, skipping')
-                    elif not shape(feat['geometry']).is_valid:
-                        print('Invalid Geo, skipping')
-                    else:
-                        output.write(feat)
-                        ct += 1
-        if ct == 0:
-            [os.remove(os.path.join(dir_, x)) for x in os.listdir(dir_) if file_name in x]
-            print('Not writing {}'.format(file_name))
-        else:
-            print('wrote {}, {} features'.format(out_shape, ct))
+    print('wrote {} features, {} invalid, to {}'.format(ct, inval_ct, out_shape))
 
 
 if __name__ == '__main__':
@@ -538,14 +512,11 @@ if __name__ == '__main__':
 
     states = irrmapper_states + east_states
     gis = os.path.join(home, 'IrrigationGIS', 'wetlands')
-    raw = os.path.join(gis, 'raw_test')
-    mgrs = os.path.join(gis, 'mgrs')
+    raw = os.path.join(gis, 'raw_shp')
+    out_dir = os.path.join(gis, 'state_select_harn')
     for s in states:
         files_ = [os.path.join(raw, x) for x in os.listdir(raw) if s in x and x.endswith('.shp')]
-        s_dir = os.path.join(mgrs, 'split', s)
-        if not os.path.isdir(s_dir):
-            os.mkdir(s_dir)
-
-        split_by_mgrs(files_, s_dir)
+        out_ = os.path.join(out_dir, '{}_wetlands.shp'.format(s))
+        select_wetlands(files_, out_)
 
 # ========================= EOF ====================================================================
