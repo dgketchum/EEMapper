@@ -19,8 +19,7 @@ GEO_DOMAIN = 'users/dgketchum/boundaries/western_states_expanded_union'
 BOUNDARIES = 'users/dgketchum/boundaries'
 ASSET_ROOT = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_test'
 IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
-FILTER_TARGET = 'users/dgketchum/to_filter'
-FILTER_DEST = 'users/dgketchum/filtered'
+FILTER_TARGET = 'users/dgketchum/to_filter/MT_2012'
 
 RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_3DEC2020_COWY'
 RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/train_pts_7DEC2020_CIMOW'
@@ -32,8 +31,6 @@ MT_BASINS = 'users/dgketchum/boundaries/MT_Admin_Basins'
 
 TARGET_STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT',
                  'WA', 'WY']
-
-TARGET_STATES = ['CO', 'WY']
 
 other = ['ND', 'SD', 'NE', 'KS', 'OK', 'TX']
 
@@ -341,23 +338,27 @@ def filter_irrigated(asset, yr, region, filter_type='filter_irrigated', addl_yr=
     :return:
     """
     filt_fc = None
+
+    # filter out any weird geometries
     plots = ee.FeatureCollection(asset)
+    plots = plots.map(lambda x: x.set('geo_type', x.geometry().type()))
+    plots = plots.filter(ee.Filter.eq('geo_type', 'Polygon'))
+
     roi = ee.FeatureCollection(region)
     if filter_type == 'irrigated':
 
-        late_summer_s, late_summer_e = '{}-05-01'.format(yr), '{}-07-15'.format(yr)
+        summer_s, late_summer_e = '{}-05-01'.format(yr), '{}-07-15'.format(yr)
         late_summer_s_, summer_e = '{}-07-01'.format(yr), '{}-10-31'.format(yr)
 
         lsSR_masked = landsat_masked(yr, roi)
 
-        early_nd = ee.Image(lsSR_masked.filterDate(late_summer_s, late_summer_e).map(
+        early_nd = ee.Image(lsSR_masked.filterDate(summer_s, late_summer_e).map(
             lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd')
         early_nd_max = early_nd.select('nd').reduce(ee.Reducer.intervalMean(0.0, 15.0))
         early_int_mean = early_nd_max.reduceRegions(collection=plots,
-                                                    reducer=ee.Reducer.mean(),
+                                                    reducer=ee.Reducer.median(),
                                                     scale=30.0)
-        early_int_mean = early_int_mean.select(['mean', 'MGRS_TILE', 'system:index', 'popper'],
-                                               ['nd_e', 'MGRS_TILE', 'system:index', 'popper'])
+        early_int_mean = early_int_mean.select('median')
 
         late_nd = ee.Image(lsSR_masked.filterDate(late_summer_s_, summer_e).map(
             lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_1')
@@ -367,16 +368,16 @@ def filter_irrigated(asset, yr, region, filter_type='filter_irrigated', addl_yr=
                                           reducer=ee.Reducer.mean(),
                                           scale=30.0)
 
-        filt_fc = combo.filter(ee.Filter.Or(ee.Filter.gt('nd_e', 0.9), ee.Filter.gt('mean', 0.8)))
+        filt_fc = combo #.filter(ee.Filter.Or(ee.Filter.gt('median', 0.9), ee.Filter.gt('mean', 0.8)))
         desc = '{}_{}_irr'.format(os.path.basename(region), yr)
 
     elif filter_type == 'dryland':
 
-        late_summer_s, late_summer_e = '{}-07-01'.format(yr), '{}-10-31'.format(yr)
+        summer_s, late_summer_e = '{}-07-01'.format(yr), '{}-10-31'.format(yr)
         late_summer_s_, late_summer_e_ = '{}-07-01'.format(addl_yr), '{}-10-31'.format(addl_yr)
 
         lsSR_masked = landsat_masked(yr, roi)
-        early_nd = ee.Image(lsSR_masked.filterDate(late_summer_s, late_summer_e).map(
+        early_nd = ee.Image(lsSR_masked.filterDate(summer_s, late_summer_e).map(
             lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd')
         early_nd_max = early_nd.select('nd').reduce(ee.Reducer.intervalMean(0.0, 15.0))
         early_int_mean = early_nd_max.reduceRegions(collection=plots,
@@ -399,9 +400,6 @@ def filter_irrigated(asset, yr, region, filter_type='filter_irrigated', addl_yr=
 
     else:
         raise NotImplementedError('must choose from filter_low or filter_high')
-
-    filt_fc = filt_fc.map(lambda x: x.set('geo_type', x.geometry().type()))
-    filt_fc = filt_fc.filter(ee.Filter.eq('geo_type', 'Polygon'))
 
     task = ee.batch.Export.table.toCloudStorage(filt_fc,
                                                 description=desc,
@@ -662,9 +660,6 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    for k, v in DRY.items():
-        print('\n{}'.format(k))
-        asset_ = os.path.join(FILTER_TARGET, '{}_dryland'.format(k))
-        roi_ = os.path.join(BOUNDARIES, k)
-        filter_irrigated(asset_, v[0], roi_, filter_type='dryland', addl_yr=v[1])
+    roi_ = os.path.join(BOUNDARIES, 'MT')
+    filter_irrigated(FILTER_TARGET, 2012, roi_, filter_type='irrigated')
 # ========================= EOF ====================================================================

@@ -60,10 +60,9 @@ def get_metadata(ee_asset):
 
 
 def delete_assets(ee_asset_path):
-    reader = list_assets(ee_asset_path)
-
-    for r in reader:
-        if 'CO' in os.path.basename(r):
+    for year in range(2008, 2013):
+        reader = list_assets(os.path.join(ee_asset_path, str(year)))
+        for r in reader:
             command = 'rm'
             cmd = ['{}'.format(EXEC), '{}'.format(command), '{}'.format(r)]
             print(cmd)
@@ -156,7 +155,9 @@ def is_authorized():
 if __name__ == '__main__':
     is_authorized()
     images = 'users/dpendergraph/IrrMapper_test'
+    filtered = 'users/dgketchum/fallow_filter'
+    ssebop = 'users/dgketchum/ssebop'
     dest = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-    # delete_assets(dest)
-    copy_asset(images, dest)
+    delete_assets(ssebop)
+    # copy_asset(images, dest)
 # ========================= EOF ====================================================================
