@@ -436,41 +436,6 @@ def compile_shapes_nm_wrri(in_shapes, out_shape):
     print('errors: {}'.format(err_count))
 
 
-def zonal_cdl(in_shp, in_raster, out_shp):
-    ct = 1
-    crops = crop_map()
-    geo = []
-    bad_geo_ct = 0
-    with fiona.open(in_shp) as src:
-        meta = src.meta
-        for feat in src:
-            try:
-                _ = feat['geometry']['type']
-                geo.append(feat)
-            except TypeError:
-                bad_geo_ct += 1
-    print(bad_geo_ct, 'bad geometries')
-
-    temp_file = out_shp.replace('.shp', '_temp.shp')
-    with fiona.open(temp_file, 'w', **meta) as tmp:
-        for feat in geo:
-            tmp.write(feat)
-
-    meta['schema'] = {'type': 'Feature', 'properties': OrderedDict(
-        [('FID', 'int:9'), ('CDL', 'int:9')]), 'geometry': 'Polygon'}
-    stats = zonal_stats(temp_file, in_raster, stats=['majority'], nodata=0.0)
-    with fiona.open(out_shp, mode='w', **meta) as out:
-        for attr, g in zip(stats, geo):
-            if attr['majority'] in crops:
-                feat = {'type': 'Feature', 'properties': {'FID': ct,
-                                                          'CDL': int(attr['majority'])},
-                        'geometry': g['geometry']}
-                out.write(feat)
-                ct += 1
-    print(out_shp, ct)
-    os.remove(temp_file)
-
-
 def clean_clu(in_shp, out_shp):
     geo = []
     with fiona.open(in_shp) as src:

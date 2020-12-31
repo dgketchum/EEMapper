@@ -467,6 +467,57 @@ def zonal_cdl(in_shp, in_raster, out_shp=None,
         os.remove(temp_file)
 
 
+def zonal_crop_mask(in_shp, in_raster, out_shp=None):
+    ct = 1
+    geo = []
+    bad_geo_ct = 0
+    with fiona.open(in_shp) as src:
+        meta = src.meta
+        for feat in src:
+            try:
+                _ = feat['geometry']['type']
+                geo.append(feat)
+            except TypeError:
+                bad_geo_ct += 1
+
+    input_feats = len(geo)
+    print('{} features in {}'.format(input_feats, in_shp))
+    temp_file = out_shp.replace('.shp', '_temp.shp')
+    with fiona.open(temp_file, 'w', **meta) as tmp:
+        for feat in geo:
+            tmp.write(feat)
+
+    meta['schema'] = {'type': 'Feature', 'properties': OrderedDict(
+        [('FID', 'int:9'), ('mean', 'int:9'),
+         ('SHAPE_Area', 'float:19.11'), ('SHAPE_Leng', 'float:19.11')]),
+                      'geometry': 'Polygon'}
+
+    stats = zonal_stats(temp_file, in_raster, stats=['mean'], nodata=0.0, categorical=False)
+
+    ct_inval = 0
+    with fiona.open(out_shp, mode='w', **meta) as out:
+        for attr, g in zip(stats, geo):
+            try:
+                cdl = int(attr['mean'])
+            except TypeError:
+                cdl = 0
+            # TODO create test set, get shape leng shape area
+            feat = {'type': 'Feature',
+                    'properties': {'FID': ct,
+                                   'mean': cdl,},
+                    'geometry': g['geometry']}
+            if not feat['geometry']:
+                ct_inval += 1
+            elif not shape(feat['geometry']).is_valid:
+                ct_inval += 1
+            else:
+                out.write(feat)
+                ct += 1
+
+    print('{} in, {} out, {} invalid, {}'.format(input_feats, ct - 1, ct_inval, out_shp))
+    os.remove(temp_file)
+
+
 def select_wetlands(shapes, out_shape, popper=0.15, min_acres=10):
     """attribute source code, split into MGRS tiles"""
     out_features = []
@@ -516,15 +567,13 @@ if __name__ == '__main__':
         home = os.path.join(home, 'data')
 
     states = irrmapper_states + east_states
-    gis = os.path.join(home, 'IrrigationGIS', 'wetlands')
-    in_dir = os.path.join(gis, 'state_select_wgs')
-    out_dir = os.path.join(gis, 'state_select_cdl')
-    cdl = os.path.join(home, 'IrrigationGIS', 'cdl', 'wgs')
-    for s in states:
-        raster = os.path.join(cdl, 'CDL_2017_{}.tif'.format(s))
-        shape_ = os.path.join(in_dir, '{}_wetlands.shp'.format(s))
-        out_shape = os.path.join(out_dir, '{}_wetlands.shp'.format(s))
-        codes = [111, 131, 141, 142, 143, 152, 190, 195]
-        zonal_cdl(shape_, raster, out_shape, select_codes=codes)
+    gis = os.path.join(home, 'IrrigationGIS', 'training_data', 'uncultivated', 'USGS_PAD', 'to_process')
+    out = os.path.join(home, 'IrrigationGIS', 'training_data', 'uncultivated', 'USGS_PAD', 'cdl_crop')
+    cdl = os.path.join(home, 'IrrigationGIS', 'cdl', 'crop_mask_wgs')
+    for s in ['UT', 'WA', 'WY']:
+        raster = os.path.join(cdl, 'CMASK_2019_{}.tif'.format(s))
+        shape_ = os.path.join(gis, 'USGS_PAD_{}_.shp'.format(s))
+        out_shape = os.path.join(out, 'PAD_{}_wgs.shp'.format(s))
+        zonal_crop_mask(shape_, raster, out_shape)
 
 # ========================= EOF ====================================================================
