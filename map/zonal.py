@@ -467,6 +467,103 @@ def zonal_cdl(in_shp, in_raster, out_shp=None,
         os.remove(temp_file)
 
 
+def process_pad(in_shp, out_shp):
+    ct, p_excl, dupes = 0, 0, 0
+    multi_ct, simple_ct, from_multi = 0, 0, 0
+    excess_coords = 0
+    in_features, existing_geo = [], []
+    bad_geo_ct = 0
+    with fiona.open(in_shp) as src:
+        meta = src.meta
+        meta['schema'] = {'type': 'Feature', 'properties': OrderedDict(
+            [('FID', 'int:9'),
+             ('area', 'float:19.11'),
+             ('length', 'float:19.11'),
+             ('popper', 'float:19.11')]),
+                          'geometry': 'Polygon'}
+        for feat in src:
+            try:
+                geo_type = feat['geometry']['type']
+                if geo_type == 'MultiPolygon':
+                    multi_ct += 1
+                    for coords in feat['geometry']['coordinates']:
+                        for coord in coords:
+                            geo = Polygon(coord)
+                            centroid = geo.centroid
+                            if centroid in existing_geo:
+                                dupes += 1
+                                continue
+                            coord_ct = len(coord)
+                            if coord_ct > 1000:
+                                excess_coords += 1
+                                continue
+                            a = geo.area
+                            l = geo.length
+                            p = (4 * np.pi * a) / (l ** 2.)
+                            feat['properties']['popper'] = p
+                            if p < 0.3:
+                                p_excl += 1
+                                continue
+                            feat['properties']['area'] = a
+                            feat['properties']['length'] = l
+                            feat['properties']['geometry'] = geo
+                            if not geo.is_valid:
+                                bad_geo_ct += 1
+                                continue
+                            from_multi += 1
+                            existing_geo.append(centroid)
+                            in_features.append(feat)
+                else:
+                    simple_ct += 1
+                    geo = shape(feat['geometry'])
+                    centroid = geo.centroid
+                    if centroid in existing_geo:
+                        dupes += 1
+                        continue
+                    coord_ct = len(feat['geometry']['coordinates'][0])
+                    if coord_ct > 1000:
+                        excess_coords += 1
+                        continue
+                    a = geo.area
+                    l = geo.length
+                    p = (4 * np.pi * a) / (l ** 2.)
+                    feat['properties']['popper'] = p
+                    if p < 0.3:
+                        p_excl += 1
+                        continue
+                    feat['properties']['area'] = a
+                    feat['properties']['length'] = l
+                    feat['properties']['geometry'] = geo
+                    if not geo.is_valid:
+                        bad_geo_ct += 1
+                        continue
+                    existing_geo.append(centroid)
+                    in_features.append(feat)
+            except TypeError:
+                bad_geo_ct += 1
+
+    print('{} features\n{} bad\n{} duplicate, {} multi\n{} single polygons'
+          '\n{} from multipolygons\n{} excessive coordinates\n{} popper excluded'.format(
+        len(in_features), bad_geo_ct, dupes,
+        multi_ct, simple_ct,
+        from_multi, excess_coords, p_excl))
+
+    ct_inval = 0
+    with fiona.open(out_shp, 'w', **meta) as output:
+        ct = 0
+        for feat in in_features:
+            f = {'type': 'Feature',
+                 'properties': {'FID': ct,
+                                'area': feat['properties']['area'],
+                                'length': feat['properties']['length'],
+                                'popper': feat['properties']['popper']},
+                 'geometry': feat['geometry']}
+            output.write(f)
+            ct += 1
+
+    print('wrote {} features, {} invalid, to {}'.format(ct, ct_inval, out_shp))
+
+
 def zonal_crop_mask(in_shp, in_raster, out_shp=None):
     ct = 1
     geo = []
@@ -488,34 +585,30 @@ def zonal_crop_mask(in_shp, in_raster, out_shp=None):
             tmp.write(feat)
 
     meta['schema'] = {'type': 'Feature', 'properties': OrderedDict(
-        [('FID', 'int:9'), ('mean', 'int:9'),
-         ('SHAPE_Area', 'float:19.11'), ('SHAPE_Leng', 'float:19.11')]),
+        [('FID', 'int:9'),
+         ('mean', 'float:19.11'),
+         ('popper', 'float:19.11'),
+         ('area', 'float:19.11'),
+         ('length', 'float:19.11')]),
                       'geometry': 'Polygon'}
 
     stats = zonal_stats(temp_file, in_raster, stats=['mean'], nodata=0.0, categorical=False)
 
     ct_inval = 0
     with fiona.open(out_shp, mode='w', **meta) as out:
-        for attr, g in zip(stats, geo):
-            try:
-                cdl = int(attr['mean'])
-            except TypeError:
-                cdl = 0
-            # TODO create test set, get shape leng shape area
+        for attr, f in zip(stats, geo):
+            cdl = attr['mean']
             feat = {'type': 'Feature',
                     'properties': {'FID': ct,
-                                   'mean': cdl,},
-                    'geometry': g['geometry']}
-            if not feat['geometry']:
-                ct_inval += 1
-            elif not shape(feat['geometry']).is_valid:
-                ct_inval += 1
-            else:
-                out.write(feat)
-                ct += 1
+                                   'mean': cdl,
+                                   'popper': f['properties']['popper'],
+                                   'area': f['properties']['area'],
+                                   'length': f['properties']['length']},
+                    'geometry': f['geometry']}
+            out.write(feat)
+            ct += 1
 
     print('{} in, {} out, {} invalid, {}'.format(input_feats, ct - 1, ct_inval, out_shp))
-    os.remove(temp_file)
 
 
 def select_wetlands(shapes, out_shape, popper=0.15, min_acres=10):
@@ -567,13 +660,19 @@ if __name__ == '__main__':
         home = os.path.join(home, 'data')
 
     states = irrmapper_states + east_states
-    gis = os.path.join(home, 'IrrigationGIS', 'training_data', 'uncultivated', 'USGS_PAD', 'to_process')
-    out = os.path.join(home, 'IrrigationGIS', 'training_data', 'uncultivated', 'USGS_PAD', 'cdl_crop')
-    cdl = os.path.join(home, 'IrrigationGIS', 'cdl', 'crop_mask_wgs')
-    for s in ['UT', 'WA', 'WY']:
-        raster = os.path.join(cdl, 'CMASK_2019_{}.tif'.format(s))
-        shape_ = os.path.join(gis, 'USGS_PAD_{}_.shp'.format(s))
-        out_shape = os.path.join(out, 'PAD_{}_wgs.shp'.format(s))
-        zonal_crop_mask(shape_, raster, out_shape)
-
+    pad = os.path.join(home, 'IrrigationGIS', 'training_data', 'uncultivated', 'USGS_PAD')
+    out = os.path.join(pad, 'pop')
+    cdl = os.path.join(home, 'IrrigationGIS', 'cdl', 'crop_mask')
+    for s in states:
+        try:
+            raster = os.path.join(cdl, 'CMASK_2019_{}.tif'.format(s))
+            shape_ = os.path.join(pad, 'PADUS2_0{}_Shapefile'.format(s),
+                                  'PADUS2_0Combined_DOD_Fee_Designation_Easement_{}.shp'.format(s))
+            popper = os.path.join('/home/dgketchum/Downloads/popper', 'PAD_{}.shp'.format(s))
+            process_pad(shape_, popper)
+            cdl_attrs = os.path.join('/home/dgketchum/Downloads/cdl_popper', 'PAD_{}.shp'.format(s))
+            zonal_crop_mask(popper, raster, cdl_attrs)
+        except Exception as e:
+            print(s, e)
+            pass
 # ========================= EOF ====================================================================
