@@ -468,7 +468,9 @@ def zonal_cdl(in_shp, in_raster, out_shp=None,
 
 
 def process_pad(in_shp, out_shp):
-    ct, p_excl, dupes = 0, 0, 0
+    # after getting duplicates, I used QGIS for to_single_part and delete_duplicates
+    # processing toolbox; select 'batch'
+    ct, p_excl, overlaps = 0, 0, 0
     multi_ct, simple_ct, from_multi = 0, 0, 0
     excess_coords = 0
     in_features, existing_geo = [], []
@@ -481,72 +483,62 @@ def process_pad(in_shp, out_shp):
              ('length', 'float:19.11'),
              ('popper', 'float:19.11')]),
                           'geometry': 'Polygon'}
+        _features = []
         for feat in src:
+            # sort by area
+            geo = shape(feat['geometry'])
+            a = geo.area
+            _features.append((a, feat))
+
+        sorted_features = sorted(_features, key=lambda x: x[0], reverse=True)
+        for a, feat in sorted_features:
+            if a < 2e5:
+                continue
             try:
-                geo_type = feat['geometry']['type']
-                if geo_type == 'MultiPolygon':
-                    multi_ct += 1
-                    for coords in feat['geometry']['coordinates']:
-                        for coord in coords:
-                            geo = Polygon(coord)
-                            centroid = geo.centroid
-                            if centroid in existing_geo:
-                                dupes += 1
-                                continue
-                            coord_ct = len(coord)
-                            if coord_ct > 1000:
-                                excess_coords += 1
-                                continue
-                            a = geo.area
-                            l = geo.length
-                            p = (4 * np.pi * a) / (l ** 2.)
-                            feat['properties']['popper'] = p
-                            if p < 0.3:
-                                p_excl += 1
-                                continue
-                            feat['properties']['area'] = a
-                            feat['properties']['length'] = l
-                            feat['properties']['geometry'] = geo
-                            if not geo.is_valid:
-                                bad_geo_ct += 1
-                                continue
-                            from_multi += 1
-                            existing_geo.append(centroid)
-                            in_features.append(feat)
-                else:
-                    simple_ct += 1
-                    geo = shape(feat['geometry'])
-                    centroid = geo.centroid
-                    if centroid in existing_geo:
-                        dupes += 1
-                        continue
-                    coord_ct = len(feat['geometry']['coordinates'][0])
-                    if coord_ct > 1000:
-                        excess_coords += 1
-                        continue
-                    a = geo.area
-                    l = geo.length
-                    p = (4 * np.pi * a) / (l ** 2.)
-                    feat['properties']['popper'] = p
-                    if p < 0.3:
-                        p_excl += 1
-                        continue
-                    feat['properties']['area'] = a
-                    feat['properties']['length'] = l
-                    feat['properties']['geometry'] = geo
-                    if not geo.is_valid:
-                        bad_geo_ct += 1
-                        continue
-                    existing_geo.append(centroid)
+                simple_ct += 1
+                geo = shape(feat['geometry'])
+
+                overlapping = False
+                for g in existing_geo:
+                    if geo.intersects(g):
+                        overlaps += 1
+                        overlapping = True
+
+                coord_ct = len(feat['geometry']['coordinates'][0])
+                if coord_ct > 1000:
+                    excess_coords += 1
+                    continue
+
+                l = geo.length
+                p = (4 * np.pi * a) / (l ** 2.)
+                feat['properties']['popper'] = p
+                if p < 0.3:
+                    p_excl += 1
+                    continue
+
+                feat['properties']['area'] = a
+                feat['properties']['length'] = l
+                feat['properties']['geometry'] = geo
+
+                if not geo.is_valid:
+                    bad_geo_ct += 1
+                    continue
+
+                if not overlapping:
+                    existing_geo.append(geo)
                     in_features.append(feat)
+
+                if len(in_features) % 1000 == 0:
+                    print('{} features'.format(len(in_features)))
+
             except TypeError:
                 bad_geo_ct += 1
 
-    print('{} features\n{} bad\n{} duplicate, {} multi\n{} single polygons'
+    print('{} features\n{} bad\n{} overlaps excluded, {} multi\n{} single polygons'
           '\n{} from multipolygons\n{} excessive coordinates\n{} popper excluded'.format(
-        len(in_features), bad_geo_ct, dupes,
-        multi_ct, simple_ct,
-        from_multi, excess_coords, p_excl))
+                                                            len(in_features), bad_geo_ct, overlaps,
+                                                            multi_ct, simple_ct,
+                                                            from_multi, excess_coords, p_excl))
 
     ct_inval = 0
     with fiona.open(out_shp, 'w', **meta) as output:
@@ -560,6 +552,8 @@ def process_pad(in_shp, out_shp):
                  'geometry': feat['geometry']}
             output.write(f)
             ct += 1
+            if ct > 1000:
+                exit()
 
     print('wrote {} features, {} invalid, to {}'.format(ct, ct_inval, out_shp))
 
@@ -666,12 +660,13 @@ if __name__ == '__main__':
     for s in states:
         try:
             raster = os.path.join(cdl, 'CMASK_2019_{}.tif'.format(s))
-            shape_ = os.path.join(pad, 'PADUS2_0{}_Shapefile'.format(s),
+            shape_ = os.path.join(pad, 'singlepart_nodupes',
                                   'PADUS2_0Combined_DOD_Fee_Designation_Easement_{}.shp'.format(s))
-            popper = os.path.join('/home/dgketchum/Downloads/popper', 'PAD_{}.shp'.format(s))
+            popper = os.path.join(pad, 'popper', 'PAD_{}.shp'.format(s))
             process_pad(shape_, popper)
-            cdl_attrs = os.path.join('/home/dgketchum/Downloads/cdl_popper', 'PAD_{}.shp'.format(s))
-            zonal_crop_mask(popper, raster, cdl_attrs)
+            exit()
+            # cdl_attrs = os.path.join('/home/dgketchum/Downloads/cdl_popper', 'PAD_{}.shp'.format(s))
+            # zonal_crop_mask(popper, raster, cdl_attrs)
         except Exception as e:
             print(s, e)
             pass
