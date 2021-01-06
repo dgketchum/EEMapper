@@ -23,6 +23,9 @@ irrmapper_states = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 
 
 east_states = ['ND', 'SD', 'NE', 'KS', 'OK', 'TX']
 
+states = ['AZ', 'CA', 'CO', 'ID', 'KS', 'MT', 'ND', 'NE',
+          'NM', 'NV', 'OK', 'OR', 'SD', 'TX', 'UT', 'WA', 'WY']
+
 nhd_props = ['Shape_Leng', 'ACRES', 'WETLAND_TY', 'ATTRIBUTE', 'Shape_Area']
 
 
@@ -536,9 +539,9 @@ def process_pad(in_shp, out_shp):
 
     print('{} features\n{} bad\n{} overlaps excluded, {} multi\n{} single polygons'
           '\n{} from multipolygons\n{} excessive coordinates\n{} popper excluded'.format(
-                                                            len(in_features), bad_geo_ct, overlaps,
-                                                            multi_ct, simple_ct,
-                                                            from_multi, excess_coords, p_excl))
+        len(in_features), bad_geo_ct, overlaps,
+        multi_ct, simple_ct,
+        from_multi, excess_coords, p_excl))
 
     ct_inval = 0
     with fiona.open(out_shp, 'w', **meta) as output:
@@ -558,44 +561,63 @@ def process_pad(in_shp, out_shp):
     print('wrote {} features, {} invalid, to {}'.format(ct, ct_inval, out_shp))
 
 
-def zonal_crop_mask(in_shp, in_raster, out_shp=None):
+def zonal_crop_mask(in_shp, in_raster, out_shp):
     ct = 1
-    geo = []
-    bad_geo_ct = 0
+    features = []
+    bad_geo_ct, sliver = 0, 0
     with fiona.open(in_shp) as src:
         meta = src.meta
+
+        meta['schema'] = {'type': 'Feature', 'properties': OrderedDict(
+            [('FID', 'int:9'),
+             ('mean', 'float:19.11'),
+             ('popper', 'float:19.11'),
+             ('area', 'float:19.11'),
+             ('sliver', 'float:19.11'),
+             ('length', 'float:19.11')]),
+                          'geometry': 'Polygon'}
+
         for feat in src:
             try:
+                feat['properties'] = {k: feat['properties'][k] for k in ['sliver']}
                 _ = feat['geometry']['type']
-                geo.append(feat)
+                geo = shape(feat['geometry'])
+                a = geo.area
+                l = geo.length
+                p = (4 * np.pi * a) / (l ** 2.)
+                feat['properties']['popper'] = p
+                feat['properties']['area'] = a
+                feat['properties']['length'] = l
+                feat['properties']['FID'] = ct
+                feat['properties']['mean'] = -1.
+                features.append(feat)
+
             except TypeError:
                 bad_geo_ct += 1
 
-    input_feats = len(geo)
+    input_feats = len(features)
     print('{} features in {}'.format(input_feats, in_shp))
     temp_file = out_shp.replace('.shp', '_temp.shp')
     with fiona.open(temp_file, 'w', **meta) as tmp:
-        for feat in geo:
+        for feat in features:
             tmp.write(feat)
-
-    meta['schema'] = {'type': 'Feature', 'properties': OrderedDict(
-        [('FID', 'int:9'),
-         ('mean', 'float:19.11'),
-         ('popper', 'float:19.11'),
-         ('area', 'float:19.11'),
-         ('length', 'float:19.11')]),
-                      'geometry': 'Polygon'}
 
     stats = zonal_stats(temp_file, in_raster, stats=['mean'], nodata=0.0, categorical=False)
 
     ct_inval = 0
+    ct = 1
     with fiona.open(out_shp, mode='w', **meta) as out:
-        for attr, f in zip(stats, geo):
+        for attr, f in zip(stats, features):
             cdl = attr['mean']
+            if not cdl:
+                continue
+            if cdl > 1.01:
+                continue
             feat = {'type': 'Feature',
-                    'properties': {'FID': ct,
+                    'properties': {'FID': feat['properties']['FID'],
                                    'mean': cdl,
                                    'popper': f['properties']['popper'],
+                                   'sliver': f['properties']['sliver'],
                                    'area': f['properties']['area'],
                                    'length': f['properties']['length']},
                     'geometry': f['geometry']}
@@ -653,21 +675,14 @@ if __name__ == '__main__':
     else:
         home = os.path.join(home, 'data')
 
-    states = irrmapper_states + east_states
     pad = os.path.join(home, 'IrrigationGIS', 'training_data', 'uncultivated', 'USGS_PAD')
-    out = os.path.join(pad, 'pop')
+    out = os.path.join(pad, 'cdl_crop')
     cdl = os.path.join(home, 'IrrigationGIS', 'cdl', 'crop_mask')
     for s in states:
-        try:
-            raster = os.path.join(cdl, 'CMASK_2019_{}.tif'.format(s))
-            shape_ = os.path.join(pad, 'singlepart_nodupes',
-                                  'PADUS2_0Combined_DOD_Fee_Designation_Easement_{}.shp'.format(s))
-            popper = os.path.join(pad, 'popper', 'PAD_{}.shp'.format(s))
-            process_pad(shape_, popper)
-            exit()
-            # cdl_attrs = os.path.join('/home/dgketchum/Downloads/cdl_popper', 'PAD_{}.shp'.format(s))
-            # zonal_crop_mask(popper, raster, cdl_attrs)
-        except Exception as e:
-            print(s, e)
-            pass
+        raster = os.path.join(cdl, 'CMASK_2019_{}.tif'.format(s))
+        shape_ = os.path.join(pad, 'singlepart_nodupes',
+                              'PADUS2_0Combined_DOD_Fee_Designation_Easement_{}.shp'.format(s))
+        flat = os.path.join(pad, 'cleaned', '{}.shp'.format(s))
+        cdl_attrs = os.path.join(out, '{}.shp'.format(s))
+        zonal_crop_mask(flat, raster, cdl_attrs)
 # ========================= EOF ====================================================================
