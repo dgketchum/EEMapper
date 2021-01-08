@@ -854,16 +854,10 @@ def count_points(shp):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    for s in ['NM', 'TX']:
-        gis = os.path.join(home, 'Downloads', 'state_joins', s)
-        out = os.path.join(gis, 'out')
-        compile_years(gis, out, s)
 
-    # count_points('/media/research/IrrigationGIS/EE_extracts/state_point_shp/train/CO/points_10DEC2020.shp')
+    inspected = os.path.join(gis, 'training_data', 'uncultivated', 'USGS_PAD')
+    files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
+    out_ = os.path.join(gis, 'EE_sample', 'wgs', 'uncultivated_6DEC2021.shp')
+    fiona_merge(out_, files_)
 
-    # gis = os.path.join('/media/research', 'IrrigationGIS')
-    # inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
-    # files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    # out_ = os.path.join(gis, 'EE_sample', 'wgs', 'irrigated_7DEC2020.shp')
-    # fiona_merge_attribute(out_, files_)
 # ========================= EOF ====================================================================

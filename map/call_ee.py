@@ -20,6 +20,7 @@ BOUNDARIES = 'users/dgketchum/boundaries'
 ASSET_ROOT = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_test'
 IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
 FILTER_TARGET = 'users/dgketchum/to_filter/MT_2012'
+RF_ASSET = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_RF'
 
 RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_3DEC2020_COWY'
 RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/train_pts_7DEC2020_CIMOW'
@@ -215,7 +216,7 @@ def export_raster():
     target_bn = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_RF'
     image_list = list_assets('users/dgketchum/IrrMapper/version_2')
 
-    for yr in range(1987, 2021):
+    for yr in range(1987, 2022):
         images = [x for x in image_list if x.endswith(str(yr))]
 
         coll = ee.ImageCollection(images)
@@ -241,30 +242,22 @@ def export_raster():
 def export_special(roi, description):
     fc = ee.FeatureCollection(roi)
     roi_mask = fc.geometry().bounds().getInfo()['coordinates']
-    image_list = list_assets('users/dgketchum/IrrMapper/version_2')
 
-    # years = [str(x) for x in range(1986, 1991)]
-    # target_images = [x for x in image_list if x.endswith(years[0])]
-    # target = ee.ImageCollection(image_list)
-    # target = target.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
-    # range_images = [x for x in image_list if x.endswith(tuple(years))]
+    for year in [str(x) for x in range(1986, 2018)]:
+        target = ee.Image(os.path.join(RF_ASSET, year))
+        target = target.select('classification')
 
-    coll = ee.ImageCollection(image_list)
-    sum = ee.ImageCollection(coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum().toDouble()
-    sum_mask = sum.lt(3)
-
-    img = sum.mask(sum_mask).toDouble()
-
-    task = ee.batch.Export.image.toDrive(
-        sum,
-        description='IrrMapper_V2_sum_years',
-        # folder='Irrigation',
-        region=roi_mask,
-        scale=30,
-        maxPixels=1e13,
-        # fileNamePrefix='IrrMapper_V2_{}_{}'.format(description, period)
-    )
-    task.start()
+        task = ee.batch.Export.image.toDrive(
+            target,
+            description='IrrMapper_{}_{}'.format(description, year),
+            region=roi_mask,
+            scale=30,
+            maxPixels=1e13,
+            crs='EPSG:5070'
+        )
+        task.start()
+        print(year)
+        exit()
 
 
 def export_classification(out_name, table, asset_root, region, export='asset'):
@@ -660,6 +653,6 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    roi_ = os.path.join(BOUNDARIES, 'MT')
-    filter_irrigated(FILTER_TARGET, 2012, roi_, filter_type='irrigated')
+    roi_ = os.path.join(BOUNDARIES, 'UCRB')
+    export_special(roi_, 'UCRB')
 # ========================= EOF ====================================================================
