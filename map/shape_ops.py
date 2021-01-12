@@ -20,7 +20,7 @@ import fiona
 from geopandas import GeoDataFrame, read_file
 from pandas import DataFrame, read_csv, concat
 # from rasterstats import zonal_stats
-from shapely.geometry import Polygon, Point, mapping, MultiPolygon
+from shapely.geometry import Polygon, Point, mapping, MultiPolygon, shape
 
 CLU_UNNEEDED = ['ca', 'nv', 'ut', 'wa', 'wy']
 CLU_USEFUL = ['az', 'co', 'id', 'mt', 'nm', 'or']
@@ -60,13 +60,20 @@ def fiona_merge(out_shp, file_list):
     ct = 1
     with fiona.open(out_shp, 'w', **meta) as output:
         for s in file_list:
-            print(s)
+            sub_ct = 0
             first = True
             for feat in fiona.open(s):
+                centroid = shape(feat['geometry']).centroid
+                if abs(centroid.y) > 50.0:
+                    print(centroid)
+                    continue
                 feat = {'type': 'Feature', 'properties': {'FID': ct},
                         'geometry': feat['geometry']}
                 output.write(feat)
                 ct += 1
+                sub_ct += 1
+            print('{} features in {}'.format(sub_ct, s))
+
     print('{} features'.format(ct))
     return None
 
@@ -854,10 +861,31 @@ def count_points(shp):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
+    alt_home = '/media/research'
+    if os.path.isdir(alt_home):
+        home = alt_home
+    else:
+        home = os.path.join(home, 'data')
 
-    inspected = os.path.join(gis, 'training_data', 'uncultivated', 'USGS_PAD')
+    gis = os.path.join(home, 'IrrigationGIS')
+
+    # inspected = os.path.join(gis, 'training_data', 'uncultivated', 'USGS_PAD', 'cdl_crop')
+    # files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
+    # out_ = os.path.join(gis, 'EE_sample', 'wgs', 'uncultivated_11JAN2020.shp')
+    # fiona_merge(out_, files_)
+
+    inspected = os.path.join(gis, 'training_data', 'unirrigated', 'to_merge')
     files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    out_ = os.path.join(gis, 'EE_sample', 'wgs', 'uncultivated_6DEC2021.shp')
+    out_ = os.path.join(gis, 'EE_sample', 'wgs', 'dryland_11JAN2020.shp')
     fiona_merge(out_, files_)
 
+    # inspected = os.path.join(gis, 'training_data', 'wetlands', 'to_merge')
+    # files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
+    # out_ = os.path.join(gis, 'EE_sample', 'wgs', 'wetlands_11JAN2020.shp')
+    # fiona_merge(out_, files_)
+
+    # inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
+    # files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
+    # out_ = os.path.join(gis, 'EE_sample', 'wgs', 'irrigated_11JAN2020.shp')
+    # fiona_merge_attribute(out_, files_)
 # ========================= EOF ====================================================================

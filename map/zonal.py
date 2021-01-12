@@ -675,13 +675,14 @@ if __name__ == '__main__':
     else:
         home = os.path.join(home, 'data')
 
-    uncult = os.path.join(home, 'IrrigationGIS', 'training_data', 'uncultivated', 'to_merge')
-    cmask_states = os.path.join(home, 'IrrigationGIS', 'training_data', 'uncultivated', 'cmask_states')
-    _files = [os.path.join(uncult, x) for x in os.listdir(uncult) if x.endswith('.shp')]
+    pad = os.path.join(home, 'IrrigationGIS', 'training_data', 'uncultivated', 'USGS_PAD')
+    out = os.path.join(pad, 'cdl_crop')
     cdl = os.path.join(home, 'IrrigationGIS', 'cdl', 'crop_mask')
-    for f in _files:
-        s = os.path.basename(f)[:2]
+    for s in ['TX']:
         raster = os.path.join(cdl, 'CMASK_2019_{}.tif'.format(s))
-        cdl_attrs = os.path.join(cmask_states, '{}.shp'.format(s))
-        zonal_crop_mask(f, raster, cdl_attrs)
+        # shape_ = os.path.join(pad, 'singlepart_nodupes',
+        #                       'PADUS2_0Combined_DOD_Fee_Designation_Easement_{}.shp'.format(s))
+        flat = os.path.join(pad, 'cleaned', '{}.shp'.format(s))
+        cdl_attrs = os.path.join(out, '{}.shp'.format(s))
+        zonal_crop_mask(flat, raster, cdl_attrs)
 # ========================= EOF ====================================================================

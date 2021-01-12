@@ -322,7 +322,7 @@ def export_classification(out_name, table, asset_root, region, export='asset'):
         print(os.path.join(asset_root, '{}_{}'.format(out_name, yr)))
 
 
-def filter_irrigated(asset, yr, region, filter_type='filter_irrigated', addl_yr=None):
+def filter_irrigated(asset, yr, region, filter_type='irrigated', addl_yr=None):
     """
     Takes a field polygon vector and filters it based on NDVI rules.
 
