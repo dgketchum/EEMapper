@@ -6,6 +6,10 @@ from numpy.random import shuffle, choice
 from pandas import DataFrame
 from shapely.geometry import shape, Point, mapping
 
+YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
+         2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
+         2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019]
+
 
 class PointsRunspec(object):
 
@@ -185,33 +189,23 @@ def get_training_years(shapes):
 if __name__ == '__main__':
     # home = os.path.expanduser('~')
     home = '/media/research/IrrigationGIS'
-    data = os.path.join(home, 'EE_sample', 'state_clip_aea')
+    data = os.path.join(home, 'EE_sample', 'aea')
 
-    for state in ['CA', 'CO', 'ID', 'MT', 'OR', 'WA']:
-        extract = os.path.join(home, 'EE_extracts', 'state_point_shp')
-        FALLOW = os.path.join(data, state, 'fallow_2DEC2020.shp')
-        IRRIGATED = os.path.join(data, state, 'irrigated_7DEC2020.shp')
+    FALLOW = os.path.join(data, 'fallow_2DEC2020.shp')
+    IRRIGATED = os.path.join(data, 'irrigated_7DEC2020.shp')
+    UNCULTIVATED = os.path.join(data, 'uncultivated_3DEC2020.shp')
+    UNIRRIGATED = os.path.join(data, 'unirrigated_29NOV2020.shp')
+    WETLAND = os.path.join(data, 'wetlands_15JUL2020.shp')
 
-        YEARS = get_training_years([IRRIGATED, FALLOW])
-
-        UNCULTIVATED = os.path.join(data, state, 'uncultivated_3DEC2020.shp')
-        UNIRRIGATED = os.path.join(data, state, 'unirrigated_29NOV2020.shp')
-        WETLAND = os.path.join(data, state, 'wetlands_15JUL2020.shp')
-
-        kwargs = {
-            'irrigated': 10000,
-            'wetlands': 10000,
-            'fallowed': 5000,
-            'uncultivated': 10000,
-            'unirrigated': 10000,
-        }
-
-        outdir = os.path.join(extract, 'raw', state)
-        if not os.path.isdir(outdir):
-            os.mkdir(outdir)
-        out_name = os.path.join(outdir, 'points_10DEC2020.shp'.format())
-
-        prs = PointsRunspec(data, buffer=-20, **kwargs)
-        prs.save_sample_points(out_name)
+    kwargs = {
+        'irrigated': 100000,
+        'wetlands': 100000,
+        'fallowed': 50000,
+        'uncultivated': 100000,
+        'unirrigated': 100000,
+    }
+    out_name = os.path.join(home, 'EE_extracts', 'point_shp', 'points_12JAN2021.shp')
+    prs = PointsRunspec(data, buffer=-20, **kwargs)
+    prs.save_sample_points(out_name)
 
 # ========================= EOF ====================================================================

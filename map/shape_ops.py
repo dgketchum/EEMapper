@@ -63,10 +63,10 @@ def fiona_merge(out_shp, file_list):
             sub_ct = 0
             first = True
             for feat in fiona.open(s):
-                centroid = shape(feat['geometry']).centroid
-                if abs(centroid.y) > 50.0:
-                    print(centroid)
-                    continue
+                # centroid = shape(feat['geometry']).centroid
+                # if abs(centroid.y) > 50.0:
+                #     print(centroid)
+                #     continue
                 feat = {'type': 'Feature', 'properties': {'FID': ct},
                         'geometry': feat['geometry']}
                 output.write(feat)
@@ -869,15 +869,15 @@ if __name__ == '__main__':
 
     gis = os.path.join(home, 'IrrigationGIS')
 
-    # inspected = os.path.join(gis, 'training_data', 'uncultivated', 'USGS_PAD', 'cdl_crop')
-    # files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    # out_ = os.path.join(gis, 'EE_sample', 'wgs', 'uncultivated_11JAN2020.shp')
-    # fiona_merge(out_, files_)
-
-    inspected = os.path.join(gis, 'training_data', 'unirrigated', 'to_merge')
+    inspected = os.path.join(gis, 'training_data', 'uncultivated', 'USGS_PAD', 'cdl_crop')
     files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    out_ = os.path.join(gis, 'EE_sample', 'wgs', 'dryland_11JAN2020.shp')
+    out_ = os.path.join(gis, 'EE_sample', 'aea', 'uncultivated_11JAN2020.shp')
     fiona_merge(out_, files_)
+
+    # inspected = os.path.join(gis, 'training_data', 'unirrigated', 'to_merge')
+    # files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
+    # out_ = os.path.join(gis, 'EE_sample', 'wgs', 'dryland_11JAN2020.shp')
+    # fiona_merge(out_, files_)
 
     # inspected = os.path.join(gis, 'training_data', 'wetlands', 'to_merge')
     # files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
