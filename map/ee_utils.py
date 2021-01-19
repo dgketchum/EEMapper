@@ -130,6 +130,12 @@ def ls8mask(img):
     return mask_mult
 
 
+def ls5_edge_removal(lsImage):
+    inner_buffer = lsImage.geometry().buffer(-3000)
+    buffer = lsImage.clip(inner_buffer)
+    return buffer
+
+
 def landsat_masked(yr, roi):
     start = '{}-01-01'.format(yr)
     end_date = '{}-01-01'.format(yr + 1)
@@ -145,28 +151,38 @@ def landsat_masked(yr, roi):
     return lsSR_masked
 
 
-def ndvi5():
-    l = ee.ImageCollection('LANDSAT/LT05/C01/T1_SR').map(ls5_edge_removal).map(lambda x: x.select().addBands(
-        x.normalizedDifference(['B4', 'B3'])))
-    return l
+def landsat_composites(year, start, end, roi, append_name):
 
+    def evi_(x):
+        return x.expression('2.5 * ((NIR-RED) / (NIR + 6 * RED - 7.5* BLUE +1))', {'NIR': x.select('B5'),
+                                                                                   'RED': x.select('B4'),
+                                                                                   'BLUE': x.select('B2')})
 
-def ndvi7():
-    l = ee.ImageCollection('LANDSAT/LE07/C01/T1_SR').map(lambda x: x.select().addBands(
-        x.normalizedDifference(['B4', 'B3'])))
-    return l
+    def gi_(x):
+        return x.expression('NIR / GREEN', {'NIR': x.select('B5'),
+                                            'GREEN': x.select('B3')})
 
+    lsSR_masked = landsat_masked(year, roi)
+    bands_means = ee.Image(lsSR_masked.filterDate(start, end).map(
+        lambda x: x.select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
+                           ['B2_{}'.format(append_name),
+                            'B3_{}'.format(append_name),
+                            'B4_{}'.format(append_name),
+                            'B5_{}'.format(append_name),
+                            'B6_{}'.format(append_name),
+                            'B7_{}'.format(append_name)]
+                           )).mean())
+    ndvi = ee.Image(lsSR_masked.filterDate(start, end).map(
+        lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_{}'.format(append_name))
+    ndwi = ee.Image(lsSR_masked.filterDate(start, end).map(
+        lambda x: x.normalizedDifference(['B5', 'B6'])).max()).rename('nw_{}'.format(append_name))
+    evi = ee.Image(lsSR_masked.filterDate(start, end).map(
+        lambda x: evi_(x)).max()).rename('evi_{}'.format(append_name))
+    gi = ee.Image(lsSR_masked.filterDate(start, end).map(
+        lambda x: gi_(x)).max()).rename('gi_{}'.format(append_name))
+    bands = bands_means.addBands([ndvi, ndwi, evi, gi])
 
-def ndvi8():
-    l = ee.ImageCollection('LANDSAT/LC08/C01/T1_SR').map(lambda x: x.select().addBands(
-        x.normalizedDifference(['B5', 'B4'])))
-    return l
-
-
-def ls5_edge_removal(lsImage):
-    inner_buffer = lsImage.geometry().buffer(-3000)
-    buffer = lsImage.clip(inner_buffer)
-    return buffer
+    return bands
 
 
 def period_stat(collection, start, end):

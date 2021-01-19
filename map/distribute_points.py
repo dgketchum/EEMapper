@@ -192,10 +192,10 @@ if __name__ == '__main__':
     data = os.path.join(home, 'EE_sample', 'aea')
 
     FALLOW = os.path.join(data, 'fallow_2DEC2020.shp')
-    IRRIGATED = os.path.join(data, 'irrigated_7DEC2020.shp')
-    UNCULTIVATED = os.path.join(data, 'uncultivated_3DEC2020.shp')
-    UNIRRIGATED = os.path.join(data, 'unirrigated_29NOV2020.shp')
-    WETLAND = os.path.join(data, 'wetlands_15JUL2020.shp')
+    IRRIGATED = os.path.join(data, 'irrigated_11JAN2021.shp')
+    UNCULTIVATED = os.path.join(data, 'uncultivated_11JAN2021.shp')
+    UNIRRIGATED = os.path.join(data, 'dryland_11JAN2021.shp')
+    WETLAND = os.path.join(data, 'wetlands_11JAN2021.shp')
 
     kwargs = {
         'irrigated': 100000,
@@ -204,7 +204,7 @@ if __name__ == '__main__':
         'uncultivated': 100000,
         'unirrigated': 100000,
     }
-    out_name = os.path.join(home, 'EE_extracts', 'point_shp', 'points_12JAN2021.shp')
+    out_name = os.path.join(home, 'EE_extracts', 'point_shp', 'points_18JAN2021.shp')
     prs = PointsRunspec(data, buffer=-20, **kwargs)
     prs.save_sample_points(out_name)
 

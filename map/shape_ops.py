@@ -14,6 +14,7 @@
 # limitations under the License.
 # ===============================================================================
 import os
+from random import shuffle
 from collections import OrderedDict
 
 import fiona
@@ -859,6 +860,29 @@ def count_points(shp):
     return list(set(dct.keys()))
 
 
+def subselect_points_shapefile(shp, out_shp, limit=10000):
+    with fiona.open(shp, 'r') as src:
+        meta = src.meta
+        features = [f for f in src]
+        shuffle(features)
+
+    dct = {}
+    out_features = []
+    for f in features:
+        y = f['properties']['YEAR']
+        if y not in dct.keys():
+            dct[y] = 0
+        if dct[y] < limit:
+            dct[y] += 1
+            out_features.append(f)
+    for k, v in dct.items():
+        print(k, v)
+
+    # with fiona.open(out_shp, 'w', **meta) as dst:
+    #     for f in out_features:
+    #         dst.write(f)
+
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     alt_home = '/media/research'
@@ -868,24 +892,7 @@ if __name__ == '__main__':
         home = os.path.join(home, 'data')
 
     gis = os.path.join(home, 'IrrigationGIS')
-
-    inspected = os.path.join(gis, 'training_data', 'uncultivated', 'USGS_PAD', 'cdl_crop')
-    files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    out_ = os.path.join(gis, 'EE_sample', 'aea', 'uncultivated_11JAN2020.shp')
-    fiona_merge(out_, files_)
-
-    # inspected = os.path.join(gis, 'training_data', 'unirrigated', 'to_merge')
-    # files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    # out_ = os.path.join(gis, 'EE_sample', 'wgs', 'dryland_11JAN2020.shp')
-    # fiona_merge(out_, files_)
-
-    # inspected = os.path.join(gis, 'training_data', 'wetlands', 'to_merge')
-    # files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    # out_ = os.path.join(gis, 'EE_sample', 'wgs', 'wetlands_11JAN2020.shp')
-    # fiona_merge(out_, files_)
-
-    # inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
-    # files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    # out_ = os.path.join(gis, 'EE_sample', 'wgs', 'irrigated_11JAN2020.shp')
-    # fiona_merge_attribute(out_, files_)
+    in_shp = '/media/research/IrrigationGIS/EE_extracts/point_shp/train_pts_18JAN2021.shp'
+    out_shp = '/media/research/IrrigationGIS/EE_extracts/point_shp/train_pts_select_18JAN2021.shp'
+    subselect_points_shapefile(in_shp, out_shp)
 # ========================= EOF ====================================================================

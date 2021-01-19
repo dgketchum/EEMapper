@@ -457,19 +457,8 @@ def join_comparison_to_shapefile(csv, shp, out_shape):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     data_dir = '/media/research'
-    bands = read_csv('/media/research/IrrigationGIS/EE_extracts/concatenated/bands_3DEC2020_sub.csv')
-    bands.drop(columns=['B7_1'], inplace=True)
-    co = read_csv('/media/research/IrrigationGIS/EE_extracts/state_bands/concatenated/bands_CO_10DEC2020.csv')
-    co = co.rename(columns={'cdlclt': 'cdl'})
-    co.drop(columns=['cdlcrp'], inplace=True)
-    co = co[co['POINT_TYPE'] == 2]
-    df = concat([bands, co], sort=True)
-    df.to_csv('/media/research/IrrigationGIS/EE_extracts/concatenated/bands_14DEC2020.csv', index=False)
-    out = read_csv('/media/research/IrrigationGIS/EE_extracts/concatenated/bands_14DEC2020.csv')
-    pass
-    # for state in ['CA', 'CO', 'ID', 'MT', 'OR', 'WA']:
-    #     d = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'state_bands', 'to_concatenate')
-    #     glob = 'bands_{}_10DEC2020'.format(state)
-    #     o = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'state_bands', 'concatenated')
-    #     concatenate_band_extract(d, o, glob, select=True)
+    d = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'to_concatenate')
+    glob = 'bands_18JAN2021'
+    o = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'concatenated')
+    concatenate_band_extract(d, o, glob, select=True)
 # ========================= EOF ====================================================================

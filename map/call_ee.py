@@ -8,8 +8,7 @@ import ee
 
 sys.path.insert(0, os.path.abspath('..'))
 from map.assets import list_assets
-from map.ee_utils import get_world_climate, ls57mask, ls8mask, ndvi5, landsat_masked
-from map.ee_utils import ndvi7, ndvi8, ls5_edge_removal, period_stat, daily_landsat
+from map.ee_utils import get_world_climate, landsat_composites, landsat_masked, daily_landsat
 from map.tables import SELECT
 from shape_ops import count_points
 
@@ -243,7 +242,7 @@ def export_special(roi, description):
     fc = ee.FeatureCollection(roi)
     roi_mask = fc.geometry().bounds().getInfo()['coordinates']
 
-    for year in [str(x) for x in range(1986, 2018)]:
+    for year in [str(x) for x in range(1987, 2021)]:
         target = ee.Image(os.path.join(RF_ASSET, year))
         target = target.select('classification')
 
@@ -253,11 +252,11 @@ def export_special(roi, description):
             region=roi_mask,
             scale=30,
             maxPixels=1e13,
+            folder='UCRB',
             crs='EPSG:5070'
         )
         task.start()
         print(year)
-        exit()
 
 
 def export_classification(out_name, table, asset_root, region, export='asset'):
@@ -361,7 +360,7 @@ def filter_irrigated(asset, yr, region, filter_type='irrigated', addl_yr=None):
                                           reducer=ee.Reducer.mean(),
                                           scale=30.0)
 
-        filt_fc = combo #.filter(ee.Filter.Or(ee.Filter.gt('median', 0.9), ee.Filter.gt('mean', 0.8)))
+        filt_fc = combo  # .filter(ee.Filter.Or(ee.Filter.gt('median', 0.9), ee.Filter.gt('mean', 0.8)))
         desc = '{}_{}_irr'.format(os.path.basename(region), yr)
 
     elif filter_type == 'dryland':
@@ -440,7 +439,7 @@ def request_validation_extract(file_prefix='validation'):
         print(yr)
 
 
-def request_band_extract(file_prefix, points_layer, region, years, filter_bounds=False):
+def request_band_extract(file_prefix, points_layer, region, filter_bounds=False):
     """
     Extract raster values from a points kml file in Fusion Tables. Send annual extracts .csv to GCS wudr bucket.
     Concatenate them using map.tables.concatenate_band_extract().
@@ -452,7 +451,7 @@ def request_band_extract(file_prefix, points_layer, region, years, filter_bounds
     """
     roi = ee.FeatureCollection(region)
     plots = ee.FeatureCollection(points_layer)
-    try:
+    for yr in YEARS:
         stack = stack_bands(yr, roi)
 
         if filter_bounds:
@@ -475,9 +474,7 @@ def request_band_extract(file_prefix, points_layer, region, years, filter_bounds
 
         task.start()
         print(yr)
-    except ee.ee_exception.EEException as e:
-        print(yr, e)
-        pass
+        exit()
 
 
 def stack_bands(yr, roi):
@@ -496,68 +493,69 @@ def stack_bands(yr, roi):
     summer_s, summer_e = '{}-07-01'.format(yr), '{}-09-01'.format(yr)
     fall_s, fall_e = '{}-09-01'.format(yr), '{}-12-31'.format(yr)
 
-    lsSR_masked = landsat_masked(yr, roi)
+    periods = [('cy', winter_s, fall_e),
+               ('1', spring_s, spring_e),
+               ('2', late_spring_s, late_spring_e),
+               ('3', summer_s, summer_e),
+               ('4', fall_s, fall_e)]
 
-    lsSR_wnt_mn = ee.Image(lsSR_masked.filterDate(winter_s, winter_e).map(
-        lambda x: x.select('B2', 'B3', 'B4', 'B5', 'B6', 'B7')).mean())
-
-    lsSR_wnt_mn_nd = ee.Image(lsSR_masked.filterDate(winter_s, winter_e).map(
-        lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd')
-
-    lsSR_spr_mn = ee.Image(lsSR_masked.filterDate(spring_s, spring_e).map(
-        lambda x: x.select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
-                           ['B2_1', 'B3_1', 'B4_1', 'B5_1', 'B6_1', 'B7_1'])).mean())
-
-    lsSR_spr_mn_nd = ee.Image(lsSR_masked.filterDate(spring_s, spring_e).map(
-        lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_1')
-
-    lsSR_lspr_mn = ee.Image(lsSR_masked.filterDate(late_spring_s, late_spring_e).map(
-        lambda x: x.select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
-                           ['B2_2', 'B3_2', 'B4_2', 'B5_2', 'B6_2', 'B7_2'])).mean())
-
-    lsSR_lspr_mn_nd = ee.Image(lsSR_masked.filterDate(late_spring_s, late_spring_e).map(
-        lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_2')
-
-    lsSR_sum_mn = ee.Image(lsSR_masked.filterDate(summer_s, summer_e).map(
-        lambda x: x.select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
-                           ['B2_3', 'B3_3', 'B4_3', 'B5_3', 'B6_3', 'B7_3'])).mean())
-
-    lsSR_sum_mn_nd = ee.Image(lsSR_masked.filterDate(summer_s, summer_e).map(
-        lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_3')
-
-    lsSR_fal_mn = ee.Image(lsSR_masked.filterDate(fall_s, fall_e).map(
-        lambda x: x.select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
-                           ['B2_4', 'B3_4', 'B4_4', 'B5_4', 'B6_4', 'B7_4'])).mean())
-
-    lsSR_fal_mn_nd = ee.Image(lsSR_masked.filterDate(fall_s, fall_e).map(
-        lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_4')
-
-    proj = lsSR_wnt_mn.select('B2').projection().getInfo()
-    input_bands = lsSR_wnt_mn.addBands([lsSR_spr_mn,
-                                        lsSR_lspr_mn,
-                                        lsSR_sum_mn,
-                                        lsSR_fal_mn,
-                                        lsSR_wnt_mn_nd,
-                                        lsSR_spr_mn_nd,
-                                        lsSR_lspr_mn_nd,
-                                        lsSR_sum_mn_nd,
-                                        lsSR_fal_mn_nd])
-
-    nd_list_ = []
-    for pos, year in zip(['m2', 'm1', 'cy'], range(yr - 2, yr + 1)):
-        if year <= 2011:
-            collection = ndvi5()
-        elif year == 2012:
-            collection = ndvi7()
+    first = True
+    for name, start, end in periods:
+        bands = landsat_composites(yr, start, end, roi, name)
+        if first:
+            input_bands = bands
+            proj = bands.select('B2_cy').projection().getInfo()
+            first = False
         else:
-            collection = ndvi8()
+            input_bands = input_bands.addBands(bands)
 
-        nd_collection = period_stat(collection, spring_s.replace('{}'.format(yr), '{}'.format(year)),
-                                    fall_e.replace('{}'.format(yr), '{}'.format(year)))
-        s_nd_max = nd_collection.select('nd_max').rename('nd_max_{}'.format(pos))
-        nd_list_.append(s_nd_max)
 
-    input_bands = input_bands.addBands(nd_list_)
+    # lsSR_masked = landsat_masked(yr, roi)
+    #
+    # lsSR_wnt_mn = ee.Image(lsSR_masked.filterDate(winter_s, winter_e).map(
+    #     lambda x: x.select('B2', 'B3', 'B4', 'B5', 'B6', 'B7')).mean())
+    #
+    # lsSR_wnt_mn_nd = ee.Image(lsSR_masked.filterDate(winter_s, winter_e).map(
+    #     lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd')
+    #
+    # lsSR_spr_mn = ee.Image(lsSR_masked.filterDate(spring_s, spring_e).map(
+    #     lambda x: x.select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
+    #                        ['B2_1', 'B3_1', 'B4_1', 'B5_1', 'B6_1', 'B7_1'])).mean())
+    #
+    # lsSR_spr_mn_nd = ee.Image(lsSR_masked.filterDate(spring_s, spring_e).map(
+    #     lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_1')
+    #
+    # lsSR_lspr_mn = ee.Image(lsSR_masked.filterDate(late_spring_s, late_spring_e).map(
+    #     lambda x: x.select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
+    #                        ['B2_2', 'B3_2', 'B4_2', 'B5_2', 'B6_2', 'B7_2'])).mean())
+    #
+    # lsSR_lspr_mn_nd = ee.Image(lsSR_masked.filterDate(late_spring_s, late_spring_e).map(
+    #     lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_2')
+    #
+    # lsSR_sum_mn = ee.Image(lsSR_masked.filterDate(summer_s, summer_e).map(
+    #     lambda x: x.select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
+    #                        ['B2_3', 'B3_3', 'B4_3', 'B5_3', 'B6_3', 'B7_3'])).mean())
+    #
+    # lsSR_sum_mn_nd = ee.Image(lsSR_masked.filterDate(summer_s, summer_e).map(
+    #     lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_3')
+    #
+    # lsSR_fal_mn = ee.Image(lsSR_masked.filterDate(fall_s, fall_e).map(
+    #     lambda x: x.select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
+    #                        ['B2_4', 'B3_4', 'B4_4', 'B5_4', 'B6_4', 'B7_4'])).mean())
+    #
+    # lsSR_fal_mn_nd = ee.Image(lsSR_masked.filterDate(fall_s, fall_e).map(
+    #     lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_4')
+    #
+    # proj = lsSR_wnt_mn.select('B2').projection().getInfo()
+    # input_bands = lsSR_wnt_mn.addBands([lsSR_spr_mn,
+    #                                     lsSR_lspr_mn,
+    #                                     lsSR_sum_mn,
+    #                                     lsSR_fal_mn,
+    #                                     lsSR_wnt_mn_nd,
+    #                                     lsSR_spr_mn_nd,
+    #                                     lsSR_lspr_mn_nd,
+    #                                     lsSR_sum_mn_nd,
+    #                                     lsSR_fal_mn_nd])
 
     for s, e, n in [(spring_s, spring_e, 'espr'),
                     (late_spring_s, late_spring_e, 'lspr'),
@@ -653,6 +651,9 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    roi_ = os.path.join(BOUNDARIES, 'UCRB')
-    export_special(roi_, 'UCRB')
+    pts = 'projects/ee-dgketchum/assets/points/train_pts_18JAN2021'
+    request_band_extract('bands_18JAN2021', pts, GEO_DOMAIN, filter_bounds=False)
+    # csv = 'projects/ee-dgketchum/assets/bands/state/bands_{}_10DEC2020'.format(s)
+    # geo = os.path.join(BOUNDARIES, s)
+    # export_classification(out_name='IM_{}'.format(s), table=csv, asset_root=ASSET_ROOT, region=geo)
 # ========================= EOF ====================================================================
