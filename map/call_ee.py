@@ -509,54 +509,6 @@ def stack_bands(yr, roi):
         else:
             input_bands = input_bands.addBands(bands)
 
-
-    # lsSR_masked = landsat_masked(yr, roi)
-    #
-    # lsSR_wnt_mn = ee.Image(lsSR_masked.filterDate(winter_s, winter_e).map(
-    #     lambda x: x.select('B2', 'B3', 'B4', 'B5', 'B6', 'B7')).mean())
-    #
-    # lsSR_wnt_mn_nd = ee.Image(lsSR_masked.filterDate(winter_s, winter_e).map(
-    #     lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd')
-    #
-    # lsSR_spr_mn = ee.Image(lsSR_masked.filterDate(spring_s, spring_e).map(
-    #     lambda x: x.select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
-    #                        ['B2_1', 'B3_1', 'B4_1', 'B5_1', 'B6_1', 'B7_1'])).mean())
-    #
-    # lsSR_spr_mn_nd = ee.Image(lsSR_masked.filterDate(spring_s, spring_e).map(
-    #     lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_1')
-    #
-    # lsSR_lspr_mn = ee.Image(lsSR_masked.filterDate(late_spring_s, late_spring_e).map(
-    #     lambda x: x.select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
-    #                        ['B2_2', 'B3_2', 'B4_2', 'B5_2', 'B6_2', 'B7_2'])).mean())
-    #
-    # lsSR_lspr_mn_nd = ee.Image(lsSR_masked.filterDate(late_spring_s, late_spring_e).map(
-    #     lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_2')
-    #
-    # lsSR_sum_mn = ee.Image(lsSR_masked.filterDate(summer_s, summer_e).map(
-    #     lambda x: x.select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
-    #                        ['B2_3', 'B3_3', 'B4_3', 'B5_3', 'B6_3', 'B7_3'])).mean())
-    #
-    # lsSR_sum_mn_nd = ee.Image(lsSR_masked.filterDate(summer_s, summer_e).map(
-    #     lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_3')
-    #
-    # lsSR_fal_mn = ee.Image(lsSR_masked.filterDate(fall_s, fall_e).map(
-    #     lambda x: x.select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
-    #                        ['B2_4', 'B3_4', 'B4_4', 'B5_4', 'B6_4', 'B7_4'])).mean())
-    #
-    # lsSR_fal_mn_nd = ee.Image(lsSR_masked.filterDate(fall_s, fall_e).map(
-    #     lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_4')
-    #
-    # proj = lsSR_wnt_mn.select('B2').projection().getInfo()
-    # input_bands = lsSR_wnt_mn.addBands([lsSR_spr_mn,
-    #                                     lsSR_lspr_mn,
-    #                                     lsSR_sum_mn,
-    #                                     lsSR_fal_mn,
-    #                                     lsSR_wnt_mn_nd,
-    #                                     lsSR_spr_mn_nd,
-    #                                     lsSR_lspr_mn_nd,
-    #                                     lsSR_sum_mn_nd,
-    #                                     lsSR_fal_mn_nd])
-
     for s, e, n in [(spring_s, spring_e, 'espr'),
                     (late_spring_s, late_spring_e, 'lspr'),
                     (summer_s, summer_e, 'smr'),
