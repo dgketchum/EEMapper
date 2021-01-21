@@ -3,9 +3,10 @@ import sys
 from pprint import pprint
 from time import time
 from subprocess import call
+from copy import deepcopy
 
 # import tensorflow as tf
-from numpy import dot, mean, flatnonzero, unique, array
+from numpy import dot, mean, flatnonzero, unique, array, ones_like, where, zeros_like
 from numpy.random import randint
 from pandas import read_csv, concat, get_dummies, DataFrame
 from scipy.stats import randint as sp_randint
@@ -15,6 +16,9 @@ from sklearn.metrics import confusion_matrix
 from sklearn.tree import export_graphviz
 from sklearn.model_selection import RandomizedSearchCV, GridSearchCV, train_test_split, KFold
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
+
+from geopandas import GeoDataFrame
+from shapely.geometry import Point
 
 from map import FEATURE_NAMES
 from map.variable_importance import original_names
@@ -58,20 +62,25 @@ def pca(csv):
         print(eigenvalue)
 
 
-def random_forest(csv, binary=False, n_estimators=100):
-    df = read_csv(csv, engine='python')
-    labels = df['POINT_TYPE'].values
+def random_forest(csv, n_estimators=100, out_shape=None):
+
+    c = read_csv(csv, engine='python').sample(frac=1.0).reset_index(drop=True)
+    c['POINT_TYPE'][c['POINT_TYPE'] == 3] = 2
+
+    split = int(c.shape[0] * 0.7)
+
+    df = deepcopy(c.loc[:split, :])
+    y = df['POINT_TYPE'].values
     df.drop(columns=['YEAR', 'POINT_TYPE'], inplace=True)
     df.dropna(axis=1, inplace=True)
-    data = df.values
-    if binary:
-        labels = labels.reshape((labels.shape[0],))
-        labels[labels > 1] = 1
-    else:
-        labels = labels.reshape((labels.shape[0],))
+    x = df.values
 
-    x, x_test, y, y_test = train_test_split(data, labels, test_size=0.33,
-                                            random_state=None)
+    val = deepcopy(c.loc[split:, :])
+    y_test = val['POINT_TYPE'].values
+    geo = val.apply(lambda x: Point(x['Lon_GCS'], x['LAT_GCS']), axis=1)
+    val.drop(columns=['YEAR', 'POINT_TYPE'], inplace=True)
+    val.dropna(axis=1, inplace=True)
+    x_test = val.values
 
     rf = RandomForestClassifier(n_estimators=n_estimators,
                                 n_jobs=-1,
@@ -79,6 +88,21 @@ def random_forest(csv, binary=False, n_estimators=100):
 
     rf.fit(x, y)
     y_pred = rf.predict(x_test)
+    if out_shape:
+        val['pred'] = y_pred
+        val['label'] = y_test
+
+        ones = ones_like(y_test)
+        zeros = zeros_like(y_test)
+        val['corr'] = where(y_pred == y_test, zeros, ones)
+
+        gdf = GeoDataFrame(val, geometry=geo, crs="EPSG:4326")
+        gdf.to_file(out_shape)
+        gdf = gdf[gdf['corr'] == 0]
+        incor = os.path.join(os.path.dirname(out_shape),
+                             '{}_{}'.format('incor', os.path.basename(out_shape)))
+        gdf.to_file(incor)
+
     cf = confusion_matrix(y_test, y_pred)
     pprint(cf)
     producer(cf)
@@ -135,7 +159,7 @@ def find_rf_variable_importance(csv):
     data = df.values
     names = df.columns
 
-    for x in range(10):
+    for x in range(1):
         print('model iteration {}'.format(x))
         rf = RandomForestClassifier(n_estimators=100,
                                     min_samples_split=11,
@@ -310,7 +334,9 @@ def get_confusion_matrix(csv, spec=None):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     out_ = os.path.join('/media/research', 'IrrigationGIS', 'EE_extracts', 'concatenated')
-    extracts = os.path.join(out_, 'bands_3DEC2020_sub.csv')
-    random_forest_feature_select(extracts)
+    shapefile = '/media/research/IrrigationGIS/EE_extracts/evaluated_points/eval_18JAN2021.shp'
+    extracts = os.path.join(out_, 'bands_18JAN2021.csv')
+    # find_rf_variable_importance(extracts)
+    random_forest(extracts, out_shape=shapefile)
 
 # ========================= EOF ====================================================================

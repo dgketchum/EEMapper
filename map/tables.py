@@ -118,17 +118,19 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=Non
             print('{} is empty'.format(csv))
             pass
 
-    df.drop(columns=['system:index', '.geo'], inplace=True)
+    df = df.drop(columns=['system:index', '.geo'])
     print(df['POINT_TYPE'].value_counts())
 
     points = df['POINT_TYPE'].values
     nines = ones_like(points) * 9
-    points = where((df.POINT_TYPE == 0) & (df.nd_max_cy < 0.55), nines, points)
+    points = where((df.POINT_TYPE == 0) & (df.nd_cy < 0.55), nines, points)
 
     df['POINT_TYPE'] = points
     print(df['POINT_TYPE'].value_counts())
-    points = where((df['POINT_TYPE'] == 4) & (df['nd_max_cy'] > 0.6), nines, points)
+    points = where((df['POINT_TYPE'] == 4) & (df['nd_cy'] > 0.6), nines, points)
     df['POINT_TYPE'] = points
+    df = df[df['POINT_TYPE'] != 9]
+    df['POINT_TYPE'][df['POINT_TYPE'] == 4] = 1
     print(df['POINT_TYPE'].value_counts())
 
     if sample:

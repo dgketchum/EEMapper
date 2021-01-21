@@ -6,9 +6,10 @@ from numpy.random import shuffle, choice
 from pandas import DataFrame
 from shapely.geometry import shape, Point, mapping
 
-YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
-         2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
-         2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019]
+YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997,
+         1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
+         2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015,
+         2016, 2017, 2018, 2019]
 
 
 class PointsRunspec(object):
@@ -204,7 +205,7 @@ if __name__ == '__main__':
         'uncultivated': 100000,
         'unirrigated': 100000,
     }
-    out_name = os.path.join(home, 'EE_extracts', 'point_shp', 'points_18JAN2021.shp')
+    out_name = os.path.join(home, 'EE_extracts', 'point_shp', 'points_20JAN2021.shp')
     prs = PointsRunspec(data, buffer=-20, **kwargs)
     prs.save_sample_points(out_name)
 
