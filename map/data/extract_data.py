@@ -23,7 +23,7 @@ KERNEL_SHAPE = [KERNEL_SIZE, KERNEL_SIZE]
 list_ = ee.List.repeat(1, KERNEL_SIZE)
 lists = ee.List.repeat(list_, KERNEL_SIZE)
 KERNEL = ee.Kernel.fixed(KERNEL_SIZE, KERNEL_SIZE, lists)
-GS_BUCKET = 'ta_data'
+GS_BUCKET = 'ts_data'
 
 BOUNDARIES = 'users/dgketchum/boundaries'
 MGRS = os.path.join(BOUNDARIES, 'MGRS_TILE')
@@ -102,33 +102,6 @@ def temporalCollection(collection, start, count, interval, units):
     return ee.ImageCollection(sequence.map(filt))
 
 
-def masks(roi, year_):
-    root = 'users/dgketchum/training_polygons/'
-
-    irr_mask = ee.FeatureCollection(os.path.join(root, 'irrigated_mask')).filterBounds(roi)
-    irr_mask = irr_mask.filter(ee.Filter.eq("YEAR", year_))
-
-    fallow_mask = ee.FeatureCollection(os.path.join(root, 'fallow_mask')).filterBounds(roi)
-    fallow_mask = fallow_mask.filter(ee.Filter.eq("YEAR", year_))
-
-    dryland_mask = ee.FeatureCollection(os.path.join(root, 'dryland_mask')).filterBounds(roi)
-
-    root = 'users/dgketchum/uncultivated/'
-    w_wetlands = ee.FeatureCollection(os.path.join(root, 'west_wetlands'))
-    c_wetlands = ee.FeatureCollection(os.path.join(root, 'central_wetlands'))
-    e_wetlands = ee.FeatureCollection(os.path.join(root, 'east_wetlands'))
-    usgs_pad = ee.FeatureCollection(os.path.join(root, 'usgs_pad'))
-    rf_uncult = ee.FeatureCollection(os.path.join(root, 'uncultivated'))
-    uncultivated_mask = w_wetlands.merge(c_wetlands).merge(e_wetlands).merge(usgs_pad).merge(rf_uncult)
-    uncultivated_mask = uncultivated_mask.filterBounds(roi)
-
-    masks_ = {'irrigated': irr_mask,
-              'fallow': fallow_mask,
-              'dryland': dryland_mask,
-              'uncultivated': uncultivated_mask}
-    return masks_
-
-
 def class_codes():
     return {'irrigated': 2,
             'fallow': 3,
@@ -136,13 +109,31 @@ def class_codes():
             'uncultivated': 5}
 
 
-def create_class_labels(name_fc):
-    class_labels = ee.Image(1).byte()
-    # paint irrigated last
-    for name in ['uncultivated', 'dryland', 'fallow', 'irrigated']:
-        class_labels = class_labels.paint(name_fc[name], class_codes()[name])
-    label = class_labels.rename('irr')
+def create_class_labels(year_, roi_):
+    irrigated = 'users/dgketchum/training_polygons/irrigated'
+    fallow = 'users/dgketchum/training_polygons/fallow'
+    dryland = 'users/dgketchum/training_polygons/dryland'
+    uncultivated = 'users/dgketchum/training_polygons/uncultivated'
+    wetlands = 'users/dgketchum/training_polygons/wetlands'
 
+    gsw = ee.Image('JRC/GSW1_0/GlobalSurfaceWater')
+    water = gsw.select('occurrence').gt(5).unmask(0)
+    dataset = ee.Image('USGS/NLCD/NLCD2016')
+    landcover = dataset.select('landcover')
+    mask = landcover.lt(24)
+    imperv = mask.updateMask(landcover.gt(24)).updateMask(water.Not()).unmask(1)
+    mask = imperv.mask(imperv.gt(0)).add(3)
+    class_labels = ee.Image(mask).byte()
+    irrigated = ee.FeatureCollection(irrigated).filter(ee.Filter.eq("YEAR", year_)).filterBounds(roi_)
+    fallow = ee.FeatureCollection(fallow).filter(ee.Filter.eq("YEAR", year_)).filterBounds(roi_)
+    dryland = ee.FeatureCollection(dryland).merge(fallow).filterBounds(roi_)
+    uncultivated = ee.FeatureCollection(uncultivated).merge(wetlands).filterBounds(roi_)
+
+    class_labels = class_labels.paint(uncultivated, 3)
+    class_labels = class_labels.paint(dryland, 2)
+    class_labels = class_labels.paint(irrigated, 1)
+    class_labels = class_labels.updateMask(class_labels).unmask(water)
+    label = class_labels.rename('irr')
     return label
 
 
@@ -190,58 +181,57 @@ def get_sr_stack(yr, s, e, interval, mask, geo_):
     return interp, target_rename
 
 
-def extract_by_patch(feature_id=1440, split=None, cloud_mask=True, time_series=True):
+def extract_by_patch(feature_id=1440, split=None, cloud_mask=True, time_series=True, fmt='TFRecord'):
     if not split:
         raise NotImplementedError
 
     grid = os.path.join(EE_DATA, '{}_grid'.format(split))
     roi = ee.FeatureCollection(grid).filter(ee.Filter.eq('FID', feature_id))
-    geo = roi.geometry()
+    geo = roi.first().geometry()
 
-    points = os.path.join(EE_DATA, '{}_pts'.format(split))
-    points = ee.FeatureCollection(points).filter(ee.Filter.eq('POLYFID', feature_id))
-    points = points.toList(points.size())
+    # points = os.path.join(EE_DATA, '{}_pts'.format(split))
+    # points = ee.FeatureCollection(points).filter(ee.Filter.eq('POLYFID', feature_id))
+    # points = points.toList(points.size())
 
-    size = roi.size().getInfo()
-    if size != 1:
-        print('{} has {} features'.format(feature_id, size))
-        return None
+    # size = roi.size().getInfo()
+    # if size != 1:
+    #     print('{} has {} features'.format(feature_id, size))
+    #     return None
 
     info_ = roi.first().getInfo()
-    state, irr = info_['properties']['STUSPS'], info_['properties']['IRR']
+    state = info_['properties']['STUSPS']  # , info_['properties']['IRR']
     years = STATE_YEARS[state]
 
     for year in years:
-        if year in [2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016]:
-            s, e, interval_ = 1, 1, 30
-            if time_series:
-                image_stack, features = get_sr_stack(year, s, e, interval_, cloud_mask, geo)
-            else:
-                image_stack = preprocess_data(year).toBands()
-                features = [feat['id'] for feat in image_stack.getInfo()['bands']]
+        s, e, interval_ = 1, 1, 30
+        if time_series:
+            image_stack, features = get_sr_stack(year, s, e, interval_, cloud_mask, geo)
+        else:
+            image_stack = preprocess_data(year).toBands()
+            features = [feat['id'] for feat in image_stack.getInfo()['bands']]
 
-            masks_ = masks(geo, year)
-            irr = create_class_labels(masks_)
-            terrain_, cdl_ = get_ancillary(year)
-            coords_ = image_stack.pixelLonLat().rename(['lon', 'lat'])
-            image_stack = ee.Image.cat([image_stack, terrain_, coords_, cdl_, irr]).float()
-            features = features + ['elv', 'slp', 'asp', 'lon', 'lat', 'cdl', 'cconf', 'irr']
+        irr = create_class_labels(year, roi)
+        terrain_, cdl_ = get_ancillary(year)
+        coords_ = image_stack.pixelLonLat().rename(['lon', 'lat'])
+        image_stack = ee.Image.cat([image_stack, terrain_, coords_, cdl_, irr]).float()
+        features = features + ['elv', 'slp', 'asp', 'lon', 'lat', 'cdl', 'cconf', 'irr']
 
-            projection = ee.Projection('EPSG:5070')
-            image_stack = image_stack.reproject(projection, None, 30)
+        projection = ee.Projection('EPSG:5070')
+        image_stack = image_stack.reproject(projection, None, 30)
 
-            out_filename = '{}_{}_{}_{}'.format(split, state, feature_id, year)
-            data_stack = image_stack.neighborhoodToArray(KERNEL)
-            geometry_sample = ee.ImageCollection([])
+        out_filename = '{}_{}_{}_{}'.format(split, state, feature_id, year)
+        data_stack = image_stack.neighborhoodToArray(KERNEL)
+        geometry_sample = ee.ImageCollection([])
 
-            for i in range(9):
-                region = ee.Feature(points.get(i)).geometry()
-                sample = data_stack.sample(region=region,
-                                           scale=30,
-                                           numPixels=1,
-                                           tileScale=16,
-                                           dropNulls=False)
-                geometry_sample = geometry_sample.merge(sample)
+        # for i in range(9):
+        # region = ee.Feature(points.get(i)).geometry()
+        if fmt == 'TFRecord':
+            sample = data_stack.sample(region=geo,
+                                       scale=30,
+                                       numPixels=1,
+                                       tileScale=16,
+                                       dropNulls=False)
+            geometry_sample = geometry_sample.merge(sample)
 
             task = ee.batch.Export.table.toCloudStorage(
                 collection=geometry_sample,
@@ -251,14 +241,34 @@ def extract_by_patch(feature_id=1440, split=None, cloud_mask=True, time_series=T
                 fileFormat='TFRecord',
                 selectors=features)
 
-            try:
-                task.start()
-            except ee.ee_exception.EEException:
-                print('waiting to export, sleeping for 50 minutes. Holding at\
-                        {}, feature {}'.format(year, feature_id))
-                time.sleep(3000)
-                task.start()
-            print('exported', split, state, feature_id, year)
+        if fmt == 'GeoTIFF':
+            # sample = image_stack.sample(region=geo,
+            #                             scale=30,
+            #                             numPixels=1,
+            #                             tileScale=16,
+            #                             dropNulls=False)
+            # geometry_sample = geometry_sample.merge(sample)
+
+            task = ee.batch.Export.image.toCloudStorage(
+                image=image_stack,
+                bucket=GS_BUCKET,
+                description=out_filename,
+                crs='EPSG:5070',
+                fileNamePrefix=out_filename,
+                maxPixels=1e13,
+                region=geo,
+                fileFormat='GeoTIFF')
+
+        try:
+            task.start()
+        except ee.ee_exception.EEException as e:
+            print(e)
+            exit(0)
+            print('waiting to export, sleeping for 50 minutes. Holding at\
+                    {}, feature {}'.format(year, feature_id))
+            time.sleep(3000)
+            task.start()
+        print('exported {}'.format(fmt), split, state, feature_id, year)
 
 
 def extract_by_point(year, points_to_extract=None, cloud_mask=False,
@@ -475,10 +485,12 @@ if __name__ == '__main__':
     grids = os.path.join('/media/hdisk', 'IrrigationGIS', 'EE_sample', 'grid')
     centroids = os.path.join(home, 'IrrigationGIS', 'EE_sample', 'centroids')
 
-    splits = ['train', 'test', 'valid']
-    shapes = [os.path.join(grids, '{}_grid.shp'.format(splt)) for splt in splits]
-    for shape, split_ in zip(shapes, splits):
-        run_extract_patches(shape, split_)
+    # splits = ['train', 'test', 'valid']
+    # shapes = [os.path.join(grids, '{}_grid.shp'.format(splt)) for splt in splits]
+    # for shape, split_ in zip(shapes, splits):
+    #     run_extract_patches(shape, split_)
+
+    extract_by_patch(1283, 'train', True, True, fmt='GeoTIFF')
 
     # pts_root = 'users/dgketchum/training_points'
     # pts_training = [os.path.join(pts_root, x) for x in ['dryland']]
