@@ -16,7 +16,7 @@ sys.setrecursionlimit(2000)
 
 GEO_DOMAIN = 'users/dgketchum/boundaries/western_states_expanded_union'
 BOUNDARIES = 'users/dgketchum/boundaries'
-ASSET_ROOT = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_test'
+ASSET_ROOT = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper22JAN2020'
 IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
 FILTER_TARGET = 'users/dgketchum/to_filter/MT_2012'
 RF_ASSET = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_RF'
@@ -260,7 +260,7 @@ def export_special(roi, description):
         print(year)
 
 
-def export_classification(out_name, table, asset_root, region, export='asset'):
+def export_classification(out_name, table, asset_root, region, years, export='asset'):
     """
     Trains a Random Forest classifier using a training table input, creates a stack of raster images of the same
     features, and classifies it.  I run this over a for-loop iterating state by state.
@@ -285,7 +285,7 @@ def export_classification(out_name, table, asset_root, region, export='asset'):
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
-    for yr in ALL_YEARS:
+    for yr in years:
         input_bands = stack_bands(yr, roi)
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.classify(trained_model).int().set({
@@ -604,9 +604,11 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    pts = 'projects/ee-dgketchum/assets/points/train_pts_18JAN2021'
-    request_band_extract('bands_18JAN2021', pts, GEO_DOMAIN, filter_bounds=False)
-    # csv = 'projects/ee-dgketchum/assets/bands/state/bands_{}_10DEC2020'.format(s)
-    # geo = os.path.join(BOUNDARIES, s)
-    # export_classification(out_name='IM_{}'.format(s), table=csv, asset_root=ASSET_ROOT, region=geo)
+    # pts = 'projects/ee-dgketchum/assets/points/train_pts_18JAN2021'
+    # request_band_extract('bands_18JAN2021', pts, GEO_DOMAIN, filter_bounds=False)
+    csv = 'users/dgketchum/bands/bands_20JAN2021'
+    geo = 'users/dgketchum/boundaries/western_states_expanded_union'
+    for s in ['CO', 'NE']:
+        export_classification(out_name='IM_{}'.format(s), table=csv,
+                              asset_root=ASSET_ROOT, years=[2018], region=geo)
 # ========================= EOF ====================================================================

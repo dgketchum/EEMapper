@@ -155,7 +155,7 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=Non
         shape = sub_df.shape[0]
         target = int(shape / 3.)
         target_f = int(shape / 6.)
-        for i, x in zip([1, 2, 3, 4], [target, target, target, target_f]):
+        for i, x in zip([1, 2, 3], [target, target, target]):
             try:
                 sub = df[df['POINT_TYPE'] == i].sample(n=x)
                 sub_df = concat([sub_df, sub], sort=False)
@@ -460,7 +460,7 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     data_dir = '/media/research'
     d = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'to_concatenate')
-    glob = 'bands_18JAN2021'
+    glob = 'bands_20JAN2021'
     o = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'concatenated')
     concatenate_band_extract(d, o, glob, select=True)
 # ========================= EOF ====================================================================
