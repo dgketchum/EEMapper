@@ -440,7 +440,7 @@ def request_validation_extract(file_prefix='validation'):
         print(yr)
 
 
-def request_band_extract(file_prefix, points_layer, region, filter_bounds=False):
+def request_band_extract(file_prefix, points_layer, region, years, filter_bounds=False):
     """
     Extract raster values from a points kml file in Fusion Tables. Send annual extracts .csv to GCS wudr bucket.
     Concatenate them using map.tables.concatenate_band_extract().
@@ -452,7 +452,7 @@ def request_band_extract(file_prefix, points_layer, region, filter_bounds=False)
     """
     roi = ee.FeatureCollection(region)
     plots = ee.FeatureCollection(points_layer)
-    for yr in YEARS:
+    for yr in years:
         stack = stack_bands(yr, roi)
 
         if filter_bounds:
@@ -604,11 +604,11 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    # pts = 'projects/ee-dgketchum/assets/points/train_pts_18JAN2021'
-    # request_band_extract('bands_18JAN2021', pts, GEO_DOMAIN, filter_bounds=False)
-    csv = 'users/dgketchum/bands/bands_20JAN2021'
     geo = 'users/dgketchum/boundaries/western_states_expanded_union'
-    for s in ['CO', 'NE']:
-        export_classification(out_name='IM_{}'.format(s), table=csv,
-                              asset_root=ASSET_ROOT, years=[2018], region=geo)
+    pts = 'projects/ee-dgketchum/assets/points/train_pts_20JAN2021'
+    request_band_extract('bands_18JAN2021', pts, geo, years=[], filter_bounds=False)
+    # csv = 'users/dgketchum/bands/bands_20JAN2021'
+    # for s in ['CO', 'NE']:
+    #     export_classification(out_name='IM_{}'.format(s), table=csv,
+    #                           asset_root=ASSET_ROOT, years=[2018], region=geo)
 # ========================= EOF ====================================================================

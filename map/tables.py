@@ -160,9 +160,8 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=Non
                 sub = df[df['POINT_TYPE'] == i].sample(n=x)
                 sub_df = concat([sub_df, sub], sort=False)
             except ValueError:
-                print('not enough {} class to sampele {}'.format(i, x))
+                print('not enough {} class to sample {}'.format(i, x))
         df = sub_df
-        df[df['POINT_TYPE'] == 4] = 1
 
     print('size: {}'.format(df.shape))
     print(df['POINT_TYPE'].value_counts())

@@ -878,9 +878,9 @@ def subselect_points_shapefile(shp, out_shp, limit=10000):
     for k, v in dct.items():
         print(k, v)
 
-    # with fiona.open(out_shp, 'w', **meta) as dst:
-    #     for f in out_features:
-    #         dst.write(f)
+    with fiona.open(out_shp, 'w', **meta) as dst:
+        for f in out_features:
+            dst.write(f)
 
 
 if __name__ == '__main__':
@@ -904,6 +904,9 @@ if __name__ == '__main__':
     # fiona_merge_attribute(out_, files_)
 
     in_shp = '/media/research/IrrigationGIS/EE_extracts/point_shp/train_pts_20JAN2021.shp'
+    count_points(in_shp)
     out_shp = '/media/research/IrrigationGIS/EE_extracts/point_shp/train_pts_select_20JAN2021.shp'
     subselect_points_shapefile(in_shp, out_shp)
+    count_points(out_shp)
+    # subselect_points_shapefile(in_shp, out_shp)
 # ========================= EOF ====================================================================
