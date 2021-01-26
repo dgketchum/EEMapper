@@ -6,8 +6,8 @@ import random
 from collections import OrderedDict
 
 import fiona
-from rtree import index
-from rasterstats import zonal_stats
+# from rtree import index
+# from rasterstats import zonal_stats
 from shapely.geometry import Polygon
 
 pare = os.path.dirname(__file__)
@@ -27,6 +27,20 @@ states = ['AZ', 'CA', 'CO', 'ID', 'KS', 'MT', 'ND', 'NE',
           'NM', 'NV', 'OK', 'OR', 'SD', 'TX', 'UT', 'WA', 'WY']
 
 nhd_props = ['Shape_Leng', 'ACRES', 'WETLAND_TY', 'ATTRIBUTE', 'Shape_Area']
+
+wetland_types = ['Lake',
+                 'Freshwater Pond',
+                 'Riverine',
+                 'Freshwater Emergent Wetland',
+                 'Freshwater Forested/Shrub Wetland',
+                 'Estuarine and Marine Wetland',
+                 'Estuarine and Marine Deepwater',
+                 'Other']
+
+ACCEPT_TYPES = ['Freshwater Emergent Wetland',
+                'Freshwater Forested/Shrub Wetland',
+                'Estuarine and Marine Wetland',
+                'Estuarine and Marine Deepwater']
 
 
 def cdl_crops():
@@ -627,7 +641,7 @@ def zonal_crop_mask(in_shp, in_raster, out_shp):
     print('{} in, {} out, {} invalid, {}'.format(input_feats, ct - 1, ct_inval, out_shp))
 
 
-def select_wetlands(shapes, out_shape, popper=0.15, min_acres=10):
+def select_wetlands(shapes, out_shape, popper=0.05, min_acres=10):
     """attribute source code, split into MGRS tiles"""
     out_features = []
     inval_ct = 0
@@ -638,19 +652,22 @@ def select_wetlands(shapes, out_shape, popper=0.15, min_acres=10):
         meta['schema'] = schema
 
     ct = 0
+    types = []
     for _file in shapes:
         print('reading {}'.format(_file))
         with fiona.open(_file) as src:
             for f in src:
                 ct += 1
                 acres = f['properties']['ACRES']
+                w_t = f['properties']['WETLAND_TY']
                 a = f['properties']['Shape_Area']
                 l = f['properties']['Shape_Leng']
+                if w_t not in ACCEPT_TYPES:
+                    continue
                 p = (4 * np.pi * a) / (l ** 2.)
                 f['properties']['popper'] = p
                 if p > popper and acres > min_acres:
                     out_features.append(f)
-
     print('{} features of {} in {}'.format(len(out_features), ct, shapes))
 
     with fiona.open(out_shape, 'w', **meta) as output:
@@ -675,14 +692,25 @@ if __name__ == '__main__':
     else:
         home = os.path.join(home, 'data')
 
-    pad = os.path.join(home, 'IrrigationGIS', 'training_data', 'uncultivated', 'USGS_PAD')
-    out = os.path.join(pad, 'cdl_crop')
-    cdl = os.path.join(home, 'IrrigationGIS', 'cdl', 'crop_mask')
-    for s in ['TX']:
-        raster = os.path.join(cdl, 'CMASK_2019_{}.tif'.format(s))
-        # shape_ = os.path.join(pad, 'singlepart_nodupes',
-        #                       'PADUS2_0Combined_DOD_Fee_Designation_Easement_{}.shp'.format(s))
-        flat = os.path.join(pad, 'cleaned', '{}.shp'.format(s))
-        cdl_attrs = os.path.join(out, '{}.shp'.format(s))
-        zonal_crop_mask(flat, raster, cdl_attrs)
+    states = irrmapper_states + east_states
+    gis = os.path.join(home, 'IrrigationGIS', 'wetlands')
+    raw = os.path.join(gis, 'raw_shp')
+    out_dir = os.path.join(gis, 'state_select_harn_')
+
+    for s in states:
+        files_ = [os.path.join(raw, x) for x in os.listdir(raw) if s in x and x.endswith('.shp')]
+        out_ = os.path.join(out_dir, '{}_wetlands.shp'.format(s))
+        select_wetlands(files_, out_)
+
+    # pad = os.path.join(home, 'IrrigationGIS', 'training_data', 'uncultivated', 'USGS_PAD')
+    # out = os.path.join(pad, 'cdl_crop')
+    # cdl = os.path.join(home, 'IrrigationGIS', 'cdl', 'crop_mask')
+    # for s in ['TX']:
+    #     raster = os.path.join(cdl, 'CMASK_2019_{}.tif'.format(s))
+    #     # shape_ = os.path.join(pad, 'singlepart_nodupes',
+    #     #                       'PADUS2_0Combined_DOD_Fee_Designation_Easement_{}.shp'.format(s))
+    #     flat = os.path.join(pad, 'cleaned', '{}.shp'.format(s))
+    #     cdl_attrs = os.path.join(out, '{}.shp'.format(s))
+    #     zonal_crop_mask(flat, raster, cdl_attrs)
+
 # ========================= EOF ====================================================================

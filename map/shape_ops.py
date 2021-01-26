@@ -893,20 +893,20 @@ if __name__ == '__main__':
 
     gis = os.path.join(home, 'IrrigationGIS')
 
-    # inspected = os.path.join(gis, 'training_data', 'wetlands', 'to_merge')
-    # files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    # out_ = os.path.join(gis, 'EE_sample', 'wgs', 'wetlands_11JAN2020.shp')
-    # fiona_merge(out_, files_)
+    inspected = os.path.join(gis, 'wetlands', 'state_select_wgs_')
+    files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
+    out_ = os.path.join(gis, 'EE_sample', 'wgs', 'wetlands_26JAN2020.shp')
+    fiona_merge(out_, files_)
 
     # inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
     # files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
     # out_ = os.path.join(gis, 'EE_sample', 'wgs', 'irrigated_11JAN2020.shp')
     # fiona_merge_attribute(out_, files_)
 
-    in_shp = '/media/research/IrrigationGIS/EE_extracts/point_shp/train_pts_20JAN2021.shp'
-    count_points(in_shp)
-    out_shp = '/media/research/IrrigationGIS/EE_extracts/point_shp/train_pts_select_20JAN2021.shp'
-    subselect_points_shapefile(in_shp, out_shp)
-    count_points(out_shp)
+    # in_shp = '/media/research/IrrigationGIS/EE_extracts/point_shp/train_pts_20JAN2021.shp'
+    # count_points(in_shp)
+    # out_shp = '/media/research/IrrigationGIS/EE_extracts/point_shp/train_pts_select_20JAN2021.shp'
+    # subselect_points_shapefile(in_shp, out_shp)
+    # count_points(out_shp)
     # subselect_points_shapefile(in_shp, out_shp)
 # ========================= EOF ====================================================================
