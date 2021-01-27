@@ -81,30 +81,31 @@ def get_irr_years(shp, out_file=None):
 
 
 def build_master_json(shp, out_file=None):
-    d = {}
     ct = 0
     with open(os.path.join(os.getcwd(), 'data', 'irr_shards.json')) as j:
-        irr = json.loads(j.read())
+        irr_years = json.loads(j.read())
+
     with fiona.open(shp) as src:
-        for f in src:
-            if not f['properties']['IRR'] == 1:
-                continue
-            pfid = f['properties']['POLYFID']
-            if pfid not in d.keys():
-                d[f['properties']['POLYFID']] = {}
+        d = {f['properties']['POLYFID']: {} for f in src}
 
     with fiona.open(shp) as src:
         for f in src:
             ct += 1
             fid = f['properties']['FID']
             pfid = f['properties']['POLYFID']
-            years = f['properties']['YEAR']
+            dry = f['properties']['DRY']
+
+            try:
+                years = irr_years[str(pfid)][str(fid)]
+                irr = 1
+            except KeyError:
+                years = []
+                irr = 0
+
             split = f['properties']['SPLIT']
             state = f['properties']['STUSPS']
             if fid not in d[pfid].keys():
-                d[pfid][fid] = (split, state, fid)
-            elif y not in d[pfid][fid]:
-                d[pfid][fid][-1].append(y)
+                d[pfid][fid] = (split, state, irr, dry, years)
     if out_file:
         with open(out_file, 'w') as f:
             json.dump(d, f)
@@ -116,7 +117,7 @@ if __name__ == '__main__':
     # out_json = 'data/irr_shards.json'
     # get_irr_years(shpp, out_json)
 
-    shpp = '/media/research/IrrigationGIS/EE_sample/grids_aea/grids_5070/relevant_shard.shp'
-    out_json = 'data/irr_shards.json'
+    shpp = '/media/research/IrrigationGIS/EE_sample/grids_aea/grids_5070/relevant_gridpt.shp'
+    out_json = 'data/master_shards.json'
     build_master_json(shpp, out_json)
 # ========================= EOF ====================================================================

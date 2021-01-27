@@ -189,15 +189,6 @@ def extract_by_patch(feature_id=1440, split=None, cloud_mask=True, time_series=T
     roi = ee.FeatureCollection(grid).filter(ee.Filter.eq('FID', feature_id))
     geo = roi.first().geometry()
 
-    # points = os.path.join(EE_DATA, '{}_pts'.format(split))
-    # points = ee.FeatureCollection(points).filter(ee.Filter.eq('POLYFID', feature_id))
-    # points = points.toList(points.size())
-
-    # size = roi.size().getInfo()
-    # if size != 1:
-    #     print('{} has {} features'.format(feature_id, size))
-    #     return None
-
     info_ = roi.first().getInfo()
     state = info_['properties']['STUSPS']  # , info_['properties']['IRR']
     years = STATE_YEARS[state]
@@ -216,15 +207,13 @@ def extract_by_patch(feature_id=1440, split=None, cloud_mask=True, time_series=T
         image_stack = ee.Image.cat([image_stack, terrain_, coords_, cdl_, irr]).float()
         features = features + ['elv', 'slp', 'asp', 'lon', 'lat', 'cdl', 'cconf', 'irr']
 
-        projection = ee.Projection('EPSG:5070')
+        projection = ee.Projection('EPSG:5071')
         image_stack = image_stack.reproject(projection, None, 30)
 
         out_filename = '{}_{}_{}_{}'.format(split, state, feature_id, year)
         data_stack = image_stack.neighborhoodToArray(KERNEL)
         geometry_sample = ee.ImageCollection([])
 
-        # for i in range(9):
-        # region = ee.Feature(points.get(i)).geometry()
         if fmt == 'TFRecord':
             sample = data_stack.sample(region=geo,
                                        scale=30,
@@ -242,12 +231,6 @@ def extract_by_patch(feature_id=1440, split=None, cloud_mask=True, time_series=T
                 selectors=features)
 
         if fmt == 'GeoTIFF':
-            # sample = image_stack.sample(region=geo,
-            #                             scale=30,
-            #                             numPixels=1,
-            #                             tileScale=16,
-            #                             dropNulls=False)
-            # geometry_sample = geometry_sample.merge(sample)
 
             task = ee.batch.Export.image.toCloudStorage(
                 image=image_stack,
@@ -277,24 +260,23 @@ def extract_by_point(year, points_to_extract=None, cloud_mask=False,
         cloud = 'cm'
     else:
         cloud = 'nm'
+
     roi = ee.FeatureCollection(os.path.join(EE_DATA, 'train_grid')).filter(ee.Filter.eq('FID', feature_id)).geometry()
 
     s, e, interval_ = 1, 1, 30
     image_stack, features = get_sr_stack(year, s, e, interval_, cloud_mask, roi)
 
-    projection = ee.Projection('EPSG:5070')
+    projection = ee.Projection('EPSG:5071')
     image_stack = image_stack.reproject(projection, None, 30)
 
-    masks_ = masks(roi, year)
-    # if masks_['irrigated'].size().getInfo() == 0:
-    #     print('no irrigated in {} in {}'.format(year, feature_id))
-    #     return
-
-    irr = create_class_labels(masks_)
+    irr = create_class_labels(year, roi)
     terrain_, cdl_ = get_ancillary(year)
     coords_ = image_stack.pixelLonLat().rename(['lon', 'lat'])
     image_stack = ee.Image.cat([image_stack, terrain_, coords_, cdl_, irr]).float()
     features = features + ['elv', 'slp', 'asp', 'lon', 'lat', 'cdl', 'cconf', 'irr']
+
+    projection = ee.Projection('EPSG:5071')
+    image_stack = image_stack.reproject(projection, None, 30)
 
     data_stack = image_stack.neighborhoodToArray(KERNEL)
 
