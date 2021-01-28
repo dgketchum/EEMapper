@@ -18,7 +18,7 @@ from random import shuffle
 from collections import OrderedDict
 
 import fiona
-from geopandas import GeoDataFrame, read_file
+from geopandas import GeoDataFrame, read_file, points_from_xy, clip
 from pandas import DataFrame, read_csv, concat
 # from rasterstats import zonal_stats
 from shapely.geometry import Polygon, Point, mapping, MultiPolygon, shape
@@ -174,6 +174,16 @@ def band_extract_to_shp(table, out_shp):
     gpd.to_file(out_shp)
 
 
+def clip_bands_to_polygon(bands, out_bands, mask):
+    with fiona.open(mask, 'r') as src:
+        feat = [f for f in src]
+    bounds = shape(feat[0]['geometry'])
+    df = read_csv(bands)
+    gdf = GeoDataFrame(df, geometry=points_from_xy(y=df['LAT_GCS'], x=df['Lon_GCS']))
+    gdf = clip(gdf, mask=bounds)
+    df = DataFrame(gdf.drop(columns='geometry'))
+    df.to_csv(out_bands)
+
 def count_points(shp):
     with fiona.open(shp, 'r') as src:
         dct = {}
@@ -220,21 +230,8 @@ if __name__ == '__main__':
         home = os.path.join(home, 'data')
 
     gis = os.path.join(home, 'IrrigationGIS')
-
-    inspected = os.path.join(gis, 'wetlands', 'state_select_wgs_')
-    files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    out_ = os.path.join(gis, 'EE_sample', 'wgs', 'wetlands_26JAN2020.shp')
-    fiona_merge(out_, files_)
-
-    # inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
-    # files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    # out_ = os.path.join(gis, 'EE_sample', 'wgs', 'irrigated_11JAN2020.shp')
-    # fiona_merge_attribute(out_, files_)
-
-    # in_shp = '/media/research/IrrigationGIS/EE_extracts/point_shp/train_pts_20JAN2021.shp'
-    # count_points(in_shp)
-    # out_shp = '/media/research/IrrigationGIS/EE_extracts/point_shp/train_pts_select_20JAN2021.shp'
-    # subselect_points_shapefile(in_shp, out_shp)
-    # count_points(out_shp)
-    # subselect_points_shapefile(in_shp, out_shp)
+    bounds = os.path.join(gis, 'boundaries', 'ucrb', 'UCRB_100kmBuf.shp')
+    table = os.path.join(gis, 'EE_extracts', 'band_extract_points', 'bands_20JAN2021.csv')
+    out_bands = os.path.join(gis, 'EE_extracts', 'band_extract_points', 'ucrb_bands_20JAN2021.csv')
+    clip_bands_to_polygon(table, out_bands, bounds)
 # ========================= EOF ====================================================================

@@ -460,6 +460,6 @@ if __name__ == '__main__':
     data_dir = '/media/research'
     d = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'to_concatenate')
     glob = 'bands_20JAN2021'
-    o = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'concatenated')
-    concatenate_band_extract(d, o, glob, select=True)
+    o = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'band_extract_points')
+    concatenate_band_extract(d, o, glob, select=False)
 # ========================= EOF ====================================================================
