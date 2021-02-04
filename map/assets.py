@@ -60,13 +60,12 @@ def get_metadata(ee_asset):
 
 
 def delete_assets(ee_asset_path):
-    for year in range(2008, 2013):
-        reader = list_assets(os.path.join(ee_asset_path, str(year)))
-        for r in reader:
-            command = 'rm'
-            cmd = ['{}'.format(EXEC), '{}'.format(command), '{}'.format(r)]
-            print(cmd)
-            check_call(cmd)
+    reader = list_assets(ee_asset_path)
+    for r in reader:
+        command = 'rm'
+        cmd = ['{}'.format(EXEC), '{}'.format(command), '{}'.format(r)]
+        print(cmd)
+        check_call(cmd)
 
 
 def rename_assets(ee_asset_path, new_path, years_=None):
@@ -154,10 +153,7 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    images = 'users/dpendergraph/IrrMapper_test'
-    filtered = 'users/dgketchum/fallow_filter'
-    ssebop = 'users/dgketchum/ssebop'
-    dest = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-    delete_assets(ssebop)
-    # copy_asset(images, dest)
+    images = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_UCRB'
+    dest = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper22JAN2021'
+    delete_assets(images)
 # ========================= EOF ====================================================================
