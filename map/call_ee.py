@@ -243,7 +243,7 @@ def export_special(roi, description):
     fc = ee.FeatureCollection(roi)
     roi_mask = fc.geometry().bounds().getInfo()['coordinates']
 
-    for year in [str(x) for x in range(1987, 2021)]:
+    for year in [str(x) for x in range(1987, 1988)]:
         target = ee.Image(os.path.join(RF_ASSET, year))
         target = target.select('classification')
 
@@ -604,9 +604,10 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    geo = 'users/dgketchum/boundaries/western_states_expanded_union'
-    pts = 'projects/ee-dgketchum/assets/points/train_pts_20JAN2021'
-    request_band_extract('bands_18JAN2021', pts, geo, years=[], filter_bounds=False)
+    geo = 'users/dgketchum/boundaries/UCRB'
+    export_special(roi=geo, description='UCRB')
+    # pts = 'projects/ee-dgketchum/assets/points/train_pts_20JAN2021'
+    # request_band_extract('bands_18JAN2021', pts, geo, years=[], filter_bounds=False)
     # csv = 'users/dgketchum/bands/bands_20JAN2021'
     # for s in ['CO', 'NE']:
     #     export_classification(out_name='IM_{}'.format(s), table=csv,
