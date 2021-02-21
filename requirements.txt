@@ -9,7 +9,7 @@ cffi==1.12.3
 Click==7.0
 click-plugins==1.1.1
 cligj==0.5.0
-cryptography==2.6.1
+cryptography==3.2
 earthengine-api==0.1.138
 Fiona==1.8.6
 google-api-python-client==1.7.8
