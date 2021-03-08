@@ -1,6 +1,7 @@
 import csv
 import os
 from subprocess import Popen, PIPE, check_call
+import json
 
 import ee
 
@@ -96,7 +97,6 @@ def cancel_tasks():
 
 
 def mask_move(min_years=3):
-
     asset_root = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_RF2'
 
     image_list = list_assets('projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp')
@@ -141,6 +141,28 @@ def list_assets(location):
     return assets
 
 
+def filter_by_metadata(collection):
+    assets = list_assets(collection)
+    dct = {}
+    for a in assets:
+        cmd = ['{}'.format(EXEC), 'asset', 'info', '{}'.format(a)]
+        popr = Popen(cmd, stdout=PIPE)
+        stdout, stderr = popr.communicate()
+        info = json.loads(stdout[86:])
+        yr = int(info['properties']['date'][:4])
+        version = info['properties']['tool_version']
+
+        if yr not in dct.keys():
+            dct[yr] = {version: 1}
+        else:
+            if not version in dct[yr].keys():
+                dct[yr][version] = 1
+            else:
+                dct[yr][version] += 1
+
+    print(dct)
+
+
 def is_authorized():
     try:
         ee.Initialize()  # investigate (use_cloud_api=True)
@@ -153,7 +175,7 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    images = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_UCRB'
-    dest = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper22JAN2021'
-    delete_assets(images)
+    # images = 'projects/usgs-ssebop/tcorr_gridded/daymet_median_v2_scene'
+    images = 'projects/usgs-ssebop/tcorr_gridded/daymet_median_v2_scene'
+    filter_by_metadata(images)
 # ========================= EOF ====================================================================

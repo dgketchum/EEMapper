@@ -1,26 +1,6 @@
-# ===============================================================================
-# Copyright 2018 dgketchum
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ===============================================================================
-
-import os
-
 import ee
-from ee.ee_exception import EEException
 
-from datetime import date, datetime, timedelta
-from pprint import pprint
+from datetime import datetime, timedelta
 
 
 def add_doy(image):
@@ -88,21 +68,6 @@ def daily_landsat(year, roi):
     print('{} empty dates : {}'.format(len(empty), empty))
     i = ee.Image(l)
     return i
-
-
-def get_qa_bits(image, start, end, qa_mask):
-    pattern = 0
-    for i in range(start, end - 1):
-        pattern += 2 ** i
-    return image.select([0], [qa_mask]).bitwiseAnd(pattern).rightShift(start)
-
-
-def mask_quality(image):
-    QA = image.select('pixel_qa')
-    shadow = get_qa_bits(QA, 3, 3, 'cloud_shadow')
-    cloud = get_qa_bits(QA, 5, 5, 'cloud')
-    cirrus_detected = get_qa_bits(QA, 9, 9, 'cirrus_detected')
-    return image.updateMask(shadow.eq(0)).updateMask(cloud.eq(0).updateMask(cirrus_detected.eq(0)))
 
 
 def ls57mask(img):
@@ -183,13 +148,6 @@ def landsat_composites(year, start, end, roi, append_name):
     bands = bands_means.addBands([ndvi, ndwi, evi, gi])
 
     return bands
-
-
-def period_stat(collection, start, end):
-    c = collection.filterDate(start, end)
-    return c.reduce(
-        ee.Reducer.mean().combine(reducer2=ee.Reducer.minMax(),
-                                  sharedInputs=True))
 
 
 if __name__ == '__main__':
