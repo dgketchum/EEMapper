@@ -145,20 +145,24 @@ def filter_by_metadata(collection):
     assets = list_assets(collection)
     dct = {}
     for a in assets:
-        cmd = ['{}'.format(EXEC), 'asset', 'info', '{}'.format(a)]
-        popr = Popen(cmd, stdout=PIPE)
-        stdout, stderr = popr.communicate()
-        info = json.loads(stdout[86:])
-        yr = int(info['properties']['date'][:4])
-        version = info['properties']['tool_version']
+        try:
+            cmd = ['{}'.format(EXEC), 'asset', 'info', '{}'.format(a)]
+            popr = Popen(cmd, stdout=PIPE)
+            stdout, stderr = popr.communicate()
+            info = json.loads(stdout[86:])
+            yr = int(info['properties']['date'][:4])
+            version = info['properties']['tool_version']
 
-        if yr not in dct.keys():
-            dct[yr] = {version: 1}
-        else:
-            if not version in dct[yr].keys():
-                dct[yr][version] = 1
+            if yr not in dct.keys():
+                dct[yr] = {version: 1}
             else:
-                dct[yr][version] += 1
+                if not version in dct[yr].keys():
+                    dct[yr][version] = 1
+                else:
+                    dct[yr][version] += 1
+        except Exception as e:
+            print(e)
+            print(a)
 
     print(dct)
 
