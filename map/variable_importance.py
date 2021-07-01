@@ -311,6 +311,14 @@ def original_names():
             'wd_est_espr']
 
 
+def klamath_params():
+        return ['nlcd', 'cdlcrp', 'cdl', 'evi_cy', 'slope', 'evi_3',
+                'evi_4', 'LAT_GCS', 'B5_3', 'tpi_1250', 'nd_4', 'nd_3',
+                'nw_3', 'gi_4', 'tpi_250', 'gi_3', 'elevation', 'tpi_150',
+                'gi_cy', 'nd_max_cy', 'B5_cy', 'prec_3', 'prec_8', 'evi_2',
+                'B5_4', 'prec_9']
+
+
 def precision_curve():
     """
     1 ['nlcd'] 0.09892328398384927

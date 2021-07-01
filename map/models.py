@@ -159,7 +159,7 @@ def find_rf_variable_importance(csv):
     data = df.values
     names = df.columns
 
-    for x in range(1):
+    for x in range(10):
         print('model iteration {}'.format(x))
         rf = RandomForestClassifier(n_estimators=100,
                                     min_samples_split=11,
@@ -335,8 +335,8 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     out_ = os.path.join('/media/research', 'IrrigationGIS', 'EE_extracts', 'concatenated')
     shapefile = '/media/research/IrrigationGIS/EE_extracts/evaluated_points/eval_20JAN2021.shp'
-    extracts = os.path.join(out_, 'bands_20JAN2021.csv')
-    # find_rf_variable_importance(extracts)
-    random_forest(extracts, out_shape=shapefile)
+    extracts = os.path.join(out_, 'bands_klamath_29JUN2021.csv')
+    find_rf_variable_importance(extracts)
+    # random_forest(extracts, out_shape=shapefile)
 
 # ========================= EOF ====================================================================

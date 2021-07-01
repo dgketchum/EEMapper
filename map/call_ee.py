@@ -16,21 +16,21 @@ sys.setrecursionlimit(2000)
 
 GEO_DOMAIN = 'users/dgketchum/boundaries/western_states_expanded_union'
 BOUNDARIES = 'users/dgketchum/boundaries'
-ASSET_ROOT = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper22JAN2020'
+ASSET_ROOT = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_Klamath'
 IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
 FILTER_TARGET = 'users/dgketchum/to_filter/MT_2012'
 RF_ASSET = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_RF'
 
-RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_3DEC2020_COWY'
-RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/train_pts_7DEC2020_CIMOW'
+# RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_3DEC2020_COWY'
+RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_12_klamath_29JUN2021'
+RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/IrrMap_Klamath_pts_29JUN2021'
 
 HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
 HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
 COUNTIES = 'users/dgketchum/boundaries/western_counties'
 MT_BASINS = 'users/dgketchum/boundaries/MT_Admin_Basins'
 
-TARGET_STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT',
-                 'WA', 'WY']
+TARGET_STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
 
 other = ['ND', 'SD', 'NE', 'KS', 'OK', 'TX']
 
@@ -275,11 +275,10 @@ def export_classification(out_name, table, asset_root, region, years, export='as
     roi = ee.FeatureCollection(region)
     mask = roi.geometry().bounds().getInfo()['coordinates']
 
-    classifier = ee.Classifier.randomForest(
+    classifier = ee.Classifier.smileRandomForest(
         numberOfTrees=100,
-        variablesPerSplit=0,
         minLeafPopulation=1,
-        outOfBagMode=False).setOutputMode('CLASSIFICATION')
+        bagFraction=0.01).setOutputMode('CLASSIFICATION')
 
     input_props = fc.first().propertyNames().remove('YEAR').remove('POINT_TYPE').remove('system:index')
 
@@ -475,7 +474,6 @@ def request_band_extract(file_prefix, points_layer, region, years, filter_bounds
 
         task.start()
         print(yr)
-        exit()
 
 
 def stack_bands(yr, roi):
@@ -559,11 +557,18 @@ def stack_bands(yr, roi):
 
     nlcd = ee.Image('USGS/NLCD/NLCD2011').select('landcover').reproject(crs=proj['crs'], scale=30).rename('nlcd')
 
-    cdl_cult = ee.Image('USDA/NASS/CDL/2017').select('cultivated'). \
-        remap([1, 2], [0, 1]).reproject(crs=proj['crs'], scale=30).rename('cdlclt')
-
-    cdl_crop = ee.Image('USDA/NASS/CDL/2017').select('cropland').reproject(crs=proj['crs'],
-                                                                           scale=30).rename('cdlcrp')
+    if yr >= 2008:
+        cdl_yr = yr
+    else:
+        cdl_yr = 2008
+    cdl_crop = ee.Image('USDA/NASS/CDL/{}'.format(cdl_yr)).select('cropland').reproject(crs=proj['crs'],
+                                                                                        scale=30).rename('cdlcrp')
+    if 2013 <= yr <= 2017:
+        cdl_yr = yr
+    else:
+        cdl_yr = 2013
+    cdl_cult = ee.Image('USDA/NASS/CDL/{}'.format(cdl_yr)).select('cultivated'). \
+        remap([1, 2], [0, 1]).reproject(crs=proj['crs'], scale=30).rename('cdl')
 
     gsw = ee.Image('JRC/GSW1_0/GlobalSurfaceWater')
     occ_pos = gsw.select('occurrence').gt(0)
@@ -585,6 +590,8 @@ def stack_bands(yr, roi):
         elif 'prec' in name and 'prec' in standard_names:
             standard_names.append('prec_{}'.format(prec_ct))
             prec_ct += 1
+        elif 'nd_cy' in name:
+            standard_names.append('nd_max_cy')
         else:
             standard_names.append(name)
 
@@ -604,12 +611,16 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    geo = 'users/dgketchum/boundaries/UCRB'
-    export_special(roi=geo, description='UCRB')
-    # pts = 'projects/ee-dgketchum/assets/points/train_pts_20JAN2021'
-    # request_band_extract('bands_18JAN2021', pts, geo, years=[], filter_bounds=False)
+    # export_special(roi=geo, description='UCRB')
+    # years_ = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998, 2000, 2001, 2002,
+    #           2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015,
+    #           2016, 2017]
+    # pts = 'projects/ee-dgketchum/assets/points/klamath_pts_29JUN2021'
+    # request_band_extract('bands_29JUN2021', pts, GEO_DOMAIN, years=years_, filter_bounds=False)
     # csv = 'users/dgketchum/bands/bands_20JAN2021'
-    # for s in ['CO', 'NE']:
-    #     export_classification(out_name='IM_{}'.format(s), table=csv,
-    #                           asset_root=ASSET_ROOT, years=[2018], region=geo)
+    # for s in TARGET_STATES:
+    geo = 'users/dgketchum/boundaries/klamath'
+    export_classification(out_name='IM', table=RF_TRAINING_DATA,
+                          asset_root='projects/openet/irrigated_area/IrrMapper_Klamath',
+                          years=[1984, 1990], region=geo)
 # ========================= EOF ====================================================================

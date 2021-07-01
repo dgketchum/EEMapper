@@ -1,5 +1,6 @@
 import csv
 import os
+import subprocess
 from subprocess import Popen, PIPE, check_call
 import json
 
@@ -83,8 +84,44 @@ def rename_assets(ee_asset_path, new_path, years_=None):
         command = 'mv'
         new_name = os.path.join(new_path, os.path.basename(old_name))
         cmd = ['{}'.format(EXEC), '{}'.format(command), old_name, new_name]
+        try:
+            check_call(cmd)
+            print(old_name, new_name)
+        except subprocess.CalledProcessError:
+            print('move {} failed'.format(old_name))
+
+
+def move_asset(asset, out_name):
+    command = 'mv'
+    cmd = ['{}'.format(EXEC), command, asset, out_name]
+    try:
         check_call(cmd)
-        print(old_name, new_name)
+        print(asset, out_name)
+    except subprocess.CalledProcessError as e:
+        print('move {} failed \n {}'.format(asset, e))
+
+
+def export_to_cloud(location, bucket):
+    images = list_assets(location)
+    count = [i for i in images if 'count' in i]
+    refet = [i for i in images if 'et_reference' in i]
+    etrf = [i for i in images if 'et_actual' in i]
+    exports = count + etrf + refet
+
+    for i in exports:
+        task = ee.batch.Export.image.toCloudStorage(
+            image=ee.Image(i),
+            description=os.path.basename(i),
+            bucket=bucket,
+            scale=30,
+            maxPixels=1e13,
+            fileFormat='GeoTIFF',
+            # dimensions='41448x53138',
+            crs="EPSG:3857")
+        # task.start()
+        cmd = ['{}'.format(EXEC), 'rm', i]
+        check_call(cmd)
+        print('rm', i)
 
 
 def cancel_tasks():
@@ -179,7 +216,13 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    # images = 'projects/usgs-ssebop/tcorr_gridded/daymet_median_v2_scene'
-    images = 'projects/usgs-ssebop/tcorr_gridded/daymet_median_v2_scene'
-    filter_by_metadata(images)
+    collection = 'users/dgketchum/ssebop/columbia'
+    l = list_assets(collection)
+    for i in l:
+        info = ee.Image(i).bandNames().getInfo()
+        print(info[0], i)
+
+    # new = i.replace('_et_', '_et_actual_')
+        # move_asset(i, new)
+
 # ========================= EOF ====================================================================

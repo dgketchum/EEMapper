@@ -8,7 +8,7 @@ from pandas import read_csv, concat, errors, Series, merge, DataFrame
 from pandas import to_datetime
 from pandas.io.json import json_normalize
 from shapely.geometry import Polygon
-from map.variable_importance import original_names
+from map.variable_importance import klamath_params
 
 INT_COLS = ['POINT_TYPE', 'YEAR']
 
@@ -45,7 +45,7 @@ COLS = ['SCENE_ID',
 
 DROP_COUNTY = ['system:index', 'AFFGEOID', 'COUNTYFP', 'COUNTYNS', 'GEOID', 'LSAD', 'STATEFP', '.geo']
 
-SELECT = [x for x in original_names()[:50]]
+SELECT = [x for x in klamath_params()]
 
 
 def concatenate_county_data(folder, out_file, glob='counties', acres=False):
@@ -123,11 +123,11 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=Non
 
     points = df['POINT_TYPE'].values
     nines = ones_like(points) * 9
-    points = where((df.POINT_TYPE == 0) & (df.nd_cy < 0.55), nines, points)
+    points = where((df.POINT_TYPE == 0) & (df.nd_max_cy < 0.55), nines, points)
 
     df['POINT_TYPE'] = points
     print(df['POINT_TYPE'].value_counts())
-    points = where((df['POINT_TYPE'] == 4) & (df['nd_cy'] > 0.6), nines, points)
+    points = where((df['POINT_TYPE'] == 4) & (df['nd_max_cy'] > 0.6), nines, points)
     df['POINT_TYPE'] = points
     df = df[df['POINT_TYPE'] != 9]
     df['POINT_TYPE'][df['POINT_TYPE'] == 4] = 1
@@ -150,7 +150,7 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=Non
     if select:
         print(df['POINT_TYPE'].value_counts())
         df = df[SELECT + ['POINT_TYPE', 'YEAR']]
-        out_file = os.path.join(out_dir, '{}.csv'.format(glob))
+        out_file = os.path.join(out_dir, '{}_{}.csv'.format(glob, len(SELECT) - 2))
         sub_df = df[df['POINT_TYPE'] == 0]
         shape = sub_df.shape[0]
         target = int(shape / 3.)
@@ -459,7 +459,7 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     data_dir = '/media/research'
     d = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'to_concatenate')
-    glob = 'bands_20JAN2021'
-    o = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'band_extract_points')
-    concatenate_band_extract(d, o, glob, select=False)
+    glob = 'bands_29JUN2021'
+    o = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'concatenated')
+    concatenate_band_extract(d, o, glob, select=True)
 # ========================= EOF ====================================================================
