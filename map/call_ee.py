@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.abspath('..'))
 from map.assets import list_assets
 from map.ee_utils import get_world_climate, landsat_composites, landsat_masked, daily_landsat
 from map.tables import SELECT
+from map.cdl import get_cdl
 from shape_ops import count_points
 
 sys.setrecursionlimit(2000)
@@ -22,8 +23,7 @@ FILTER_TARGET = 'users/dgketchum/to_filter/MT_2012'
 RF_ASSET = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_RF'
 
 # RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_3DEC2020_COWY'
-RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_12_klamath_29JUN2021'
-RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/IrrMap_Klamath_pts_29JUN2021'
+RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/train_pts_18JAN2021'
 
 HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
 HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
@@ -63,7 +63,7 @@ def reduce_classification(tables, years=None, description=None, cdl_mask=False, 
     Reduce Regions, i.e. zonal stats: takes a statistic from a raster within the bounds of a vector.
     Use this to get e.g. irrigated area within a county, HUC, or state. This can mask based on Crop Data Layer,
     and can mask data where the sum of irrigated years is less than min_years. This will output a .csv to
-    GCS wudr bucket.
+    GCS bucket.
     :param tables: vector data over which to take raster statistics
     :param years: years over which to run the stats
     :param description: export name append str
@@ -273,6 +273,7 @@ def export_classification(out_name, table, asset_root, region, years, export='as
     """
     fc = ee.FeatureCollection(table)
     roi = ee.FeatureCollection(region)
+    # roi = roi.filterMetadata('STAID', 'equals', '06306300')
     mask = roi.geometry().bounds().getInfo()['coordinates']
 
     classifier = ee.Classifier.smileRandomForest(
@@ -281,17 +282,20 @@ def export_classification(out_name, table, asset_root, region, years, export='as
         bagFraction=0.01).setOutputMode('CLASSIFICATION')
 
     input_props = fc.first().propertyNames().remove('YEAR').remove('POINT_TYPE').remove('system:index')
+    features = list(input_props.getInfo())
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
     for yr in years:
         input_bands = stack_bands(yr, roi)
         annual_stack = input_bands.select(input_props)
+        bands = list(annual_stack.bandNames().getInfo())
         classified_img = annual_stack.classify(trained_model).int().set({
             'system:index': ee.Date('{}-01-01'.format(yr)).format('YYYYMMdd'),
             'system:time_start': ee.Date('{}-01-01'.format(yr)).millis(),
             'system:time_end': ee.Date('{}-12-31'.format(yr)).millis(),
             'image_name': out_name,
+            'training_data': RF_TRAINING_DATA,
             'class_key': '0: irrigated, 1: rainfed, 2: uncultivated, 3: wetland'})
 
         if export == 'asset':
@@ -557,18 +561,7 @@ def stack_bands(yr, roi):
 
     nlcd = ee.Image('USGS/NLCD/NLCD2011').select('landcover').reproject(crs=proj['crs'], scale=30).rename('nlcd')
 
-    if yr >= 2008:
-        cdl_yr = yr
-    else:
-        cdl_yr = 2008
-    cdl_crop = ee.Image('USDA/NASS/CDL/{}'.format(cdl_yr)).select('cropland').reproject(crs=proj['crs'],
-                                                                                        scale=30).rename('cdlcrp')
-    if 2013 <= yr <= 2017:
-        cdl_yr = yr
-    else:
-        cdl_yr = 2013
-    cdl_cult = ee.Image('USDA/NASS/CDL/{}'.format(cdl_yr)).select('cultivated'). \
-        remap([1, 2], [0, 1]).reproject(crs=proj['crs'], scale=30).rename('cdl')
+    cdl_cult, cdl_crop = get_cdl(yr)
 
     gsw = ee.Image('JRC/GSW1_0/GlobalSurfaceWater')
     occ_pos = gsw.select('occurrence').gt(0)
@@ -612,15 +605,16 @@ def is_authorized():
 if __name__ == '__main__':
     is_authorized()
     # export_special(roi=geo, description='UCRB')
-    # years_ = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998, 2000, 2001, 2002,
-    #           2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015,
-    #           2016, 2017]
-    # pts = 'projects/ee-dgketchum/assets/points/klamath_pts_29JUN2021'
-    # request_band_extract('bands_29JUN2021', pts, GEO_DOMAIN, years=years_, filter_bounds=False)
+    years_ = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998, 2000, 2001, 2002,
+              2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015,
+              2016, 2017]
+    request_band_extract('bands_12AUG2021', RF_TRAINING_POINTS, GEO_DOMAIN, years=years_, filter_bounds=False)
     # csv = 'users/dgketchum/bands/bands_20JAN2021'
     # for s in TARGET_STATES:
-    geo = 'users/dgketchum/boundaries/klamath'
-    export_classification(out_name='IM', table=RF_TRAINING_DATA,
-                          asset_root='projects/openet/irrigated_area/IrrMapper_Klamath',
-                          years=[1984, 1990], region=geo)
+    # for s in ['AZ', 'CA', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA']:
+    #     geo = 'users/dgketchum/boundaries/{}'.format(s)
+    #     RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_4DEC2020'
+    #     export_classification(out_name='IM_{}'.format(s), table=RF_TRAINING_DATA,
+    #                           asset_root='projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp',
+    #                           years=[x for x in range(1984, 1997)], region=geo)
 # ========================= EOF ====================================================================
