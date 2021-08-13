@@ -287,6 +287,8 @@ def export_classification(out_name, table, asset_root, region, years, export='as
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
     for yr in years:
+        if yr == 2017:
+            continue
         input_bands = stack_bands(yr, roi)
         annual_stack = input_bands.select(input_props)
         bands = list(annual_stack.bandNames().getInfo())
@@ -605,16 +607,14 @@ def is_authorized():
 if __name__ == '__main__':
     is_authorized()
     # export_special(roi=geo, description='UCRB')
-    years_ = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998, 2000, 2001, 2002,
-              2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015,
-              2016, 2017]
-    request_band_extract('bands_12AUG2021', RF_TRAINING_POINTS, GEO_DOMAIN, years=years_, filter_bounds=False)
-    # csv = 'users/dgketchum/bands/bands_20JAN2021'
-    # for s in TARGET_STATES:
-    # for s in ['AZ', 'CA', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA']:
-    #     geo = 'users/dgketchum/boundaries/{}'.format(s)
-    #     RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_4DEC2020'
-    #     export_classification(out_name='IM_{}'.format(s), table=RF_TRAINING_DATA,
-    #                           asset_root='projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp',
-    #                           years=[x for x in range(1984, 1997)], region=geo)
+    # years_ = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998, 2000, 2001, 2002,
+    #           2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015,
+    #           2016, 2017]
+    # request_band_extract('bands_12AUG2021', RF_TRAINING_POINTS, GEO_DOMAIN, years=years_, filter_bounds=False)
+    for s in ['MT']:
+        geo = 'users/dgketchum/boundaries/{}'.format(s)
+        RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_12AUG2021_50'
+        export_classification(out_name='IM_{}'.format(s), table=RF_TRAINING_DATA,
+                              asset_root='projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp',
+                              years=[x for x in range(1984, 2021)], region=geo)
 # ========================= EOF ====================================================================
