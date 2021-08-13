@@ -53,21 +53,16 @@ def set_metadata(ee_asset, property='--time_start'):
 
 
 def get_metadata(ee_asset):
-    reader = list_assets(ee_asset)
-    for r in reader:
-        if 'project' in r:
-            cmd = ['{}'.format(EXEC), 'asset', 'info', r]
-            print(cmd)
-            check_call(cmd)
+    cmd = ['{}'.format(EXEC), 'asset', 'info', ee_asset]
+    meta = check_call(cmd)
+    return meta
 
 
-def delete_assets(ee_asset_path):
-    reader = list_assets(ee_asset_path)
-    for r in reader:
-        command = 'rm'
-        cmd = ['{}'.format(EXEC), '{}'.format(command), '{}'.format(r)]
-        print(cmd)
-        check_call(cmd)
+def delete_asset(ee_asset_path):
+    command = 'rm'
+    cmd = ['{}'.format(EXEC), '{}'.format(command), '{}'.format(ee_asset_path)]
+    print(cmd)
+    check_call(cmd)
 
 
 def rename_assets(ee_asset_path, new_path, years_=None):
@@ -95,8 +90,8 @@ def move_asset(asset, out_name):
     command = 'mv'
     cmd = ['{}'.format(EXEC), command, asset, out_name]
     try:
-        check_call(cmd)
         print(asset, out_name)
+        check_call(cmd)
     except subprocess.CalledProcessError as e:
         print('move {} failed \n {}'.format(asset, e))
 
@@ -216,13 +211,11 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    collection = 'users/dgketchum/ssebop/columbia'
-    l = list_assets(collection)
-    for i in l:
-        info = ee.Image(i).bandNames().getInfo()
-        print(info[0], i)
+    in_collection = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+    l = list_assets(in_collection)
+    a = [x for x in l if 'MT' in x]
+    for e in a:
+        delete_asset(e)
 
-    # new = i.replace('_et_', '_et_actual_')
-        # move_asset(i, new)
 
 # ========================= EOF ====================================================================
