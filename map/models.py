@@ -334,9 +334,9 @@ def get_confusion_matrix(csv, spec=None):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     out_ = os.path.join('/media/research', 'IrrigationGIS', 'EE_extracts', 'concatenated')
-    shapefile = '/media/research/IrrigationGIS/EE_extracts/evaluated_points/eval_20JAN2021.shp'
-    extracts = os.path.join(out_, 'bands_klamath_29JUN2021.csv')
+    # shapefile = '/media/research/IrrigationGIS/EE_extracts/evaluated_points/eval_18JAN2021.shp'
+    extracts = os.path.join(out_, 'bands_12AUG2021.csv')
     find_rf_variable_importance(extracts)
-    # random_forest(extracts, out_shape=shapefile)
+    # random_forest(extracts)
 
 # ========================= EOF ====================================================================
