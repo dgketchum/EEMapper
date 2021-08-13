@@ -8,7 +8,7 @@ from pandas import read_csv, concat, errors, Series, merge, DataFrame
 from pandas import to_datetime
 from pandas.io.json import json_normalize
 from shapely.geometry import Polygon
-from map.variable_importance import klamath_params
+from map.variable_importance import select_variables
 
 INT_COLS = ['POINT_TYPE', 'YEAR']
 
@@ -45,7 +45,7 @@ COLS = ['SCENE_ID',
 
 DROP_COUNTY = ['system:index', 'AFFGEOID', 'COUNTYFP', 'COUNTYNS', 'GEOID', 'LSAD', 'STATEFP', '.geo']
 
-SELECT = [x for x in klamath_params()]
+SELECT = [x for x in select_variables(50)]
 
 
 def concatenate_county_data(folder, out_file, glob='counties', acres=False):
@@ -150,7 +150,7 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=Non
     if select:
         print(df['POINT_TYPE'].value_counts())
         df = df[SELECT + ['POINT_TYPE', 'YEAR']]
-        out_file = os.path.join(out_dir, '{}_{}.csv'.format(glob, len(SELECT) - 2))
+        out_file = os.path.join(out_dir, '{}_{}.csv'.format(glob, len(SELECT)))
         sub_df = df[df['POINT_TYPE'] == 0]
         shape = sub_df.shape[0]
         target = int(shape / 3.)
@@ -167,6 +167,23 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=Non
     print(df['POINT_TYPE'].value_counts())
     print('file: {}'.format(out_file))
     df.to_csv(out_file, index=False)
+
+
+def balance_band_extract(csv_in, csv_out):
+    df = read_csv(csv_in)
+    counts = df['POINT_TYPE'].value_counts()
+    print(counts)
+    sub_df = df.loc[0:3, :]
+    target = counts.min()
+    for i, x in zip([0, 1, 2, 3], [target * 3, target, target, target]):
+        try:
+            sub = df[df['POINT_TYPE'] == i].sample(n=x)
+            sub_df = concat([sub_df, sub])
+        except ValueError:
+            print('not enough {} class to sample {}'.format(i, x))
+    df = sub_df
+    print(df['POINT_TYPE'].value_counts())
+    df.to_csv(csv_out, index=False)
 
 
 def rm_dupe_geometry():
@@ -459,7 +476,8 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     data_dir = '/media/research'
     d = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'to_concatenate')
-    glob = 'bands_29JUN2021'
+    glob = 'bands_12AUG2021'
     o = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'concatenated')
     concatenate_band_extract(d, o, glob, select=True)
+
 # ========================= EOF ====================================================================
