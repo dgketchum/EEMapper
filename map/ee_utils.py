@@ -105,6 +105,8 @@ def landsat_masked(yr, roi):
     start = '{}-01-01'.format(yr)
     end_date = '{}-01-01'.format(yr + 1)
 
+    l4_coll = ee.ImageCollection('LANDSAT/LT04/C01/T1_SR').filterBounds(
+        roi).filterDate(start, end_date).map(ls5_edge_removal).map(ls57mask)
     l5_coll = ee.ImageCollection('LANDSAT/LT05/C01/T1_SR').filterBounds(
         roi).filterDate(start, end_date).map(ls5_edge_removal).map(ls57mask)
     l7_coll = ee.ImageCollection('LANDSAT/LE07/C01/T1_SR').filterBounds(
@@ -112,11 +114,14 @@ def landsat_masked(yr, roi):
     l8_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_SR').filterBounds(
         roi).filterDate(start, end_date).map(ls8mask)
 
-    lsSR_masked = ee.ImageCollection(l7_coll.merge(l8_coll).merge(l5_coll))
+    lsSR_masked = ee.ImageCollection(l7_coll.merge(l8_coll).merge(l5_coll).merge(l4_coll))
     return lsSR_masked
 
 
 def landsat_composites(year, start, end, roi, append_name):
+    start_year = datetime.strptime(start, '%Y-%m-%d').year
+    if start_year != year:
+        year = start_year
 
     def evi_(x):
         return x.expression('2.5 * ((NIR-RED) / (NIR + 6 * RED - 7.5* BLUE +1))', {'NIR': x.select('B5'),

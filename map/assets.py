@@ -3,8 +3,10 @@ import os
 import subprocess
 from subprocess import Popen, PIPE, check_call
 import json
-
+from pprint import pprint
 import ee
+
+TARGET_STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
 
 EDIT_STATES = ['KS', 'ND', 'NE', 'OK', 'SD']
 TEST_YEARS = [1986, 1996, 2006, 2016]
@@ -213,9 +215,12 @@ if __name__ == '__main__':
     is_authorized()
     in_collection = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
     l = list_assets(in_collection)
-    a = [x for x in l if 'MT' in x]
-    for e in a:
-        delete_asset(e)
-
+    years_ = [x for x in range(1986, 2011)] + [2018, 2019, 2020]
+    for s in TARGET_STATES:
+        for y in years_:
+            a = os.path.join(in_collection, 'IM_{}_{}'.format(s, y))
+            # delete_asset(a)
+            if a not in l:
+                print('no exist {}'.format(a))
 
 # ========================= EOF ====================================================================

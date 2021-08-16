@@ -298,11 +298,11 @@ def get_cdl(yr):
                 crop.addBands(crop.rename('crop_{}'.format(y)))
 
         cultivated = cultivated.reduce(mode_reduce).rename('cultivated').resample('bilinear')
-        crop = crop.reduce(mode_reduce)
+        crop = crop.reduce(mode_reduce).rename('cropland')
 
     cdl_keys, our_keys = remap_cdl()
-    crop = crop.remap(cdl_keys, our_keys).rename('cropland').resample('bilinear')
-    return cultivated, crop
+    simple_crop = crop.remap(cdl_keys, our_keys).rename('crop5c').resample('bilinear')
+    return cultivated, crop, simple_crop
 
 
 if __name__ == '__main__':

@@ -260,7 +260,7 @@ def export_special(roi, description):
         print(year)
 
 
-def export_classification(out_name, table, asset_root, region, years, export='asset'):
+def export_classification(out_name, table, asset_root, region, years, export='asset', bag_fraction=0.5):
     """
     Trains a Random Forest classifier using a training table input, creates a stack of raster images of the same
     features, and classifies it.  I run this over a for-loop iterating state by state.
@@ -279,7 +279,7 @@ def export_classification(out_name, table, asset_root, region, years, export='as
     classifier = ee.Classifier.smileRandomForest(
         numberOfTrees=100,
         minLeafPopulation=1,
-        bagFraction=0.01).setOutputMode('CLASSIFICATION')
+        bagFraction=bag_fraction).setOutputMode('CLASSIFICATION')
 
     input_props = fc.first().propertyNames().remove('YEAR').remove('POINT_TYPE').remove('system:index')
     features = list(input_props.getInfo())
@@ -298,6 +298,7 @@ def export_classification(out_name, table, asset_root, region, years, export='as
             'system:time_end': ee.Date('{}-12-31'.format(yr)).millis(),
             'image_name': out_name,
             'training_data': RF_TRAINING_DATA,
+            'bag_fraction': bag_fraction,
             'class_key': '0: irrigated, 1: rainfed, 2: uncultivated, 3: wetland'})
 
         if export == 'asset':
@@ -498,11 +499,16 @@ def stack_bands(yr, roi):
     summer_s, summer_e = '{}-07-01'.format(yr), '{}-09-01'.format(yr)
     fall_s, fall_e = '{}-09-01'.format(yr), '{}-12-31'.format(yr)
 
+    prev_s, prev_e = '{}-01-01'.format(yr - 1), '{}-12-31'.format(yr - 1),
+    pprev_s, pprev_e = '{}-01-01'.format(yr - 2), '{}-12-31'.format(yr - 2),
+
     periods = [('cy', winter_s, fall_e),
                ('1', spring_s, spring_e),
                ('2', late_spring_s, late_spring_e),
                ('3', summer_s, summer_e),
-               ('4', fall_s, fall_e)]
+               ('4', fall_s, fall_e),
+               ('m1', prev_s, prev_e),
+               ('m2', pprev_s, pprev_e)]
 
     first = True
     for name, start, end in periods:
@@ -563,13 +569,13 @@ def stack_bands(yr, roi):
 
     nlcd = ee.Image('USGS/NLCD/NLCD2011').select('landcover').reproject(crs=proj['crs'], scale=30).rename('nlcd')
 
-    cdl_cult, cdl_crop = get_cdl(yr)
+    cdl_cult, cdl_crop, cdl_simple = get_cdl(yr)
 
     gsw = ee.Image('JRC/GSW1_0/GlobalSurfaceWater')
     occ_pos = gsw.select('occurrence').gt(0)
     water = occ_pos.unmask(0).rename('gsw')
 
-    static_input_bands = static_input_bands.addBands([nlcd, cdl_cult, cdl_crop, water])
+    static_input_bands = static_input_bands.addBands([nlcd, cdl_cult, cdl_crop, cdl_simple, water])
 
     input_bands = input_bands.addBands(static_input_bands).clip(roi)
 
@@ -610,11 +616,13 @@ if __name__ == '__main__':
     # years_ = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998, 2000, 2001, 2002,
     #           2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015,
     #           2016, 2017]
-    # request_band_extract('bands_12AUG2021', RF_TRAINING_POINTS, GEO_DOMAIN, years=years_, filter_bounds=False)
+    # request_band_extract('bands_16AUG2021', RF_TRAINING_POINTS, GEO_DOMAIN, years=years_, filter_bounds=False)
+    # years_ = [x for x in range(1986, 2011)] + [2018, 2019, 2020]
     for s in ['MT']:
         geo = 'users/dgketchum/boundaries/{}'.format(s)
-        RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_12AUG2021_50'
+        RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_15AUG2021_90_binary'
         export_classification(out_name='IM_{}'.format(s), table=RF_TRAINING_DATA,
                               asset_root='projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp',
-                              years=[x for x in range(1984, 2021)], region=geo)
+                              years=years_, region=geo, bag_fraction=0.9)
+
 # ========================= EOF ====================================================================

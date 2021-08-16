@@ -63,9 +63,9 @@ def pca(csv):
 
 
 def random_forest(csv, n_estimators=100, out_shape=None):
-
+    print('\n', csv)
     c = read_csv(csv, engine='python').sample(frac=1.0).reset_index(drop=True)
-    c['POINT_TYPE'][c['POINT_TYPE'] == 3] = 2
+    # c['POINT_TYPE'][c['POINT_TYPE'] > 0] = 1
 
     split = int(c.shape[0] * 0.7)
 
@@ -105,7 +105,8 @@ def random_forest(csv, n_estimators=100, out_shape=None):
 
     cf = confusion_matrix(y_test, y_pred)
     pprint(cf)
-    producer(cf)
+    pprint(producer(cf))
+    pprint(consumer(cf))
     return
 
 
@@ -215,27 +216,6 @@ def random_forest_k_fold(csv):
     return important
 
 
-def normalize_feature_array(data):
-    scaler = StandardScaler()
-    scaler = scaler.fit(data)
-    data = scaler.transform(data)
-    return data
-
-
-def get_size(start_path='.'):
-    """ Size of data directory in GB.
-    :param start_path:
-    :return:
-    """
-    total_size = 0
-    for dirpath, dirnames, filenames in os.walk(start_path):
-        for f in filenames:
-            fp = os.path.join(dirpath, f)
-            total_size += os.path.getsize(fp)
-    total_size = total_size * 1e-9
-    return total_size
-
-
 def random_hyperparameter_search(csv):
     df = read_csv(csv, engine='python')
     labels = df['POINT_TYPE'].values
@@ -335,8 +315,7 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     out_ = os.path.join('/media/research', 'IrrigationGIS', 'EE_extracts', 'concatenated')
     # shapefile = '/media/research/IrrigationGIS/EE_extracts/evaluated_points/eval_18JAN2021.shp'
-    extracts = os.path.join(out_, 'bands_12AUG2021.csv')
-    find_rf_variable_importance(extracts)
-    # random_forest(extracts)
-
+    extracts = os.path.join(out_, 'bands_15AUG2021_80.csv')
+    # find_rf_variable_importance(extracts)
+    random_forest(extracts)
 # ========================= EOF ====================================================================

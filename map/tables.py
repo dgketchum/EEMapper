@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 
 from geopandas import GeoDataFrame, read_file
-from numpy import where, sum, nan, std, array, min, max, mean, int16, ones_like
+from numpy import where, sum, nan, std, array, min, max, mean, int16, ones_like, rint
 from pandas import read_csv, concat, errors, Series, merge, DataFrame
 from pandas import to_datetime
 from pandas.io.json import json_normalize
@@ -45,7 +45,7 @@ COLS = ['SCENE_ID',
 
 DROP_COUNTY = ['system:index', 'AFFGEOID', 'COUNTYFP', 'COUNTYNS', 'GEOID', 'LSAD', 'STATEFP', '.geo']
 
-SELECT = [x for x in select_variables(50)]
+SELECT = [x for x in select_variables(80)]
 
 
 def concatenate_county_data(folder, out_file, glob='counties', acres=False):
@@ -96,7 +96,7 @@ def concatenate_county_data(folder, out_file, glob='counties', acres=False):
     print('saved {}'.format(out_file))
 
 
-def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=None):
+def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=None, binary=False):
     l = [os.path.join(root, x) for x in os.listdir(root) if glob in x]
     l.sort()
     first = True
@@ -128,6 +128,10 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=Non
     df['POINT_TYPE'] = points
     print(df['POINT_TYPE'].value_counts())
     points = where((df['POINT_TYPE'] == 4) & (df['nd_max_cy'] > 0.6), nines, points)
+
+    points = where((df['Lon_GCS'] < -103.3) & (df['Lon_GCS'] > -116.3), nines, points)
+    points = where((df['LAT_GCS'] > 43.8), nines, points)
+
     df['POINT_TYPE'] = points
     df = df[df['POINT_TYPE'] != 9]
     df['POINT_TYPE'][df['POINT_TYPE'] == 4] = 1
@@ -150,7 +154,7 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=Non
     if select:
         print(df['POINT_TYPE'].value_counts())
         df = df[SELECT + ['POINT_TYPE', 'YEAR']]
-        out_file = os.path.join(out_dir, '{}_{}.csv'.format(glob, len(SELECT)))
+        out_file = os.path.join(out_dir, '{}_{}_MT.csv'.format(glob, len(SELECT)))
         sub_df = df[df['POINT_TYPE'] == 0]
         shape = sub_df.shape[0]
         target = int(shape / 3.)
@@ -164,24 +168,30 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=Non
         df = sub_df
 
     print('size: {}'.format(df.shape))
-    print(df['POINT_TYPE'].value_counts())
     print('file: {}'.format(out_file))
+    if binary:
+        df['POINT_TYPE'][df['POINT_TYPE'] > 0] = 1
+        out_file = out_file.replace('.csv', '_binary.csv')
+    print(df['POINT_TYPE'].value_counts())
     df.to_csv(out_file, index=False)
 
 
-def balance_band_extract(csv_in, csv_out):
+def balance_band_extract(csv_in, csv_out, binary=False):
     df = read_csv(csv_in)
     counts = df['POINT_TYPE'].value_counts()
     print(counts)
     sub_df = df.loc[0:3, :]
-    target = counts.min()
-    for i, x in zip([0, 1, 2, 3], [target * 3, target, target, target]):
+    target = counts[0]
+    sub_target = int(rint(target / 3))
+    for i, x in zip([0, 1, 2, 3], [target, sub_target, sub_target, sub_target]):
         try:
             sub = df[df['POINT_TYPE'] == i].sample(n=x)
             sub_df = concat([sub_df, sub])
         except ValueError:
             print('not enough {} class to sample {}'.format(i, x))
     df = sub_df
+    if binary:
+        df['POINT_TYPE'][df['POINT_TYPE'] > 0] = 1
     print(df['POINT_TYPE'].value_counts())
     df.to_csv(csv_out, index=False)
 
@@ -476,8 +486,11 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     data_dir = '/media/research'
     d = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'to_concatenate')
-    glob = 'bands_12AUG2021'
+    glob = 'bands_15AUG2021'
     o = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'concatenated')
-    concatenate_band_extract(d, o, glob, select=True)
+    concatenate_band_extract(d, o, glob, select=True, binary=True)
+    # balance_band_extract(os.path.join(o, '{}.csv'.format(glob)),
+    #                      os.path.join(o, '{}_bal_binary.csv'.format(glob)),
+    #                      binary=True)
 
 # ========================= EOF ====================================================================
