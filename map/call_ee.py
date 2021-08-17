@@ -274,15 +274,14 @@ def export_classification(out_name, table, asset_root, region, years, export='as
     fc = ee.FeatureCollection(table)
     roi = ee.FeatureCollection(region)
     # roi = roi.filterMetadata('STAID', 'equals', '06306300')
-    mask = roi.geometry().bounds().getInfo()['coordinates']
+    mask = roi.geometry().getInfo()['coordinates']
 
     classifier = ee.Classifier.smileRandomForest(
-        numberOfTrees=100,
+        numberOfTrees=150,
         minLeafPopulation=1,
         bagFraction=bag_fraction).setOutputMode('CLASSIFICATION')
 
     input_props = fc.first().propertyNames().remove('YEAR').remove('POINT_TYPE').remove('system:index')
-    features = list(input_props.getInfo())
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
@@ -291,8 +290,7 @@ def export_classification(out_name, table, asset_root, region, years, export='as
             continue
         input_bands = stack_bands(yr, roi)
         annual_stack = input_bands.select(input_props)
-        bands = list(annual_stack.bandNames().getInfo())
-        classified_img = annual_stack.classify(trained_model).int().set({
+        classified_img = annual_stack.unmask().classify(trained_model).int().set({
             'system:index': ee.Date('{}-01-01'.format(yr)).format('YYYYMMdd'),
             'system:time_start': ee.Date('{}-01-01'.format(yr)).millis(),
             'system:time_end': ee.Date('{}-12-31'.format(yr)).millis(),
@@ -617,12 +615,12 @@ if __name__ == '__main__':
     #           2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015,
     #           2016, 2017]
     # request_band_extract('bands_16AUG2021', RF_TRAINING_POINTS, GEO_DOMAIN, years=years_, filter_bounds=False)
-    # years_ = [x for x in range(1986, 2011)] + [2018, 2019, 2020]
-    for s in ['MT']:
+    years_ = [x for x in range(1986, 1997)] + [2018, 2019, 2020]
+    for s in ['AZ', 'CA', 'CO', 'ID', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']:
         geo = 'users/dgketchum/boundaries/{}'.format(s)
-        RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_15AUG2021_90_binary'
+        RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_4DEC2020'
         export_classification(out_name='IM_{}'.format(s), table=RF_TRAINING_DATA,
                               asset_root='projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp',
-                              years=years_, region=geo, bag_fraction=0.9)
+                              years=years_, region=geo, bag_fraction=1.0)
 
 # ========================= EOF ====================================================================

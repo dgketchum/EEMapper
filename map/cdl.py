@@ -277,7 +277,7 @@ def get_cdl(yr):
     if yr in cld_years:
 
         image = ee.Image('USDA/NASS/CDL/{}'.format(yr))
-        cultivated = image.select('cultivated').remap([1, 2], [0, 1]).rename('cultivated')
+        cultivated = image.select('cultivated').remap([1, 2], [0, 1]).rename('cdl')
         crop = image.select('cropland')
 
     else:
@@ -297,7 +297,7 @@ def get_cdl(yr):
                 cultivated.addBands(cultivated.rename('clt_{}'.format(y)))
                 crop.addBands(crop.rename('crop_{}'.format(y)))
 
-        cultivated = cultivated.reduce(mode_reduce).rename('cultivated').resample('bilinear')
+        cultivated = cultivated.reduce(mode_reduce).rename('cdl').resample('bilinear')
         crop = crop.reduce(mode_reduce).rename('cropland')
 
     cdl_keys, our_keys = remap_cdl()

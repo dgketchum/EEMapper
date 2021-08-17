@@ -214,13 +214,15 @@ def is_authorized():
 if __name__ == '__main__':
     is_authorized()
     in_collection = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-    l = list_assets(in_collection)
-    years_ = [x for x in range(1986, 2011)] + [2018, 2019, 2020]
+    l = [x for x in list_assets(in_collection)]
+    pprint(l)
+    years_ = [x for x in range(1984, 1997)]
     for s in TARGET_STATES:
         for y in years_:
             a = os.path.join(in_collection, 'IM_{}_{}'.format(s, y))
-            # delete_asset(a)
-            if a not in l:
-                print('no exist {}'.format(a))
+            if a in l:
+                delete_asset(a)
+            # if a in l:
+            #     print('{}'.format(a))
 
 # ========================= EOF ====================================================================

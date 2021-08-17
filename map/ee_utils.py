@@ -142,8 +142,14 @@ def landsat_composites(year, start, end, roi, append_name):
                             'B6_{}'.format(append_name),
                             'B7_{}'.format(append_name)]
                            )).mean())
-    ndvi = ee.Image(lsSR_masked.filterDate(start, end).map(
+
+    if append_name in ['m2', 'm1', 'cy']:
+        ndvi = ee.Image(lsSR_masked.filterDate(start, end).map(
+            lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_max_{}'.format(append_name))
+    else:
+        ndvi = ee.Image(lsSR_masked.filterDate(start, end).map(
         lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_{}'.format(append_name))
+
     ndwi = ee.Image(lsSR_masked.filterDate(start, end).map(
         lambda x: x.normalizedDifference(['B5', 'B6'])).max()).rename('nw_{}'.format(append_name))
     evi = ee.Image(lsSR_masked.filterDate(start, end).map(
