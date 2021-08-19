@@ -96,7 +96,7 @@ def concatenate_county_data(folder, out_file, glob='counties', acres=False):
     print('saved {}'.format(out_file))
 
 
-def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=None, binary=False):
+def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=None, binary=False, fallow=False):
     l = [os.path.join(root, x) for x in os.listdir(root) if glob in x]
     l.sort()
     first = True
@@ -131,7 +131,15 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=Non
 
     df['POINT_TYPE'] = points
     df = df[df['POINT_TYPE'] != 9]
-    df['POINT_TYPE'][df['POINT_TYPE'] == 4] = 1
+
+    if fallow:
+        df = df[df['POINT_TYPE'] != 1]
+        df = df[df['POINT_TYPE'] != 2]
+        df = df[df['POINT_TYPE'] != 3]
+        glob = '{}_fallow'.format(glob)
+    else:
+        df['POINT_TYPE'][df['POINT_TYPE'] == 4] = 1
+
     print(df['POINT_TYPE'].value_counts())
 
     if sample:
@@ -483,9 +491,9 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     data_dir = '/media/research'
     d = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'to_concatenate')
-    glob = 'bands_15AUG2021'
+    glob = 'bands_3DEC2020'
     o = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'concatenated')
-    concatenate_band_extract(d, o, glob, select=True, binary=False)
+    concatenate_band_extract(d, o, glob, select=False, binary=False, fallow=True)
     # balance_band_extract(os.path.join(o, '{}.csv'.format(glob)),
     #                      os.path.join(o, '{}_bal_binary.csv'.format(glob)),
     #                      binary=True)

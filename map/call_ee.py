@@ -615,8 +615,8 @@ if __name__ == '__main__':
     #           2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015,
     #           2016, 2017]
     # request_band_extract('bands_16AUG2021', RF_TRAINING_POINTS, GEO_DOMAIN, years=years_, filter_bounds=False)
-    years_ = [x for x in range(1986, 1997)] + [2018, 2019, 2020]
-    for s in ['AZ', 'CA', 'CO', 'ID', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']:
+    years_ = [x for x in range(1997, 2017)]
+    for s in ['MT']:
         geo = 'users/dgketchum/boundaries/{}'.format(s)
         RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_4DEC2020'
         export_classification(out_name='IM_{}'.format(s), table=RF_TRAINING_DATA,

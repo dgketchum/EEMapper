@@ -130,6 +130,28 @@ def cancel_tasks():
             print(cmd)
 
 
+def clip():
+    root = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+    dst = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
+    for s in TARGET_STATES:
+        geo = ee.FeatureCollection('users/dgketchum/boundaries/{}'.format(s)).geometry()
+        for y in [x for x in range(1986, 1997)] + [x for x in range(2018, 2021)]:
+            if s == 'AZ' and y == 1986:
+                continue
+            i = ee.Image(os.path.join(root, 'IM_{}_{}'.format(s, y)))
+            target = os.path.join(dst, 'IM_{}_{}'.format(s, y))
+            i = i.clip(geo)
+            task = ee.batch.Export.image.toAsset(
+                image=i,
+                description=os.path.basename(target),
+                assetId=target,
+                scale=30,
+                pyramidingPolicy={'.default': 'mode'},
+                maxPixels=1e13)
+            task.start()
+            print(target)
+
+
 def mask_move(min_years=3):
     asset_root = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_RF2'
 
@@ -213,16 +235,18 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    in_collection = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-    l = [x for x in list_assets(in_collection)]
+    # in_collection = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
+    out_collection = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+    l = [x for x in list_assets(out_collection)]
     pprint(l)
-    years_ = [x for x in range(1984, 1997)]
+    years_ = [x for x in range(1986, 1997)] + [2018, 2019, 2020]
     for s in TARGET_STATES:
         for y in years_:
-            a = os.path.join(in_collection, 'IM_{}_{}'.format(s, y))
-            if a in l:
-                delete_asset(a)
-            # if a in l:
-            #     print('{}'.format(a))
+            # a = os.path.join(in_collection, 'IM_{}_{}'.format(s, y))
+            b = os.path.join(out_collection, 'IM_{}_{}'.format(s, y))
+            if b in l:
+                print('exists {}'.format(b))
+            else:
+                print('{} not there'.format(b))
 
 # ========================= EOF ====================================================================

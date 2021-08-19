@@ -21,7 +21,7 @@ from geopandas import GeoDataFrame
 from shapely.geometry import Point
 
 from map import FEATURE_NAMES
-from map.variable_importance import original_names
+from map.variable_importance import dec4_names
 
 abspath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(abspath)
@@ -65,7 +65,9 @@ def pca(csv):
 def random_forest(csv, n_estimators=100, out_shape=None):
     print('\n', csv)
     c = read_csv(csv, engine='python').sample(frac=1.0).reset_index(drop=True)
-    # c['POINT_TYPE'][c['POINT_TYPE'] > 0] = 1
+    # c = c[c['POINT_TYPE'] != 1]
+    # c = c[c['POINT_TYPE'] != 2]
+    # c = c[c['POINT_TYPE'] != 3]
 
     split = int(c.shape[0] * 0.7)
 
@@ -111,12 +113,12 @@ def random_forest(csv, n_estimators=100, out_shape=None):
 
 
 def random_forest_feature_select(csv, n_estimators=100):
-    df = read_csv(csv, engine='python')
+    df = read_csv(csv, engine='python').sample(frac=0.1)
     labels = df['POINT_TYPE'].values
     df.drop(columns=['YEAR', 'POINT_TYPE'], inplace=True)
     df.dropna(axis=1, inplace=True)
     labels = labels.reshape((labels.shape[0],))
-    features = original_names()
+    features = dec4_names()
     precision = []
     for i, c in enumerate(features, start=1):
         cols = [f for f in features[:i]]
@@ -315,7 +317,8 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     out_ = os.path.join('/media/research', 'IrrigationGIS', 'EE_extracts', 'concatenated')
     # shapefile = '/media/research/IrrigationGIS/EE_extracts/evaluated_points/eval_18JAN2021.shp'
-    extracts = os.path.join(out_, 'bands_15AUG2021_80.csv')
+    extracts = os.path.join(out_, 'bands_3DEC2020_fallow.csv')
     # find_rf_variable_importance(extracts)
+    # random_forest(extracts)
     random_forest(extracts)
 # ========================= EOF ====================================================================
