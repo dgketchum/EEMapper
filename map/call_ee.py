@@ -17,12 +17,12 @@ sys.setrecursionlimit(2000)
 
 GEO_DOMAIN = 'users/dgketchum/boundaries/western_states_expanded_union'
 BOUNDARIES = 'users/dgketchum/boundaries'
-ASSET_ROOT = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_Klamath'
+ASSET_ROOT = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
 IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
 FILTER_TARGET = 'users/dgketchum/to_filter/MT_2012'
 RF_ASSET = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_RF'
 
-# RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_3DEC2020_COWY'
+RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_4DEC2020'
 RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/train_pts_18JAN2021'
 
 HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
@@ -55,10 +55,10 @@ YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997,
          2016, 2017, 2018, 2019]
 
 TEST_YEARS = [2005]
-ALL_YEARS = [x for x in range(1997, 2018)]
+ALL_YEARS = [x for x in range(1986, 2021)]
 
 
-def reduce_classification(tables, years=None, description=None, cdl_mask=False, min_years=0):
+def reduce_classification(asset, tables, years=None, description=None, cdl_mask=False, min_years=0):
     """
     Reduce Regions, i.e. zonal stats: takes a statistic from a raster within the bounds of a vector.
     Use this to get e.g. irrigated area within a county, HUC, or state. This can mask based on Crop Data Layer,
@@ -72,7 +72,7 @@ def reduce_classification(tables, years=None, description=None, cdl_mask=False, 
     :return:
     """
     sum_mask = None
-    image_list = list_assets('users/dgketchum/IrrMapper/version_2')
+    image_list = list_assets(asset)
     fc = ee.FeatureCollection(tables)
 
     if min_years > 0:
@@ -80,26 +80,22 @@ def reduce_classification(tables, years=None, description=None, cdl_mask=False, 
         sum = ee.ImageCollection(coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum()
         sum_mask = sum.lt(min_years)
 
-    # first = True
     for yr in years:
         yr_img = [x for x in image_list if x.endswith(str(yr))]
         coll = ee.ImageCollection(yr_img)
         tot = coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
 
         if cdl_mask and min_years > 0:
-            # cultivated/uncultivated band only available 2013 to 2017
-            cdl = ee.Image('USDA/NASS/CDL/2013')
-            cultivated = cdl.select('cultivated')
-            cdl_crop_mask = cultivated.eq(2)
+            cultivated, _ = get_cdl(yr)
+            cdl_crop_mask = cultivated.eq(1)
             tot = tot.mask(cdl_crop_mask).mask(sum_mask)
 
         elif min_years > 0:
             tot = tot.mask(sum_mask)
 
         elif cdl_mask:
-            cdl = ee.Image('USDA/NASS/CDL/2013')
-            cultivated = cdl.select('cultivated')
-            cdl_crop_mask = cultivated.eq(2)
+            cultivated, _ = get_cdl(yr)
+            cdl_crop_mask = cultivated.eq(1)
             tot = tot.mask(cdl_crop_mask)
 
         tot = tot.multiply(ee.Image.pixelArea())
@@ -286,8 +282,6 @@ def export_classification(out_name, table, asset_root, region, years, export='as
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
     for yr in years:
-        if yr == 2017:
-            continue
         input_bands = stack_bands(yr, roi)
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.unmask().classify(trained_model).int().set({
@@ -298,13 +292,14 @@ def export_classification(out_name, table, asset_root, region, years, export='as
             'training_data': RF_TRAINING_DATA,
             'bag_fraction': bag_fraction,
             'class_key': '0: irrigated, 1: rainfed, 2: uncultivated, 3: wetland'})
+        classified_img = classified_img.clip(roi.geometry())
 
         if export == 'asset':
             task = ee.batch.Export.image.toAsset(
                 image=classified_img,
                 description='{}_{}'.format(out_name, yr),
                 assetId=os.path.join(asset_root, '{}_{}'.format(out_name, yr)),
-                region=mask,
+                # region=mask,
                 scale=30,
                 pyramidingPolicy={'.default': 'mode'},
                 maxPixels=1e13)
@@ -315,7 +310,7 @@ def export_classification(out_name, table, asset_root, region, years, export='as
                 description='{}_{}'.format(out_name, yr),
                 bucket='wudr',
                 fileNamePrefix='{}_{}'.format(yr, out_name),
-                region=mask,
+                # region=mask,
                 scale=30,
                 pyramidingPolicy={'.default': 'mode'},
                 maxPixels=1e13)
@@ -610,17 +605,13 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    # export_special(roi=geo, description='UCRB')
-    # years_ = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998, 2000, 2001, 2002,
-    #           2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015,
-    #           2016, 2017]
-    # request_band_extract('bands_16AUG2021', RF_TRAINING_POINTS, GEO_DOMAIN, years=years_, filter_bounds=False)
-    years_ = [x for x in range(1997, 2017)] + [1993]
-    for s in ['WY']:
-        geo = 'users/dgketchum/boundaries/{}'.format(s)
-        RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_4DEC2020'
-        export_classification(out_name='IM_{}'.format(s), table=RF_TRAINING_DATA,
-                              asset_root='projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_',
-                              years=years_, region=geo, bag_fraction=1.0)
+    geo = 'users/dgketchum/boundaries/blackfeet'
+    table_ = 'users/dgketchum/boundaries/blackfeet'
+    reduce_classification(ASSET_ROOT, table_, ALL_YEARS, description='blackfeet', min_years=3)
 
+    # years_ = [2019]
+    # RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_4DEC2020_Blackfeet'
+    # export_classification(out_name='IM_{}'.format('BLKFT'), table=RF_TRAINING_DATA,
+    #                       asset_root='projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_',
+    #                       years=years_, region=geo, bag_fraction=1.0)
 # ========================= EOF ====================================================================
