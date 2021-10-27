@@ -4,7 +4,7 @@ import fiona
 from numpy import linspace, max
 from numpy.random import shuffle, choice
 from pandas import DataFrame
-from shapely.geometry import shape, Point, mapping
+from shapely.geometry import shape, Point, mapping, Polygon
 
 YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997,
          1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
@@ -30,6 +30,8 @@ class PointsRunspec(object):
         self.wetland_path = WETLAND
         self.fallow_path = FALLOW
 
+        if 'intersect' in kwargs.keys():
+            self.intersect = kwargs['intersect']
         if 'fallowed' in kwargs.keys():
             self.fallowed(kwargs['fallowed'])
         if 'irrigated' in kwargs.keys():
@@ -155,6 +157,9 @@ class PointsRunspec(object):
         return None
 
     def _get_polygons(self, vector, attr=None):
+        if self.intersect:
+            with fiona.open(self.intersect, 'r') as inter_f:
+                inter_geo = shape([f['geometry'] for f in inter_f][0])
         with fiona.open(vector, 'r') as src:
             # if not self.crs:
             #     self.crs = src.crs
@@ -165,6 +170,8 @@ class PointsRunspec(object):
             for feat in src:
                 try:
                     geo = shape(feat['geometry'])
+                    if self.intersect and not inter_geo.intersects(geo):
+                        continue
                     if attr:
                         attribute = feat['properties'][attr]
                         polys.append((geo, attribute))
@@ -198,14 +205,17 @@ if __name__ == '__main__':
     UNIRRIGATED = os.path.join(data, 'dryland_11JAN2021.shp')
     WETLAND = os.path.join(data, 'wetlands_11JAN2021.shp')
 
+    intersect_shape = '/media/research/IrrigationGIS/boundaries/states/CO_AEA.shp'
+
     kwargs = {
-        'irrigated': 100000,
-        'wetlands': 100000,
-        'fallowed': 50000,
-        'uncultivated': 100000,
-        'unirrigated': 100000,
+        # 'irrigated': 100000,
+        # 'wetlands': 100000,
+        # 'fallowed': 50000,
+        # 'uncultivated': 100000,
+        'unirrigated': 1500,
+        'intersect': intersect_shape,
     }
-    out_name = os.path.join(home, 'EE_extracts', 'point_shp', 'points_20JAN2021.shp')
+    out_name = os.path.join(home, 'EE_extracts', 'point_shp', 'points_c2_CO_27OCT2021.shp')
     prs = PointsRunspec(data, buffer=-20, **kwargs)
     prs.save_sample_points(out_name)
 
