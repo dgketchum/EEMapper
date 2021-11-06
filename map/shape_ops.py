@@ -184,6 +184,7 @@ def clip_bands_to_polygon(bands, out_bands, mask):
     df = DataFrame(gdf.drop(columns='geometry'))
     df.to_csv(out_bands)
 
+
 def count_points(shp):
     with fiona.open(shp, 'r') as src:
         dct = {}
@@ -223,15 +224,9 @@ def subselect_points_shapefile(shp, out_shp, limit=10000):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    alt_home = '/media/research'
-    if os.path.isdir(alt_home):
-        home = alt_home
-    else:
-        home = os.path.join(home, 'data')
-
-    gis = os.path.join(home, 'IrrigationGIS')
-    bounds = os.path.join(gis, 'boundaries', 'ucrb', 'UCRB_100kmBuf.shp')
-    table = os.path.join(gis, 'EE_extracts', 'band_extract_points', 'bands_20JAN2021.csv')
-    out_bands = os.path.join(gis, 'EE_extracts', 'band_extract_points', 'ucrb_bands_20JAN2021.csv')
-    clip_bands_to_polygon(table, out_bands, bounds)
+    gis = os.path.join('/media/research', 'IrrigationGIS')
+    inspected = os.path.join(gis, 'training_data', 'fallow', 'inspected')
+    files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
+    out_ = os.path.join(gis, 'EE_sample', 'wgs', 'dryland_11NOV2021.shp')
+    fiona_merge_attribute(out_, files_)
 # ========================= EOF ====================================================================

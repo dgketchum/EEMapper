@@ -272,7 +272,7 @@ def remap_cdl():
 def get_cdl(yr):
     first = True
     cultivated, crop = None, None
-    cld_years = [x for x in range(2013, 2018)]
+    cld_years = [x for x in range(2013, 2019)]
 
     if yr in cld_years:
 
@@ -297,7 +297,7 @@ def get_cdl(yr):
                 cultivated.addBands(cultivated.rename('clt_{}'.format(y)))
                 crop.addBands(crop.rename('crop_{}'.format(y)))
 
-        cultivated = cultivated.reduce(mode_reduce).rename('cdl').resample('bilinear')
+        cultivated = cultivated.reduce(mode_reduce).resample('bilinear').rename('cdl')
         crop = crop.reduce(mode_reduce).rename('cropland')
 
     cdl_keys, our_keys = remap_cdl()

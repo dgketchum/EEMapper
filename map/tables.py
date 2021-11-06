@@ -158,13 +158,18 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=Non
 
     if select:
         print(df['POINT_TYPE'].value_counts())
+
         df = df[SELECT + ['POINT_TYPE', 'YEAR']]
+
         out_file = os.path.join(out_dir, '{}_{}.csv'.format(glob, len(SELECT)))
         sub_df = df[df['POINT_TYPE'] == 0]
         shape = sub_df.shape[0]
         target = int(shape / 3.)
         target_f = int(shape / 6.)
         for i, x in zip([1, 2, 3], [target, target, target]):
+            if target_f == 0:
+                sub_df = df
+                break
             try:
                 sub = df[df['POINT_TYPE'] == i].sample(n=x)
                 sub_df = concat([sub_df, sub], sort=False)
@@ -215,57 +220,36 @@ def rm_dupe_geometry():
         df.to_file(out)
 
 
-def concatenate_irrigation_attrs(_dir, out_filename, glob, find_boolean=False, template_geometry=None):
+def concatenate_irrigation_attrs(_dir, out_filename, glob, template_geometry=None):
     _files = [os.path.join(_dir, x) for x in os.listdir(_dir) if glob in x]
     _files.sort()
-    first_year = True
-    for year in range(2011, 2021):
-        yr_files = [f for f in _files if str(year) in f]
-        first_state = True
-        for f in yr_files:
-            if first_state:
-                df = read_csv(f, index_col=0)
-                df.dropna(subset=['sum'], inplace=True)
-                df.rename(columns={'sum': 'ISQMT_{}'.format(year)}, inplace=True)
-                df.drop_duplicates(subset=['.geo'], keep='first', inplace=True)
-                df['IPCT_{}'.format(year)] = df['ISQMT_{}'.format(year)] / df['AREA_SQMT'.format(year)] * 100.
-                first_state = False
-            else:
-                c = read_csv(f, index_col=0)
-                c.dropna(subset=['sum'], inplace=True)
-                c.rename(columns={'sum': 'ISQMT_{}'.format(year)}, inplace=True)
-                c['IPCT_{}'.format(year)] = c['ISQMT_{}'.format(year)] / c['AREA_SQMT'.format(year)] * 100.
-                df = concat([df, c], sort=False)
-                df.drop_duplicates(subset=['.geo'], keep='first', inplace=True)
-
-        print(year, df.shape)
-        if first_year:
-            master = df
-            first_year = False
+    first = True
+    for f in _files:
+        year = int(os.path.basename(f).split('.')[0][-4:])
+        if first:
+            df = read_csv(f, index_col=0)
+            df.dropna(subset=['sum'], inplace=True)
+            df.rename(columns={'sum': 'irr_{}'.format(year)}, inplace=True)
+            df.drop_duplicates(subset=['.geo'], keep='first', inplace=True)
+            first = False
         else:
-            master['IPCT_{}'.format(year)] = df['IPCT_{}'.format(year)]
-            master['ISQMT_{}'.format(year)] = df['ISQMT_{}'.format(year)]
-
-    if find_boolean:
-        bool_cols = array([master[x].values for x in master.columns if 'Irr_' in x])
-        bool_sum = sum(bool_cols, axis=0)
-        master['IYears'] = bool_sum
+            c = read_csv(f, index_col=0)
+            df['irr_{}'.format(year)] = c['sum']
 
     if template_geometry:
         t_gdf = GeoDataFrame.from_file(template_geometry).to_crs('epsg:4326')
         geo = t_gdf['geometry']
-        master.drop(['.geo'], axis=1, inplace=True)
+        df.drop(['.geo'], axis=1, inplace=True)
     else:
-        master.dropna(subset=['.geo'], inplace=True)
-        coords = Series(json_normalize(master['.geo'].apply(json.loads))['coordinates'].values,
-                        index=master.index)
+        df.dropna(subset=['.geo'], inplace=True)
+        coords = Series(json_normalize(df['.geo'].apply(json.loads))['coordinates'].values,
+                        index=df.index)
         geo = coords.apply(to_polygon)
-        master.dropna(subset=['geometry'], inplace=True)
-        master.drop(['.geo'], axis=1, inplace=True)
+        df.drop(['.geo'], axis=1, inplace=True)
 
-    master.to_csv(out_filename.replace('.shp', '.csv'))
-    # gpd = GeoDataFrame(master, crs='epsg:4326', geometry=geo)
-    # gpd.to_file(out_filename)
+    df.to_csv(out_filename.replace('.shp', '.csv'))
+    gpd = GeoDataFrame(df, crs='epsg:4326', geometry=geo)
+    gpd.to_file(out_filename)
 
 
 def concatenate_attrs_huc(_dir, out_csv_filename, out_shp_filename, template_geometry):
@@ -487,15 +471,22 @@ def join_comparison_to_shapefile(csv, shp, out_shape):
     out.to_file(out_shape)
 
 
+def join_tables(one, two, out_file):
+    one = read_csv(one)
+    two = read_csv(two)
+    df = concat([one, two], ignore_index=True)
+    df.to_csv(out_file)
+
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     data_dir = '/media/research'
-    d = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'to_concatenate')
-    glob = 'bands_3DEC2020'
-    o = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'concatenated')
-    concatenate_band_extract(d, o, glob, select=False, binary=False, fallow=True)
-    # balance_band_extract(os.path.join(o, '{}.csv'.format(glob)),
-    #                      os.path.join(o, '{}_bal_binary.csv'.format(glob)),
-    #                      binary=True)
-
+    d = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'rebuild_co')
+    # glob = 'bands_CO'
+    # o = os.path.join(data_dir, 'IrrigationGIS', 'EE_extracts', 'rebuild_co')
+    # concatenate_band_extract(d, o, glob, select=True, binary=False, fallow=False)
+    one_ = os.path.join(d, 'bands_3DEC2020_50.csv')
+    two_ = os.path.join(d, 'bands_CO_50.csv')
+    out_ = os.path.join(d, 'bands_4DEC2020_mod_CO.csv')
+    join_tables(one_, two_, out_file=out_)
 # ========================= EOF ====================================================================

@@ -5,6 +5,9 @@ from numpy import linspace, max
 from numpy.random import shuffle, choice
 from pandas import DataFrame
 from shapely.geometry import shape, Point, mapping, Polygon
+from shapely.errors import TopologicalError
+
+from call_ee import TARGET_STATES, E_STATES
 
 YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997,
          1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
@@ -24,6 +27,8 @@ class PointsRunspec(object):
 
         self.buffer = buffer
 
+        self.years = None
+
         self.irr_path = IRRIGATED
         self.unirr_path = UNIRRIGATED
         self.uncult_path = UNCULTIVATED
@@ -32,10 +37,10 @@ class PointsRunspec(object):
 
         if 'intersect' in kwargs.keys():
             self.intersect = kwargs['intersect']
-        if 'fallowed' in kwargs.keys():
-            self.fallowed(kwargs['fallowed'])
         if 'irrigated' in kwargs.keys():
             self.irrigated(kwargs['irrigated'])
+        if 'fallowed' in kwargs.keys():
+            self.fallowed(kwargs['fallowed'])
         if 'unirrigated' in kwargs.keys():
             self.unirrigated(kwargs['unirrigated'])
         if 'wetlands' in kwargs.keys():
@@ -57,19 +62,21 @@ class PointsRunspec(object):
 
     def irrigated(self, n):
         print('irrigated: {}'.format(n))
-        self.create_sample_points(n, self.irr_path, code=0, attribute='YEAR')
+        self.create_sample_points(n, self.irr_path, code=0, attribute='YEAR', set_years=True)
 
     def fallowed(self, n):
         print('fallow: {}'.format(n))
         self.create_sample_points(n, self.fallow_path, code=4, attribute='YEAR')
 
-    def create_sample_points(self, n, shp, code, attribute=None):
+    def create_sample_points(self, n, shp, code, attribute=None, set_years=False):
 
         instance_ct = 0
         polygons = self._get_polygons(shp, attr=attribute)
         shuffle(polygons)
         if attribute:
             years, polygons = [x[1] for x in polygons], [x[0] for x in polygons]
+            if set_years:
+                self.years = years
 
         positive_area = sum([x.area for x in polygons])
         print('area: {} in {} features'.format(positive_area / 1e6, len(polygons)))
@@ -78,6 +85,8 @@ class PointsRunspec(object):
             try:
                 if attribute:
                     self.year = years[i]
+                elif self.years:
+                    self.year = choice(self.years)
                 else:
                     self.year = choice(YEARS)
 
@@ -161,17 +170,18 @@ class PointsRunspec(object):
             with fiona.open(self.intersect, 'r') as inter_f:
                 inter_geo = shape([f['geometry'] for f in inter_f][0])
         with fiona.open(vector, 'r') as src:
-            # if not self.crs:
-            #     self.crs = src.crs
-            # else:
-            #     assert src.crs == self.crs
             polys = []
             bad_geo_count = 0
             for feat in src:
                 try:
                     geo = shape(feat['geometry'])
-                    if self.intersect and not inter_geo.intersects(geo):
+
+                    try:
+                        if self.intersect and not inter_geo.intersects(geo):
+                            continue
+                    except TopologicalError:
                         continue
+
                     if attr:
                         attribute = feat['properties'][attr]
                         polys.append((geo, attribute))
@@ -199,24 +209,26 @@ if __name__ == '__main__':
     home = '/media/research/IrrigationGIS'
     data = os.path.join(home, 'EE_sample', 'aea')
 
-    FALLOW = os.path.join(data, 'fallow_2DEC2020.shp')
-    IRRIGATED = os.path.join(data, 'irrigated_11JAN2021.shp')
+    FALLOW = os.path.join(data, 'fallow_5NOV2021.shp')
+    IRRIGATED = os.path.join(data, 'irrigated_5NOV2021.shp')
     UNCULTIVATED = os.path.join(data, 'uncultivated_11JAN2021.shp')
     UNIRRIGATED = os.path.join(data, 'dryland_11JAN2021.shp')
     WETLAND = os.path.join(data, 'wetlands_11JAN2021.shp')
 
-    intersect_shape = '/media/research/IrrigationGIS/boundaries/states/CO_AEA.shp'
+    for state in E_STATES[-1:]:
+        print('Dist Points ', state)
+        intersect_shape = '/media/research/IrrigationGIS/boundaries/states_tiger_aea/{}.shp'.format(state)
 
-    kwargs = {
-        # 'irrigated': 100000,
-        # 'wetlands': 100000,
-        # 'fallowed': 50000,
-        # 'uncultivated': 100000,
-        'unirrigated': 1500,
-        'intersect': intersect_shape,
-    }
-    out_name = os.path.join(home, 'EE_extracts', 'point_shp', 'points_c2_CO_27OCT2021.shp')
-    prs = PointsRunspec(data, buffer=-20, **kwargs)
-    prs.save_sample_points(out_name)
+        kwargs = {
+            'irrigated': 1500,
+            'wetlands': 1500,
+            'fallowed': 1500,
+            'uncultivated': 1500,
+            'unirrigated': 1500,
+            'intersect': intersect_shape,
+        }
+        out_name = os.path.join(home, 'EE_extracts', 'point_shp', 'state_aea', 'points_{}_5NOV2021.shp'.format(state))
+        prs = PointsRunspec(data, buffer=-20, **kwargs)
+        prs.save_sample_points(out_name)
 
 # ========================= EOF ====================================================================

@@ -183,7 +183,7 @@ def find_rf_variable_importance(csv):
 
     master = list(master.items())
     master = sorted(master, key=lambda x: x[1], reverse=True)
-    pprint(master)
+    return master
 
 
 def random_forest_k_fold(csv):

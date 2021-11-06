@@ -1,9 +1,11 @@
 import csv
 import os
 import subprocess
+from calendar import monthrange
 from subprocess import Popen, PIPE, check_call
 import json
 from pprint import pprint
+from shapely.geometry import Polygon
 import ee
 
 TARGET_STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
@@ -47,7 +49,7 @@ def set_metadata(ee_asset, property='--time_start'):
     reader = list_assets(ee_asset)
     for r in reader:
         year = os.path.basename(r)
-        if int(year) > 1986:
+        if int(year) > 2017:
             cmd = ['{}'.format(EXEC), 'asset', 'set',
                    '{}'.format(property), '{}-12-31T00:00:00'.format(year), r]
             print(' '.join(cmd))
@@ -133,11 +135,9 @@ def cancel_tasks():
 def clip():
     root = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
     dst = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
-    for s in TARGET_STATES:
+    for s in ['MT']:
         geo = ee.FeatureCollection('users/dgketchum/boundaries/{}'.format(s)).geometry()
-        for y in [x for x in range(1986, 1997)] + [x for x in range(2018, 2021)]:
-            if s == 'AZ' and y == 1986:
-                continue
+        for y in [x for x in range(1997, 2018)]:
             i = ee.Image(os.path.join(root, 'IM_{}_{}'.format(s, y)))
             target = os.path.join(dst, 'IM_{}_{}'.format(s, y))
             i = i.clip(geo)
@@ -235,18 +235,13 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    # in_collection = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
-    out_collection = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-    l = [x for x in list_assets(out_collection)]
-    pprint(l)
-    years_ = [x for x in range(1986, 1997)] + [2018, 2019, 2020]
-    for s in TARGET_STATES:
-        for y in years_:
-            # a = os.path.join(in_collection, 'IM_{}_{}'.format(s, y))
-            b = os.path.join(out_collection, 'IM_{}_{}'.format(s, y))
-            if b in l:
-                print('exists {}'.format(b))
-            else:
-                print('{} not there'.format(b))
+    c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+    # o = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
+    l = list_assets(c)
+    for i in l:
+        if '_CO_' in i:
+            delete_asset(i)
+            # o_name = i.replace(c, o)
+            # move_asset(i, o_name)
 
 # ========================= EOF ====================================================================

@@ -32,7 +32,7 @@ MT_BASINS = 'users/dgketchum/boundaries/MT_Admin_Basins'
 
 TARGET_STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
 
-other = ['ND', 'SD', 'NE', 'KS', 'OK', 'TX']
+E_STATES = ['ND', 'SD', 'NE', 'KS', 'OK', 'TX']
 
 IRR = {'ND': [2013, 2017],
        'SD': [2017, 2019],
@@ -208,6 +208,42 @@ def attribute_irrigation():
             task.start()
 
 
+def get_ndvi_cultivation_data_polygons(table, years, region):
+    """
+    Extracts specified data to a polygon shapefile layer.
+    :return:
+    """
+    fc = ee.FeatureCollection(table)
+    roi = ee.FeatureCollection(region)
+    input_props = ['nd_3', 'cdl']
+    input_bands = None
+    first = True
+    for year in years:
+        rname_ = ['{}_{}'.format(x, year) for x in input_props]
+        if first:
+            input_bands = stack_bands(year, roi).select(input_props)
+            input_bands = input_bands.rename(rname_)
+            first = False
+        else:
+            add_bands_ = stack_bands(year, roi).select(input_props)
+            add_bands_ = add_bands_.rename(rname_)
+            input_bands = input_bands.addBands(add_bands_)
+
+    means = input_bands.reduceRegions(collection=fc,
+                                      reducer=ee.Reducer.mean(),
+                                      scale=30)
+
+    task = ee.batch.Export.table.toCloudStorage(
+        means,
+        description='{}'.format(os.path.basename(table)),
+        bucket='wudr',
+        fileNamePrefix='attr_{}'.format(os.path.basename(table)),
+        fileFormat='CSV')
+
+    print(os.path.basename(table))
+    task.start()
+
+
 def export_raster():
     target_bn = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_RF'
     image_list = list_assets('users/dgketchum/IrrMapper/version_2')
@@ -256,7 +292,8 @@ def export_special(roi, description):
         print(year)
 
 
-def export_classification(out_name, table, asset_root, region, years, export='asset', bag_fraction=0.5):
+def export_classification(out_name, table, asset_root, region, years, export='asset', bag_fraction=0.9,
+                          input_props=None):
     """
     Trains a Random Forest classifier using a training table input, creates a stack of raster images of the same
     features, and classifies it.  I run this over a for-loop iterating state by state.
@@ -265,19 +302,21 @@ def export_classification(out_name, table, asset_root, region, years, export='as
     :param out_name:
     :param asset:
     :param export:
+    :param bag_fraction:
     :return:
     """
     fc = ee.FeatureCollection(table)
     roi = ee.FeatureCollection(region)
-    # roi = roi.filterMetadata('STAID', 'equals', '06306300')
-    mask = roi.geometry().getInfo()['coordinates']
 
     classifier = ee.Classifier.smileRandomForest(
         numberOfTrees=150,
         minLeafPopulation=1,
         bagFraction=bag_fraction).setOutputMode('CLASSIFICATION')
 
-    input_props = fc.first().propertyNames().remove('YEAR').remove('POINT_TYPE').remove('system:index')
+    if not input_props:
+        input_props = fc.first().propertyNames().remove('YEAR').remove('POINT_TYPE').remove('system:index')
+    else:
+        input_props = ee.List(input_props)
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
@@ -292,6 +331,12 @@ def export_classification(out_name, table, asset_root, region, years, export='as
             'training_data': RF_TRAINING_DATA,
             'bag_fraction': bag_fraction,
             'class_key': '0: irrigated, 1: rainfed, 2: uncultivated, 3: wetland'})
+
+        b, p = input_bands.bandNames().getInfo(), input_props.getInfo()
+        check = [x for x in p if x not in b]
+        if check:
+            raise ValueError
+
         classified_img = classified_img.clip(roi.geometry())
 
         if export == 'asset':
@@ -299,7 +344,6 @@ def export_classification(out_name, table, asset_root, region, years, export='as
                 image=classified_img,
                 description='{}_{}'.format(out_name, yr),
                 assetId=os.path.join(asset_root, '{}_{}'.format(out_name, yr)),
-                # region=mask,
                 scale=30,
                 pyramidingPolicy={'.default': 'mode'},
                 maxPixels=1e13)
@@ -310,7 +354,6 @@ def export_classification(out_name, table, asset_root, region, years, export='as
                 description='{}_{}'.format(out_name, yr),
                 bucket='wudr',
                 fileNamePrefix='{}_{}'.format(yr, out_name),
-                # region=mask,
                 scale=30,
                 pyramidingPolicy={'.default': 'mode'},
                 maxPixels=1e13)
@@ -605,13 +648,17 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    geo = 'users/dgketchum/boundaries/blackfeet'
-    table_ = 'users/dgketchum/boundaries/blackfeet'
-    reduce_classification(ASSET_ROOT, table_, ALL_YEARS, description='blackfeet', min_years=3)
+    geo = 'users/dgketchum/boundaries/OR'
+    t = 'users/dgketchum/to_filter/or_clu_sel11NOV2021'
+    y = [1994, 2001, 2013]
+    # get_ndvi_cultivation_data_polygons(t, y, geo)
 
-    # years_ = [2019]
-    # RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_4DEC2020_Blackfeet'
-    # export_classification(out_name='IM_{}'.format('BLKFT'), table=RF_TRAINING_DATA,
-    #                       asset_root='projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_',
+    years_ = [x for x in range(2021, 2022)]
+    RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_4DEC2020_mod_CO'
+    # export_classification(out_name='IM_{}'.format('CO'), table=RF_TRAINING_DATA,
+    #                       asset_root='projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp',
     #                       years=years_, region=geo, bag_fraction=1.0)
+
+    # pts = 'projects/ee-dgketchum/assets/points/points_c2_CO_27OCT2021_wgs'
+    # request_band_extract('bands_CO_mod_27OCT2021', pts, region=geo, years=ALL_YEARS, filter_bounds=True)
 # ========================= EOF ====================================================================
