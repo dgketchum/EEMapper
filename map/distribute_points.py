@@ -1,6 +1,7 @@
 import os
 
 import fiona
+import fiona.crs
 from numpy import linspace, max
 from numpy.random import shuffle, choice
 from pandas import DataFrame
@@ -9,10 +10,15 @@ from shapely.errors import TopologicalError
 
 from call_ee import TARGET_STATES, E_STATES
 
+ALL_STATES = TARGET_STATES + E_STATES
+
 YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997,
          1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
          2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015,
          2016, 2017, 2018, 2019]
+
+# set GDAL_DATA variable so fiona can write .prj
+os.environ['GDAL_DATA'] = 'miniconda3/envs/gcs/share/gdal/'
 
 
 class PointsRunspec(object):
@@ -22,12 +28,13 @@ class PointsRunspec(object):
         self.features = []
         self.object_id = 0
         self.year = None
-        self.crs = None
         self.extracted_points = DataFrame(columns=['FID', 'X', 'Y', 'POINT_TYPE', 'YEAR'])
 
         self.buffer = buffer
 
         self.years = None
+        self.exclude = None
+        self.class_type = None
 
         self.irr_path = IRRIGATED
         self.unirr_path = UNIRRIGATED
@@ -35,6 +42,16 @@ class PointsRunspec(object):
         self.wetland_path = WETLAND
         self.fallow_path = FALLOW
 
+        self.paths = [IRRIGATED, UNIRRIGATED, UNCULTIVATED, WETLAND, FALLOW]
+        if kwargs['intersect']:
+            self.paths.append(kwargs['intersect'])
+        if kwargs['exclude']:
+            self.paths.append(kwargs['exclude'])
+
+        self._check_crs()
+
+        if 'exclude' in kwargs.keys():
+            self.exclude = kwargs['exclude']
         if 'intersect' in kwargs.keys():
             self.intersect = kwargs['intersect']
         if 'irrigated' in kwargs.keys():
@@ -48,25 +65,43 @@ class PointsRunspec(object):
         if 'uncultivated' in kwargs.keys():
             self.uncultivated(kwargs['uncultivated'])
 
+    def irrigated(self, n):
+        self.class_type = 'irrigated'
+        print('irrigated: {}'.format(n))
+        self.create_sample_points(n, self.irr_path, code=0, attribute='YEAR', set_years=True)
+
     def wetlands(self, n):
+        self.class_type = 'wetlands'
         print('wetlands: {}'.format(n))
         self.create_sample_points(n, self.wetland_path, code=3)
 
     def uncultivated(self, n):
+        self.class_type = 'uncultivated'
         print('uncultivated: {}'.format(n))
         self.create_sample_points(n, self.uncult_path, code=2)
 
     def unirrigated(self, n):
+        self.class_type = 'unirrigated'
         print('unirrigated: {}'.format(n))
         self.create_sample_points(n, self.unirr_path, code=1)
 
-    def irrigated(self, n):
-        print('irrigated: {}'.format(n))
-        self.create_sample_points(n, self.irr_path, code=0, attribute='YEAR', set_years=True)
-
     def fallowed(self, n):
+        self.class_type = 'fallow'
         print('fallow: {}'.format(n))
         self.create_sample_points(n, self.fallow_path, code=4, attribute='YEAR')
+
+    def _check_crs(self):
+
+        first = True
+        for path_ in self.paths:
+            with fiona.open(path_, 'r') as f:
+                if first:
+                    crs = f.crs
+                    self.crs = crs
+                    first = False
+                    continue
+                if f.crs != crs:
+                    raise NotImplementedError('CRS do not match\n{}\n{}'.format(self.crs, f.crs))
 
     def create_sample_points(self, n, shp, code, attribute=None, set_years=False):
 
@@ -169,6 +204,11 @@ class PointsRunspec(object):
         if self.intersect:
             with fiona.open(self.intersect, 'r') as inter_f:
                 inter_geo = shape([f['geometry'] for f in inter_f][0])
+        if self.exclude:
+            with fiona.open(self.exclude, 'r') as exclude_f:
+                exclude_geo = [shape(f['geometry']) for f in exclude_f]
+            if self.intersect:
+                exclude_geo = [g for g in exclude_geo if g.intersects(inter_geo)]
         with fiona.open(vector, 'r') as src:
             polys = []
             bad_geo_count = 0
@@ -179,6 +219,9 @@ class PointsRunspec(object):
                     try:
                         if self.intersect and not inter_geo.intersects(geo):
                             continue
+                        if self.exclude:
+                            if any([g for g in exclude_geo if g.intersects(geo)]):
+                                continue
                     except TopologicalError:
                         continue
 
@@ -193,42 +236,36 @@ class PointsRunspec(object):
         return polys
 
 
-def get_training_years(shapes):
-    years = []
-    for shape in shapes:
-        with fiona.open(shape, 'r') as src:
-            for feat in src:
-                yr = feat['properties']['YEAR']
-                if yr not in years:
-                    years.append(yr)
-    return years
-
-
 if __name__ == '__main__':
     # home = os.path.expanduser('~')
     home = '/media/research/IrrigationGIS'
     data = os.path.join(home, 'EE_sample', 'aea')
 
-    FALLOW = os.path.join(data, 'fallow_5NOV2021.shp')
-    IRRIGATED = os.path.join(data, 'irrigated_5NOV2021.shp')
+    FALLOW = os.path.join(data, 'fallow_7NOV2021.shp')
+    IRRIGATED = os.path.join(data, 'irrigated_7NOV2021.shp')
     UNCULTIVATED = os.path.join(data, 'uncultivated_11JAN2021.shp')
     UNIRRIGATED = os.path.join(data, 'dryland_11JAN2021.shp')
     WETLAND = os.path.join(data, 'wetlands_11JAN2021.shp')
 
-    for state in E_STATES[-1:]:
-        print('Dist Points ', state)
+    for state in ALL_STATES:
+        if state != 'MT':
+            continue
+        print('\nDist Points ', state)
         intersect_shape = '/media/research/IrrigationGIS/boundaries/states_tiger_aea/{}.shp'.format(state)
+        exclude = '/media/research/IrrigationGIS/EE_sample/grids_aea/valid_grid.shp'
 
         kwargs = {
-            'irrigated': 1500,
-            'wetlands': 1500,
-            'fallowed': 1500,
-            'uncultivated': 1500,
-            'unirrigated': 1500,
+            'irrigated': 100,
+            'wetlands': 100,
+            # 'fallowed': 2000,
+            # 'uncultivated': 2000,
+            # 'unirrigated': 2000,
             'intersect': intersect_shape,
+            'exclude': exclude,
         }
-        out_name = os.path.join(home, 'EE_extracts', 'point_shp', 'state_aea', 'points_{}_5NOV2021.shp'.format(state))
+        out_name = os.path.join(home, 'EE_extracts', 'point_shp', 'state_aea', 'points_{}_6NOV2021.shp'.format(state))
         prs = PointsRunspec(data, buffer=-20, **kwargs)
         prs.save_sample_points(out_name)
+        break
 
 # ========================= EOF ====================================================================
