@@ -16,8 +16,10 @@
 import os
 from random import shuffle
 from collections import OrderedDict
+from subprocess import check_call
 
 import fiona
+import fiona.crs
 from geopandas import GeoDataFrame, read_file, points_from_xy, clip
 from pandas import DataFrame, read_csv, concat
 # from rasterstats import zonal_stats
@@ -30,6 +32,11 @@ CLU_ONLY = ['ne', 'ks', 'nd', 'ok', 'sd', 'tx']
 irrmapper_states = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
 
 east_states = ['ND', 'SD', 'NE', 'KS', 'OK', 'TX']
+
+AEA = '+proj=aea +lat_0=40 +lon_0=-96 +lat_1=20 +lat_2=60 +x_0=0 +y_0=0 +ellps=GRS80 ' \
+      '+towgs84=0,0,0,0,0,0,0 +units=m +no_defs'
+
+OGR = '/usr/bin/ogr2ogr'
 
 
 def fiona_merge(out_shp, file_list):
@@ -80,6 +87,11 @@ def fiona_merge_attribute(out_shp, file_list):
                     ct += 1
         print(sorted(years))
 
+
+def to_aea(in_shp, out_shp):
+    cmd = [OGR,'-f', 'ESRI Shapefile', '-s_srs', 'EPSG:4326', '-t_srs', AEA, out_shp, in_shp]
+    check_call(cmd)
+    print('projected ', os.path.basename(out_shp))
 
 def get_area(shp, intersect_shape=None, add_duplicate_area=True):
     """use AEA conical for sq km result"""
@@ -227,6 +239,10 @@ if __name__ == '__main__':
     gis = os.path.join('/media/research', 'IrrigationGIS')
     inspected = os.path.join(gis, 'training_data', 'fallow', 'inspected')
     files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    out_ = os.path.join(gis, 'EE_sample', 'wgs', 'dryland_11NOV2021.shp')
+    out_file = 'fallow_7NOV2021.shp'
+    out_ = os.path.join(gis, 'EE_sample', 'wgs', out_file)
     fiona_merge_attribute(out_, files_)
+    aea = os.path.join(gis, 'EE_sample', 'aea', out_file)
+    to_aea(out_, aea)
+
 # ========================= EOF ====================================================================
