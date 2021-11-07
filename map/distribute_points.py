@@ -67,27 +67,22 @@ class PointsRunspec(object):
 
     def irrigated(self, n):
         self.class_type = 'irrigated'
-        print('irrigated: {}'.format(n))
         self.create_sample_points(n, self.irr_path, code=0, attribute='YEAR', set_years=True)
 
     def wetlands(self, n):
         self.class_type = 'wetlands'
-        print('wetlands: {}'.format(n))
         self.create_sample_points(n, self.wetland_path, code=3)
 
     def uncultivated(self, n):
         self.class_type = 'uncultivated'
-        print('uncultivated: {}'.format(n))
         self.create_sample_points(n, self.uncult_path, code=2)
 
     def unirrigated(self, n):
         self.class_type = 'unirrigated'
-        print('unirrigated: {}'.format(n))
         self.create_sample_points(n, self.unirr_path, code=1)
 
     def fallowed(self, n):
         self.class_type = 'fallow'
-        print('fallow: {}'.format(n))
         self.create_sample_points(n, self.fallow_path, code=4, attribute='YEAR')
 
     def _check_crs(self):
@@ -114,8 +109,7 @@ class PointsRunspec(object):
                 self.years = years
 
         positive_area = sum([x.area for x in polygons])
-        print('area: {} in {} features'.format(positive_area / 1e6, len(polygons)))
-        bad_polygons = 0
+        print('{} area: {} in {} features'.format(self.class_type, positive_area / 1e6, len(polygons)))
         for i, poly in enumerate(polygons):
             try:
                 if attribute:
@@ -160,7 +154,6 @@ class PointsRunspec(object):
                     break
             except Exception as e:
                 print(e)
-        print('bad class {} polygons: {}'.format(code, bad_polygons))
 
     @staticmethod
     def _random_points(coords, n):
@@ -248,24 +241,23 @@ if __name__ == '__main__':
     WETLAND = os.path.join(data, 'wetlands_11JAN2021.shp')
 
     for state in ALL_STATES:
-        if state != 'MT':
-            continue
-        print('\nDist Points ', state)
-        intersect_shape = '/media/research/IrrigationGIS/boundaries/states_tiger_aea/{}.shp'.format(state)
-        exclude = '/media/research/IrrigationGIS/EE_sample/grids_aea/valid_grid.shp'
+        try:
+            print('\nDist Points ', state)
+            intersect_shape = '/media/research/IrrigationGIS/boundaries/states_tiger_aea/{}.shp'.format(state)
+            exclude = '/media/research/IrrigationGIS/EE_sample/grids_aea/valid_grid.shp'
 
-        kwargs = {
-            'irrigated': 100,
-            'wetlands': 100,
-            # 'fallowed': 2000,
-            # 'uncultivated': 2000,
-            # 'unirrigated': 2000,
-            'intersect': intersect_shape,
-            'exclude': exclude,
-        }
-        out_name = os.path.join(home, 'EE_extracts', 'point_shp', 'state_aea', 'points_{}_6NOV2021.shp'.format(state))
-        prs = PointsRunspec(data, buffer=-20, **kwargs)
-        prs.save_sample_points(out_name)
-        break
-
+            kwargs = {
+                'irrigated': 6000,
+                'wetlands': 4000,
+                'fallowed': 2000,
+                'uncultivated': 2000,
+                'unirrigated': 2000,
+                'intersect': intersect_shape,
+                'exclude': exclude,
+            }
+            out_name = os.path.join(home, 'EE_extracts', 'point_shp', 'state_aea', 'points_{}_6NOV2021.shp'.format(state))
+            prs = PointsRunspec(data, buffer=-20, **kwargs)
+            prs.save_sample_points(out_name)
+        except Exception as e:
+            print(state, e)
 # ========================= EOF ====================================================================
