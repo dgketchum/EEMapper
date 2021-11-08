@@ -1,6 +1,8 @@
 import os
 from subprocess import check_call
 import json
+from collections import OrderedDict, Counter
+from pprint import pprint
 
 import fiona
 from call_ee import TARGET_STATES, E_STATES, YEARS
@@ -18,7 +20,7 @@ AEA = '+proj=aea +lat_0=40 +lon_0=-96 +lat_1=20 +lat_2=60 +x_0=0 +y_0=0 +ellps=G
       '+towgs84=0,0,0,0,0,0,0 +units=m +no_defs'
 
 
-def to_geographic(in_dir, out_dir, glob='5NOV2021'):
+def to_geographic(in_dir, out_dir, glob):
     in_shp = [os.path.join(in_dir, x) for x in os.listdir(in_dir) if x.endswith('.shp') and glob in x]
     for s in in_shp:
         out_shp = os.path.join(out_dir, os.path.basename(s))
@@ -27,7 +29,7 @@ def to_geographic(in_dir, out_dir, glob='5NOV2021'):
         print(out_shp)
 
 
-def push_points_to_asset(glob='5NOV2021'):
+def push_points_to_asset(glob):
     shapes = [os.path.join('gs://wudr/state_points', 'points_{}_{}.shp'.format(s, glob)) for s in ALL_STATES]
     asset_ids = [os.path.basename(s).split('.')[0] for s in shapes]
     ee_root = 'users/dgketchum/points/state/'
@@ -37,7 +39,7 @@ def push_points_to_asset(glob='5NOV2021'):
         print(id_, s)
 
 
-def get_bands(pts_dir, glob='5NOV2021'):
+def get_bands(pts_dir, glob):
     for s in ALL_STATES:
         pts = os.path.join(pts_dir, 'points_{}_{}.shp'.format(s, glob))
         with fiona.open(pts, 'r') as src:
@@ -49,15 +51,15 @@ def get_bands(pts_dir, glob='5NOV2021'):
         request_band_extract(file_, pts, region=geo, years=years, filter_bounds=True)
 
 
-def concatenate_bands(in_dir, out_dir, glob='5NOV2021'):
+def concatenate_bands(in_dir, out_dir, glob):
     for s in ALL_STATES:
         print('\n{}\n'.format(s.upper()))
         glob_ = '{}_{}'.format(s, glob)
         concatenate_band_extract(in_dir, out_dir, glob=glob_)
 
 
-def push_bands_to_asset(glob='5NOV2021'):
-    shapes = [os.path.join('gs://wudr/state_bands', '{}_{}.csv'.format(s, glob)) for s in ALL_STATES[:3]]
+def push_bands_to_asset(glob):
+    shapes = [os.path.join('gs://wudr/state_bands', '{}_{}.csv'.format(s, glob)) for s in ALL_STATES]
     asset_ids = [os.path.basename(s).split('.')[0] for s in shapes]
     ee_root = 'users/dgketchum/bands/state/'
     for s, id_ in zip(shapes, asset_ids):
@@ -66,7 +68,7 @@ def push_bands_to_asset(glob='5NOV2021'):
         print(id_, s)
 
 
-def variable_importance(in_dir, glob='5NOV2021', importance_json=None):
+def variable_importance(in_dir, glob, importance_json=None):
     d = {}
     for s in ALL_STATES:
         try:
@@ -86,16 +88,20 @@ def variable_importance(in_dir, glob='5NOV2021', importance_json=None):
             fp.write(json.dumps(d, indent=4, sort_keys=True))
 
 
-def classify(out_coll, variable_dir, tables, years, glob='5NOV2021'):
+def classify(out_coll, variable_dir, tables, years, glob):
     vars = os.path.join(variable_dir, 'variables_{}.json'.format(glob))
     with open(vars, 'r') as fp:
         d = json.load(fp)
+    all_feat = []
     for k, v in d.items():
         features = [f[0] for f in v]
+        [all_feat.append(f) for f in features]
         table = os.path.join(tables, '{}_{}'.format(k, glob))
         geo = 'users/dgketchum/boundaries/{}'.format(k)
         export_classification(out_name=k, table=table, asset_root=out_coll, region=geo,
                               years=years, input_props=features)
+    hist = sorted(Counter(all_feat).items(), key=lambda x: x[1], reverse=True)
+    pprint(hist)
 
 
 if __name__ == '__main__':
@@ -106,14 +112,14 @@ if __name__ == '__main__':
     pt_aea = os.path.join(pt, 'state_aea')
     # to_geographic(pt_aea, pt_wgs, glob=_glob)
     # push_points_to_asset(glob=_glob)
-    get_bands(pt_aea, _glob)
+    # get_bands(pt_aea, _glob)
     to_concat = '/media/research/IrrigationGIS/EE_extracts/to_concatenate/state'
     conctenated = '/media/research/IrrigationGIS/EE_extracts/concatenated/state'
-    # concatenate_bands(to_concat, conctenated)
+    # concatenate_bands(to_concat, conctenated, glob=_glob)
     imp_json = '/media/research/IrrigationGIS/EE_extracts/variable_importance'
-    # variable_importance(conctenated, importance_json=None)
-    # push_bands_to_asset()
+    # variable_importance(conctenated, importance_json=imp_json, glob=_glob)
+    # push_bands_to_asset(glob=_glob)
     coll = 'users/dgketchum/IrrMapper/IrrMapper_sw'
     tables = 'users/dgketchum/bands/state'
-    # classify(coll, imp_json, tables, [2017])
+    classify(coll, imp_json, tables, [2017], glob=_glob)
 # ========================= EOF ====================================================================

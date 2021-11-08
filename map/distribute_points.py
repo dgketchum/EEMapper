@@ -5,7 +5,7 @@ import fiona.crs
 from numpy import linspace, max
 from numpy.random import shuffle, choice
 from pandas import DataFrame
-from shapely.geometry import shape, Point, mapping, Polygon
+from shapely.geometry import shape, Point, mapping
 from shapely.errors import TopologicalError
 
 from call_ee import TARGET_STATES, E_STATES
