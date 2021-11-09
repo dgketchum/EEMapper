@@ -96,7 +96,8 @@ def concatenate_county_data(folder, out_file, glob='counties', acres=False):
     print('saved {}'.format(out_file))
 
 
-def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=None, binary=False, fallow=False):
+def concatenate_band_extract(root, out_dir, glob='None', sample=None,
+                             select=None, binary=False, fallow=False):
     l = [os.path.join(root, x) for x in os.listdir(root) if glob in x]
     l.sort()
     first = True
@@ -123,11 +124,11 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, select=Non
 
     points = df['POINT_TYPE'].values
     nines = ones_like(points) * 9
-    points = where((df.POINT_TYPE == 0) & (df.nd_max_cy < 0.55), nines, points)
+    points = where((df.POINT_TYPE == 0) & (df.nd_max_cy < 0.6), nines, points)
 
     df['POINT_TYPE'] = points
     print(df['POINT_TYPE'].value_counts())
-    points = where((df['POINT_TYPE'] == 4) & (df['nd_max_cy'] > 0.6), nines, points)
+    points = where((df['POINT_TYPE'] == 4) & (df['nd_max_cy'] > 0.5), nines, points)
 
     df['POINT_TYPE'] = points
     df = df[df['POINT_TYPE'] != 9]

@@ -35,6 +35,9 @@ east_states = ['ND', 'SD', 'NE', 'KS', 'OK', 'TX']
 
 AEA = '+proj=aea +lat_0=40 +lon_0=-96 +lat_1=20 +lat_2=60 +x_0=0 +y_0=0 +ellps=GRS80 ' \
       '+towgs84=0,0,0,0,0,0,0 +units=m +no_defs'
+WGS = '+proj=longlat +datum=WGS84 +no_defs'
+
+os.environ['GDAL_DATA'] = 'miniconda3/envs/gcs/share/gdal/'
 
 OGR = '/usr/bin/ogr2ogr'
 
@@ -86,10 +89,11 @@ def fiona_merge_attribute(out_shp, file_list):
                     output.write(feat)
                     ct += 1
         print(sorted(years))
+    print('wrote ', out_shp)
 
 
 def to_aea(in_shp, out_shp):
-    cmd = [OGR,'-f', 'ESRI Shapefile', '-s_srs', 'EPSG:4326', '-t_srs', AEA, out_shp, in_shp]
+    cmd = [OGR,'-f', 'ESRI Shapefile', '-s_srs', WGS, '-t_srs', AEA, out_shp, in_shp]
     check_call(cmd)
     print('projected ', os.path.basename(out_shp))
 
@@ -237,11 +241,11 @@ def subselect_points_shapefile(shp, out_shp, limit=10000):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     gis = os.path.join('/media/research', 'IrrigationGIS')
-    inspected = os.path.join(gis, 'training_data', 'fallow', 'inspected')
+    inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
     files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    out_file = 'fallow_7NOV2021.shp'
+    out_file = 'irrigated_8NOV2021.shp'
     out_ = os.path.join(gis, 'EE_sample', 'wgs', out_file)
-    fiona_merge_attribute(out_, files_)
+    # fiona_merge_attribute(out_, files_)
     aea = os.path.join(gis, 'EE_sample', 'aea', out_file)
     to_aea(out_, aea)
 

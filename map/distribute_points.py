@@ -35,6 +35,10 @@ class PointsRunspec(object):
         self.years = None
         self.exclude = None
         self.class_type = None
+        self.intersect_buffer = None
+
+        if kwargs['intersect_buffer']:
+            self.intersect_buffer = kwargs['intersect_buffer']
 
         self.irr_path = IRRIGATED
         self.unirr_path = UNIRRIGATED
@@ -197,6 +201,8 @@ class PointsRunspec(object):
         if self.intersect:
             with fiona.open(self.intersect, 'r') as inter_f:
                 inter_geo = shape([f['geometry'] for f in inter_f][0])
+                if self.intersect_buffer:
+                    inter_geo = inter_geo.buffer(self.intersect_buffer)
         if self.exclude:
             with fiona.open(self.exclude, 'r') as exclude_f:
                 exclude_geo = [shape(f['geometry']) for f in exclude_f]
@@ -235,7 +241,7 @@ if __name__ == '__main__':
     data = os.path.join(home, 'EE_sample', 'aea')
 
     FALLOW = os.path.join(data, 'fallow_7NOV2021.shp')
-    IRRIGATED = os.path.join(data, 'irrigated_7NOV2021.shp')
+    IRRIGATED = os.path.join(data, 'irrigated_8NOV2021.shp')
     UNCULTIVATED = os.path.join(data, 'uncultivated_11JAN2021.shp')
     UNIRRIGATED = os.path.join(data, 'dryland_11JAN2021.shp')
     WETLAND = os.path.join(data, 'wetlands_11JAN2021.shp')
@@ -247,15 +253,21 @@ if __name__ == '__main__':
             exclude = '/media/research/IrrigationGIS/EE_sample/grids_aea/valid_grid.shp'
 
             kwargs = {
-                'irrigated': 6000,
+                'irrigated': 8000,
                 'wetlands': 4000,
-                'fallowed': 2000,
-                'uncultivated': 2000,
-                'unirrigated': 2000,
+                'uncultivated': 6000,
                 'intersect': intersect_shape,
+                'intersect_buffer': 100000,
                 'exclude': exclude,
             }
-            out_name = os.path.join(home, 'EE_extracts', 'point_shp', 'state_aea', 'points_{}_6NOV2021.shp'.format(state))
+            if state in ['CA', 'NV', 'AZ']:
+                kwargs['fallowed'] = 2000
+            else:
+                kwargs['fallowed'] = 1000
+                kwargs['unirrigated'] = 4000
+
+            out_name = os.path.join(home, 'EE_extracts', 'point_shp',
+                                    'state_aea', 'points_{}_7NOV2021.shp'.format(state))
             prs = PointsRunspec(data, buffer=-20, **kwargs)
             prs.save_sample_points(out_name)
         except Exception as e:

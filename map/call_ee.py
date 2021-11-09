@@ -292,8 +292,8 @@ def export_special(roi, description):
         print(year)
 
 
-def export_classification(out_name, table, asset_root, region, years, export='asset', bag_fraction=0.9,
-                          input_props=None):
+def export_classification(out_name, table, asset_root, region, years,
+                          export='asset', bag_fraction=0.5, input_props=None):
     """
     Trains a Random Forest classifier using a training table input, creates a stack of raster images of the same
     features, and classifies it.  I run this over a for-loop iterating state by state.
@@ -482,7 +482,7 @@ def request_validation_extract(file_prefix='validation'):
         print(yr)
 
 
-def request_band_extract(file_prefix, points_layer, region, years, filter_bounds=False):
+def request_band_extract(file_prefix, points_layer, region, years, filter_bounds=False, buffer=None):
     """
     Extract raster values from a points kml file in Fusion Tables. Send annual extracts .csv to GCS wudr bucket.
     Concatenate them using map.tables.concatenate_band_extract().
@@ -493,6 +493,9 @@ def request_band_extract(file_prefix, points_layer, region, years, filter_bounds
     :return:
     """
     roi = ee.FeatureCollection(region)
+    if buffer:
+        roi = ee.Feature(roi.first()).buffer(buffer)
+        roi = ee.FeatureCollection([roi])
     plots = ee.FeatureCollection(points_layer)
     for yr in years:
         stack = stack_bands(yr, roi)
