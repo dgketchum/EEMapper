@@ -243,12 +243,12 @@ if __name__ == '__main__':
     FALLOW = os.path.join(data, 'fallow_7NOV2021.shp')
     IRRIGATED = os.path.join(data, 'irrigated_9NOV2021.shp')
     UNCULTIVATED = os.path.join(data, 'uncultivated_11JAN2021.shp')
-    UNIRRIGATED = os.path.join(data, 'dryland_9NOV2021.shp')
+    UNIRRIGATED = os.path.join(data, 'dryland_10NOV2021.shp')
     WETLAND = os.path.join(data, 'wetlands_9NOV2021.shp')
 
     for state in ALL_STATES:
         try:
-            if state != 'WA':
+            if state not in ['CO']:
                 continue
             print('\nDist Points ', state)
             intersect_shape = '/media/research/IrrigationGIS/boundaries/states_tiger_aea/{}.shp'.format(state)
@@ -269,7 +269,7 @@ if __name__ == '__main__':
                 kwargs['unirrigated'] = 6000
 
             out_name = os.path.join(home, 'EE_extracts', 'point_shp',
-                                    'state_aea', 'points_{}_9NOV2021.shp'.format(state))
+                                    'state_aea', 'points_{}_10NOV2021.shp'.format(state))
             prs = PointsRunspec(data, buffer=-20, **kwargs)
             prs.save_sample_points(out_name)
         except Exception as e:

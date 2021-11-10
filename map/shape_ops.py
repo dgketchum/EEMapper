@@ -268,16 +268,12 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     gis = os.path.join('/media/research', 'IrrigationGIS')
     # inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
-    inspected = os.path.join(gis, 'training_data', 'wetlands', 'to_merge')
+    inspected = os.path.join(gis, 'training_data', 'unirrigated', 'to_merge')
     files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    out_file = 'wetlands_9NOV2021.shp'
+    out_file = 'dryland_10NOV2021.shp'
     out_ = os.path.join(gis, 'EE_sample', 'wgs', out_file)
-    fiona_merge_attribute(out_, files_)
-    s = '/media/research/IrrigationGIS/training_data/unirrigated/UT/UT_Rainfed_strip.shp'
-    c = '/media/research/IrrigationGIS/training_data/unirrigated/UT/attr_UT_rainfed.csv'
-    out_ = '/media/research/IrrigationGIS/training_data/unirrigated/UT/UT_Rainfed_ndvi.shp'
-    join_shp_csv(s, c, out_, join_on='FID')
-    # aea = os.path.join(gis, 'EE_sample', 'aea', out_file)
-    # to_aea(out_, aea)
+    fiona_merge(out_, files_)
+    aea = os.path.join(gis, 'EE_sample', 'aea', out_file)
+    to_aea(out_, aea)
 
 # ========================= EOF ====================================================================

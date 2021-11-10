@@ -215,11 +215,13 @@ def get_ndvi_cultivation_data_polygons(table, years, region):
     """
     fc = ee.FeatureCollection(table)
     roi = ee.FeatureCollection(region)
-    input_props = ['nd_3', 'cdl']
+    input_props = ['nd_3']
+    props = ['FID']
     input_bands = None
     first = True
     for year in years:
         rname_ = ['{}_{}'.format(x, year) for x in input_props]
+        props.append(rname_)
         if first:
             input_bands = stack_bands(year, roi).select(input_props)
             input_bands = input_bands.rename(rname_)
@@ -230,7 +232,7 @@ def get_ndvi_cultivation_data_polygons(table, years, region):
             input_bands = input_bands.addBands(add_bands_)
 
     means = input_bands.reduceRegions(collection=fc,
-                                      reducer=ee.Reducer.mean(),
+                                      reducer=ee.Reducer.max(),
                                       scale=30)
 
     task = ee.batch.Export.table.toCloudStorage(
@@ -238,7 +240,8 @@ def get_ndvi_cultivation_data_polygons(table, years, region):
         description='{}'.format(os.path.basename(table)),
         bucket='wudr',
         fileNamePrefix='attr_{}'.format(os.path.basename(table)),
-        fileFormat='CSV')
+        fileFormat='CSV',
+        selectors=props)
 
     print(os.path.basename(table))
     task.start()
@@ -327,7 +330,7 @@ def export_classification(out_name, table, asset_root, region, years,
             'system:index': ee.Date('{}-01-01'.format(yr)).format('YYYYMMdd'),
             'system:time_start': ee.Date('{}-01-01'.format(yr)).millis(),
             'system:time_end': ee.Date('{}-12-31'.format(yr)).millis(),
-            'date_ingested':str(date.today()),
+            'date_ingested': str(date.today()),
             'image_name': out_name,
             'training_data': table,
             'bag_fraction': bag_fraction,
@@ -652,10 +655,10 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    geo = 'users/dgketchum/boundaries/OR'
-    t = 'users/dgketchum/to_filter/or_clu_sel11NOV2021'
-    y = [1994, 2001, 2013]
-    # get_ndvi_cultivation_data_polygons(t, y, geo)
+    geo = 'users/dgketchum/boundaries/UT'
+    t = 'users/dgketchum/to_inspect/UT_rainfed'
+    y = [2012, 2013, 2017, 2018]
+    get_ndvi_cultivation_data_polygons(t, y, geo)
 
     years_ = [x for x in range(2021, 2022)]
     RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_4DEC2020_mod_CO'
