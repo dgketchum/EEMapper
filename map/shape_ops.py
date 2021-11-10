@@ -56,8 +56,12 @@ def fiona_merge(out_shp, file_list):
                 if abs(centroid.y) > 50.0:
                     print(centroid)
                     continue
+                geo = feat['geometry']
+                if geo['type'] != 'Polygon':
+                    print(geo['type'])
+                    continue
                 feat = {'type': 'Feature', 'properties': {'FID': ct},
-                        'geometry': feat['geometry']}
+                        'geometry': geo}
                 output.write(feat)
                 ct += 1
                 sub_ct += 1
@@ -76,7 +80,7 @@ def fiona_merge_attribute(out_shp, file_list):
     with fiona.open(out_shp, 'w', **meta) as output:
         ct = 0
         for s in file_list:
-            if  os.path.basename(s.split('.')[0][:2]) in east_states:
+            if os.path.basename(s.split('.')[0][:2]) in east_states:
                 pass
             else:
                 year, source = int(s.split('.')[0][-4:]), os.path.basename(s.split('.')[0][:-5])
@@ -93,9 +97,10 @@ def fiona_merge_attribute(out_shp, file_list):
 
 
 def to_aea(in_shp, out_shp):
-    cmd = [OGR,'-f', 'ESRI Shapefile', '-s_srs', WGS, '-t_srs', AEA, out_shp, in_shp]
+    cmd = [OGR, '-f', 'ESRI Shapefile', '-s_srs', WGS, '-t_srs', AEA, out_shp, in_shp]
     check_call(cmd)
     print('projected ', os.path.basename(out_shp))
+
 
 def get_area(shp, intersect_shape=None, add_duplicate_area=True):
     """use AEA conical for sq km result"""
@@ -208,7 +213,7 @@ def count_points(shp):
             y = f['properties']['YEAR']
             t = f['properties']['POINT_TYPE']
             if y not in dct.keys():
-                dct[y] = [0,0,0,0,0]
+                dct[y] = [0, 0, 0, 0, 0]
             dct[y][t] += 1
     for k, v in dct.items():
         print(k, v, sum(v))
@@ -238,6 +243,27 @@ def subselect_points_shapefile(shp, out_shp, limit=10000):
             dst.write(f)
 
 
+def join_shp_csv(in_shp, csv, out_shp, join_on='FID'):
+    with fiona.open(in_shp) as src:
+        meta = src.meta
+        features = [{'type': 'Feature', 'properties': {'FID': f['properties']['FID']},
+                   'geometry': f['geometry']} for f in src]
+
+    df = read_csv(csv, index_col=join_on)
+    [meta['schema']['properties'].update({col: 'float:19.11'}) for col in df.columns]
+    in_feat = len(features)
+    ct = 0
+    with fiona.open(out_shp, 'w', **meta) as output:
+        for feat in features:
+            try:
+                feat['properties'].update(df.loc[feat['properties']['FID']])
+                output.write(feat)
+                ct += 1
+            except Exception as e:
+                print(feat['properties']['FID'], e)
+    print('{} of {} features joined'.format(ct, in_feat))
+
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     gis = os.path.join('/media/research', 'IrrigationGIS')
@@ -246,9 +272,12 @@ if __name__ == '__main__':
     files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
     out_file = 'wetlands_9NOV2021.shp'
     out_ = os.path.join(gis, 'EE_sample', 'wgs', out_file)
-    # fiona_merge_attribute(out_, files_)
-    fiona_merge(out_, files_)
-    aea = os.path.join(gis, 'EE_sample', 'aea', out_file)
-    to_aea(out_, aea)
+    fiona_merge_attribute(out_, files_)
+    s = '/media/research/IrrigationGIS/training_data/unirrigated/UT/UT_Rainfed_strip.shp'
+    c = '/media/research/IrrigationGIS/training_data/unirrigated/UT/attr_UT_rainfed.csv'
+    out_ = '/media/research/IrrigationGIS/training_data/unirrigated/UT/UT_Rainfed_ndvi.shp'
+    join_shp_csv(s, c, out_, join_on='FID')
+    # aea = os.path.join(gis, 'EE_sample', 'aea', out_file)
+    # to_aea(out_, aea)
 
 # ========================= EOF ====================================================================
