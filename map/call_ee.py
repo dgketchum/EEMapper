@@ -327,8 +327,9 @@ def export_classification(out_name, table, asset_root, region, years,
             'system:index': ee.Date('{}-01-01'.format(yr)).format('YYYYMMdd'),
             'system:time_start': ee.Date('{}-01-01'.format(yr)).millis(),
             'system:time_end': ee.Date('{}-12-31'.format(yr)).millis(),
+            'date_ingested':str(date.today()),
             'image_name': out_name,
-            'training_data': RF_TRAINING_DATA,
+            'training_data': table,
             'bag_fraction': bag_fraction,
             'class_key': '0: irrigated, 1: rainfed, 2: uncultivated, 3: wetland'})
 

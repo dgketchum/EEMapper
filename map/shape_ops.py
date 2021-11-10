@@ -52,10 +52,10 @@ def fiona_merge(out_shp, file_list):
             sub_ct = 0
             first = True
             for feat in fiona.open(s):
-                # centroid = shape(feat['geometry']).centroid
-                # if abs(centroid.y) > 50.0:
-                #     print(centroid)
-                #     continue
+                centroid = shape(feat['geometry']).centroid
+                if abs(centroid.y) > 50.0:
+                    print(centroid)
+                    continue
                 feat = {'type': 'Feature', 'properties': {'FID': ct},
                         'geometry': feat['geometry']}
                 output.write(feat)
@@ -241,11 +241,13 @@ def subselect_points_shapefile(shp, out_shp, limit=10000):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     gis = os.path.join('/media/research', 'IrrigationGIS')
-    inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
+    # inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
+    inspected = os.path.join(gis, 'training_data', 'wetlands', 'to_merge')
     files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    out_file = 'irrigated_8NOV2021.shp'
+    out_file = 'wetlands_9NOV2021.shp'
     out_ = os.path.join(gis, 'EE_sample', 'wgs', out_file)
     # fiona_merge_attribute(out_, files_)
+    fiona_merge(out_, files_)
     aea = os.path.join(gis, 'EE_sample', 'aea', out_file)
     to_aea(out_, aea)
 

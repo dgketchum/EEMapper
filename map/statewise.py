@@ -33,7 +33,6 @@ def to_geographic(in_dir, out_dir, glob):
 
 
 def push_points_to_asset(glob, state=None):
-
     shapes = []
     for s in ALL_STATES:
         if state and s != state:
@@ -108,6 +107,12 @@ def variable_importance(in_dir, glob, importance_json=None):
             fp.write(json.dumps(d, indent=4, sort_keys=True))
 
 
+def remove_image(image):
+    cmd = [EE, 'rm', image]
+    check_call(cmd)
+    print('remove ', image)
+
+
 def classify(out_coll, variable_dir, tables, years, glob, state=None):
     vars = os.path.join(variable_dir, 'variables_{}.json'.format(glob))
     with open(vars, 'r') as fp:
@@ -117,12 +122,11 @@ def classify(out_coll, variable_dir, tables, years, glob, state=None):
         if state and k != state:
             continue
         features = [f[0] for f in v]
-
         [all_feat.append(f) for f in features]
         table = os.path.join(tables, '{}_{}'.format(k, glob))
         geo = 'users/dgketchum/boundaries/{}'.format(k)
-        # export_classification(out_name=k, table=table, asset_root=out_coll, region=geo,
-        #                       years=years, input_props=features)
+        export_classification(out_name=k, table=table, asset_root=out_coll, region=geo,
+                              years=years, input_props=features, bag_fraction=0.7)
     hist = sorted(Counter(all_feat).items(), key=lambda x: x[1], reverse=True)
     pprint(hist)
 
@@ -133,16 +137,21 @@ if __name__ == '__main__':
     pt = '/media/research/IrrigationGIS/EE_extracts/point_shp'
     pt_wgs = os.path.join(pt, 'state_wgs')
     pt_aea = os.path.join(pt, 'state_aea')
-    # to_geographic(pt_aea, pt_wgs, glob=_glob)
-    # push_points_to_asset(glob=_glob)
-    # get_bands(pt_aea, _glob)
-    to_concat = '/media/research/IrrigationGIS/EE_extracts/to_concatenate/state'
-    conctenated = '/media/research/IrrigationGIS/EE_extracts/concatenated/state'
-    # concatenate_bands(to_concat, conctenated, glob=_glob, state='OR')
-    imp_json = '/media/research/IrrigationGIS/EE_extracts/variable_importance'
-    # variable_importance(conctenated, importance_json=imp_json, glob=_glob)
-    # push_bands_to_asset(glob=_glob, state='OR')
-    coll = 'users/dgketchum/IrrMapper/IrrMapper_sw'
-    tables = 'users/dgketchum/bands/state'
-    classify(coll, imp_json, tables, [2017], glob=_glob)
+    for s in ALL_STATES:
+        if s in ['CO', 'ID', 'MT', 'WY']:
+            continue
+        # to_geographic(pt_aea, pt_wgs, glob=_glob)
+        # push_points_to_asset(glob=_glob)
+        # get_bands(pt_aea, _glob)
+        to_concat = '/media/research/IrrigationGIS/EE_extracts/to_concatenate/state'
+        conctenated = '/media/research/IrrigationGIS/EE_extracts/concatenated/state'
+        # concatenate_bands(to_concat, conctenated, glob=_glob)
+        imp_json = '/media/research/IrrigationGIS/EE_extracts/variable_importance'
+        # variable_importance(conctenated, importance_json=imp_json, glob=_glob)
+        # push_bands_to_asset(glob=_glob, state='OK')
+        coll = 'users/dgketchum/IrrMapper/IrrMapper_sw'
+        # i = os.path.join(coll, '{}_2017'.format(s))
+        # remove_image(i)
+        tables = 'users/dgketchum/bands/state'
+        classify(coll, imp_json, tables, [2018], glob=_glob, state=s)
 # ========================= EOF ====================================================================
