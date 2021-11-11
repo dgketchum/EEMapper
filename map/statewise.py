@@ -23,8 +23,8 @@ WGS = '+proj=longlat +datum=WGS84 +no_defs'
 os.environ['GDAL_DATA'] = 'miniconda3/envs/gcs/share/gdal/'
 
 
-def to_geographic(in_dir, out_dir, glob):
-    in_shp = [os.path.join(in_dir, x) for x in os.listdir(in_dir) if x.endswith('.shp') and glob in x]
+def to_geographic(in_dir, out_dir, glob, state):
+    in_shp = [os.path.join(in_dir, x) for x in os.listdir(in_dir) if x.endswith('.shp') and glob in x and state in x]
     for s in in_shp:
         out_shp = os.path.join(out_dir, os.path.basename(s))
         cmd = [OGR, '-f', 'ESRI Shapefile', '-t_srs', WGS, '-s_srs', AEA, out_shp, s]
@@ -100,13 +100,13 @@ def remove_image(image):
     print('remove ', image)
 
 
-def classify(out_coll, variable_dir, tables, years, glob, state=None):
+def classify(out_coll, variable_dir, tables, years, glob, state):
     vars = os.path.join(variable_dir, 'variables_{}.json'.format(glob))
     with open(vars, 'r') as fp:
         d = json.load(fp)
     all_feat = []
     for k, v in d.items():
-        if state and k != state:
+        if k != state:
             continue
         features = [f[0] for f in v]
         [all_feat.append(f) for f in features]
@@ -121,23 +121,26 @@ def classify(out_coll, variable_dir, tables, years, glob, state=None):
 if __name__ == '__main__':
     is_authorized()
     _glob = '10NOV2021'
+    root = '/media/research/IrrigationGIS'
+    if not os.path.exists(root):
+        root = '/home/dgketchum/IrrigationGIS'
     pt = '/media/research/IrrigationGIS/EE_extracts/point_shp'
     pt_wgs = os.path.join(pt, 'state_wgs')
     pt_aea = os.path.join(pt, 'state_aea')
-    # to_geographic(pt_aea, pt_wgs, glob=_glob)
-
-    for s in ['CO', 'ID', 'MT', 'UT', 'WA']:
+    for s in ['ID', 'UT']:
+        # to_geographic(pt_aea, pt_wgs, glob=_glob, state=s)
         # push_points_to_asset(glob=_glob, state=s)
-        get_bands(pt_aea, _glob, state=s)
+        # get_bands(pt_aea, _glob, state=s)
         to_concat = '/media/research/IrrigationGIS/EE_extracts/to_concatenate/state'
         conctenated = '/media/research/IrrigationGIS/EE_extracts/concatenated/state'
         # concatenate_bands(to_concat, conctenated, glob=_glob, state=s)
         imp_json = '/media/research/IrrigationGIS/EE_extracts/variable_importance'
         # variable_importance(conctenated, importance_json=imp_json, glob=_glob)
         # push_bands_to_asset(glob=_glob, state=s)
+
         coll = 'users/dgketchum/IrrMapper/IrrMapper_sw'
-        # i = os.path.join(coll, '{}_2017'.format(s))
+        i = os.path.join(coll, '{}_2017'.format(s))
         # remove_image(i)
         tables = 'users/dgketchum/bands/state'
-        # classify(coll, imp_json, tables, [x for x in range(1984, 2022)], glob=_glob, state=s)
+        # classify(coll, imp_json, tables, [x for x in range(2017, 2018)], glob=_glob, state=s)
 # ========================= EOF ====================================================================

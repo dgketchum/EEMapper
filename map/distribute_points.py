@@ -248,7 +248,7 @@ if __name__ == '__main__':
 
     for state in ALL_STATES:
         try:
-            if state not in ['CO']:
+            if state not in ['UT']:
                 continue
             print('\nDist Points ', state)
             intersect_shape = '/media/research/IrrigationGIS/boundaries/states_tiger_aea/{}.shp'.format(state)
@@ -257,7 +257,7 @@ if __name__ == '__main__':
             kwargs = {
                 'irrigated': 8000,
                 'wetlands': 4000,
-                'uncultivated': 6000,
+                'uncultivated': 4000,
                 'intersect': intersect_shape,
                 'intersect_buffer': 100000,
                 'exclude': exclude,

@@ -45,12 +45,13 @@ OGR = '/usr/bin/ogr2ogr'
 def fiona_merge(out_shp, file_list):
     meta = fiona.open(file_list[0]).meta
     meta['schema'] = {'type': 'Feature', 'properties': OrderedDict(
-        [('FID', 'int:9')]), 'geometry': 'Polygon'}
+        [('FID', 'int:9'), ('SOURCE', 'str:80')]), 'geometry': 'Polygon'}
     ct = 1
     with fiona.open(out_shp, 'w', **meta) as output:
         for s in file_list:
             sub_ct = 0
             first = True
+            src = os.path.basename(s).split('.')[0][:10]
             for feat in fiona.open(s):
                 centroid = shape(feat['geometry']).centroid
                 if abs(centroid.y) > 50.0:
@@ -60,7 +61,7 @@ def fiona_merge(out_shp, file_list):
                 if geo['type'] != 'Polygon':
                     print(geo['type'])
                     continue
-                feat = {'type': 'Feature', 'properties': {'FID': ct},
+                feat = {'type': 'Feature', 'properties': {'FID': ct, 'SOURCE': src},
                         'geometry': geo}
                 output.write(feat)
                 ct += 1
@@ -68,7 +69,6 @@ def fiona_merge(out_shp, file_list):
             print('{} features in {}'.format(sub_ct, s))
 
     print('{} features'.format(ct))
-    return None
 
 
 def fiona_merge_attribute(out_shp, file_list):
@@ -267,12 +267,12 @@ def join_shp_csv(in_shp, csv, out_shp, join_on='FID'):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     gis = os.path.join('/media/research', 'IrrigationGIS')
-    # inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
-    inspected = os.path.join(gis, 'training_data', 'unirrigated', 'to_merge')
+    inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
+    # inspected = os.path.join(gis, 'training_data', 'unirrigated', 'to_merge')
     files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    out_file = 'dryland_10NOV2021.shp'
+    out_file = 'irrigatd_10NOV2021.shp'
     out_ = os.path.join(gis, 'EE_sample', 'wgs', out_file)
-    fiona_merge(out_, files_)
+    fiona_merge_attribute(out_, files_)
     aea = os.path.join(gis, 'EE_sample', 'aea', out_file)
     to_aea(out_, aea)
 
