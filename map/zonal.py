@@ -7,7 +7,7 @@ from collections import OrderedDict
 
 import fiona
 # from rtree import index
-# from rasterstats import zonal_stats
+from rasterstats import zonal_stats
 from shapely.geometry import Polygon
 
 pare = os.path.dirname(__file__)
@@ -692,25 +692,27 @@ if __name__ == '__main__':
     else:
         home = os.path.join(home, 'data')
 
-    states = irrmapper_states + east_states
-    gis = os.path.join(home, 'IrrigationGIS', 'wetlands')
-    raw = os.path.join(gis, 'raw_shp')
-    out_dir = os.path.join(gis, 'state_select_harn_')
+    # states = irrmapper_states + east_states
+    # gis = os.path.join(home, 'IrrigationGIS', 'wetlands')
+    # raw = os.path.join(gis, 'raw_shp')
+    # out_dir = os.path.join(gis, 'state_select_harn_')
+    #
+    # for s in states:
+    #     files_ = [os.path.join(raw, x) for x in os.listdir(raw) if s in x and x.endswith('.shp')]
+    #     out_ = os.path.join(out_dir, '{}_wetlands.shp'.format(s))
+    #     select_wetlands(files_, out_)
 
-    for s in states:
-        files_ = [os.path.join(raw, x) for x in os.listdir(raw) if s in x and x.endswith('.shp')]
-        out_ = os.path.join(out_dir, '{}_wetlands.shp'.format(s))
-        select_wetlands(files_, out_)
-
-    # pad = os.path.join(home, 'IrrigationGIS', 'training_data', 'uncultivated', 'USGS_PAD')
-    # out = os.path.join(pad, 'cdl_crop')
-    # cdl = os.path.join(home, 'IrrigationGIS', 'cdl', 'crop_mask')
-    # for s in ['TX']:
-    #     raster = os.path.join(cdl, 'CMASK_2019_{}.tif'.format(s))
-    #     # shape_ = os.path.join(pad, 'singlepart_nodupes',
-    #     #                       'PADUS2_0Combined_DOD_Fee_Designation_Easement_{}.shp'.format(s))
-    #     flat = os.path.join(pad, 'cleaned', '{}.shp'.format(s))
-    #     cdl_attrs = os.path.join(out, '{}.shp'.format(s))
-    #     zonal_crop_mask(flat, raster, cdl_attrs)
+    pad = os.path.join(home, 'IrrigationGIS', 'training_data', 'uncultivated', 'USGS_PAD')
+    out = os.path.join(pad, 'cdl_crop')
+    cdl = os.path.join(home, 'IrrigationGIS', 'cdl', 'crop_mask')
+    for s in ['CA']:
+        raster = os.path.join(cdl, 'CMASK_2019_{}.tif'.format(s))
+        # shape_ = os.path.join(pad, 'singlepart_nodupes',
+        #                       'PADUS2_0Combined_DOD_Fee_Designation_Easement_{}.shp'.format(s))
+        # flat = os.path.join(pad, 'cleaned', '{}.shp'.format(s))
+        flat = '/media/research/IrrigationGIS/training_data/uncultivated/CA/edits_12NOV2021/CA_uncultivated_harn.shp'
+        # cdl_attrs = os.path.join(out, '{}.shp'.format(s))
+        cdl_attrs = '/media/research/IrrigationGIS/training_data/uncultivated/CA/edits_12NOV2021/CA_uncultivated_harn_cdl.shp'
+        zonal_crop_mask(flat, raster, cdl_attrs)
 
 # ========================= EOF ====================================================================

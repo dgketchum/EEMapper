@@ -242,13 +242,15 @@ if __name__ == '__main__':
 
     FALLOW = os.path.join(data, 'fallow_7NOV2021.shp')
     IRRIGATED = os.path.join(data, 'irrigated_9NOV2021.shp')
-    UNCULTIVATED = os.path.join(data, 'uncultivated_11JAN2021.shp')
+    # UNCULTIVATED = os.path.join(data, 'uncultivated_11JAN2021.shp')
+    UNCULTIVATED = '/media/research/IrrigationGIS/training_data/' \
+                   'uncultivated/CA/edits_12NOV2021/CA_uncult_select_aea.shp'
     UNIRRIGATED = os.path.join(data, 'dryland_10NOV2021.shp')
     WETLAND = os.path.join(data, 'wetlands_9NOV2021.shp')
 
     for state in ALL_STATES:
         try:
-            if state not in ['UT']:
+            if state not in ['CA']:
                 continue
             print('\nDist Points ', state)
             intersect_shape = '/media/research/IrrigationGIS/boundaries/states_tiger_aea/{}.shp'.format(state)
@@ -257,7 +259,7 @@ if __name__ == '__main__':
             kwargs = {
                 'irrigated': 8000,
                 'wetlands': 4000,
-                'uncultivated': 4000,
+                'uncultivated': 6000,
                 'intersect': intersect_shape,
                 'intersect_buffer': 100000,
                 'exclude': exclude,

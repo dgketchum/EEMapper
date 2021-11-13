@@ -316,15 +316,25 @@ def export_classification(out_name, table, asset_root, region, years,
         minLeafPopulation=1,
         bagFraction=bag_fraction).setOutputMode('CLASSIFICATION')
 
-    if not input_props:
-        input_props = fc.first().propertyNames().remove('YEAR').remove('POINT_TYPE').remove('system:index')
-    else:
-        input_props = ee.List(input_props)
-
-    trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
-
     for yr in years:
         input_bands = stack_bands(yr, roi)
+
+        if not input_props:
+            input_props = fc.first().propertyNames().remove('YEAR').remove('POINT_TYPE').remove('system:index')
+        else:
+            input_props = ee.List(input_props)
+
+        b, p = input_bands.bandNames().getInfo(), input_props.getInfo()
+        check = [x for x in p if x not in b]
+        if check:
+            if yr > 1986:
+                raise ValueError
+            else:
+                revised = [f for f in p if f not in check]
+                input_props = ee.List(revised)
+
+        trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
+
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.unmask().classify(trained_model).int().set({
             'system:index': ee.Date('{}-01-01'.format(yr)).format('YYYYMMdd'),
@@ -335,11 +345,6 @@ def export_classification(out_name, table, asset_root, region, years,
             'training_data': table,
             'bag_fraction': bag_fraction,
             'class_key': '0: irrigated, 1: rainfed, 2: uncultivated, 3: wetland'})
-
-        b, p = input_bands.bandNames().getInfo(), input_props.getInfo()
-        check = [x for x in p if x not in b]
-        if check:
-            raise ValueError
 
         classified_img = classified_img.clip(roi.geometry())
 
@@ -543,15 +548,34 @@ def stack_bands(yr, roi):
     fall_s, fall_e = '{}-09-01'.format(yr), '{}-12-31'.format(yr)
 
     prev_s, prev_e = '{}-01-01'.format(yr - 1), '{}-12-31'.format(yr - 1),
+    p_spring_s, p_spring_e = '{}-03-01'.format(yr - 1), '{}-05-01'.format(yr - 1),
+    p_late_spring_s, p_late_spring_e = '{}-05-01'.format(yr - 1), '{}-07-01'.format(yr - 1)
+    p_summer_s, p_summer_e = '{}-07-01'.format(yr - 1), '{}-09-01'.format(yr - 1)
+    p_fall_s, p_fall_e = '{}-09-01'.format(yr - 1), '{}-12-31'.format(yr - 1)
+
     pprev_s, pprev_e = '{}-01-01'.format(yr - 2), '{}-12-31'.format(yr - 2),
+    pp_spring_s, pp_spring_e = '{}-03-01'.format(yr - 2), '{}-05-01'.format(yr - 2),
+    pp_late_spring_s, pp_late_spring_e = '{}-05-01'.format(yr - 2), '{}-07-01'.format(yr - 2)
+    pp_summer_s, pp_summer_e = '{}-07-01'.format(yr - 2), '{}-09-01'.format(yr - 2)
+    pp_fall_s, pp_fall_e = '{}-09-01'.format(yr - 2), '{}-12-31'.format(yr - 2)
 
     periods = [('cy', winter_s, fall_e),
                ('1', spring_s, spring_e),
                ('2', late_spring_s, late_spring_e),
                ('3', summer_s, summer_e),
                ('4', fall_s, fall_e),
+
                ('m1', prev_s, prev_e),
-               ('m2', pprev_s, pprev_e)]
+               ('1_m1', p_spring_s, p_spring_e),
+               ('2_m1', p_late_spring_s, p_late_spring_e),
+               ('3_m1', p_summer_s, p_summer_e),
+               ('4_m1', p_fall_s, p_fall_e),
+
+               ('m2', pprev_s, pprev_e),
+               ('1_m2', pp_spring_s, pp_spring_e),
+               ('2_m2', pp_late_spring_s, pp_late_spring_e),
+               ('3_m2', pp_summer_s, pp_summer_e),
+               ('4_m2', pp_fall_s, pp_fall_e)]
 
     first = True
     for name, start, end in periods:
@@ -658,7 +682,7 @@ if __name__ == '__main__':
     geo = 'users/dgketchum/boundaries/UT'
     t = 'users/dgketchum/to_inspect/UT_rainfed'
     y = [2012, 2013, 2017, 2018]
-    get_ndvi_cultivation_data_polygons(t, y, geo)
+    # get_ndvi_cultivation_data_polygons(t, y, geo)
 
     years_ = [x for x in range(2021, 2022)]
     RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_4DEC2020_mod_CO'

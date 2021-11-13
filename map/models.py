@@ -62,7 +62,7 @@ def pca(csv):
         print(eigenvalue)
 
 
-def random_forest(csv, n_estimators=100, out_shape=None):
+def random_forest(csv, n_estimators=150, out_shape=None):
     print('\n', csv)
     c = read_csv(csv, engine='python').sample(frac=1.0).reset_index(drop=True)
     # c = c[c['POINT_TYPE'] != 1]
@@ -86,7 +86,7 @@ def random_forest(csv, n_estimators=100, out_shape=None):
 
     rf = RandomForestClassifier(n_estimators=n_estimators,
                                 n_jobs=-1,
-                                bootstrap=False)
+                                bootstrap=True)
 
     rf.fit(x, y)
     y_pred = rf.predict(x_test)
@@ -156,6 +156,8 @@ def find_rf_variable_importance(csv):
     first = True
     master = {}
     df = read_csv(csv, engine='python')
+    # df = df[(df['POINT_TYPE'] == 0) | (df['POINT_TYPE'] == 1)]
+
     labels = df['POINT_TYPE'].values
     df.drop(columns=['YEAR', 'POINT_TYPE'], inplace=True)
     df.dropna(axis=1, inplace=True)
@@ -164,10 +166,9 @@ def find_rf_variable_importance(csv):
 
     for x in range(10):
         print('model iteration {}'.format(x))
-        rf = RandomForestClassifier(n_estimators=100,
-                                    min_samples_split=11,
+        rf = RandomForestClassifier(n_estimators=150,
                                     n_jobs=-1,
-                                    bootstrap=False)
+                                    bootstrap=True)
 
         rf.fit(data, labels)
         _list = [(f, v) for f, v in zip(names, rf.feature_importances_)]
@@ -320,5 +321,6 @@ if __name__ == '__main__':
     extracts = os.path.join(out_, 'bands_3DEC2020_fallow.csv')
     # find_rf_variable_importance(extracts)
     # random_forest(extracts)
-    random_forest(extracts)
+    wa = '/media/research/IrrigationGIS/EE_extracts/concatenated/state/MT_10NOV2021.csv'
+    find_rf_variable_importance(wa)
 # ========================= EOF ====================================================================
