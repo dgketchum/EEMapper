@@ -412,7 +412,7 @@ def cdl_key():
 
 
 def zonal_cdl(in_shp, in_raster, out_shp=None,
-              select_codes=None, write_non_crop=False):
+              select_codes=None, write_non_crop=False, crop_purity=False):
     ct = 1
     geo = []
     bad_geo_ct = 0
@@ -435,53 +435,68 @@ def zonal_cdl(in_shp, in_raster, out_shp=None,
     meta['schema'] = {'type': 'Feature', 'properties': OrderedDict(
         [('FID', 'int:9'), ('CDL', 'int:9')]), 'geometry': 'Polygon'}
 
-    stats = zonal_stats(temp_file, in_raster, stats=['majority'], nodata=0.0, categorical=False)
+    if crop_purity:
+        categorical = True
+    else:
+        categorical = False
+    stats = zonal_stats(temp_file, in_raster, stats=['majority'], nodata=0.0, categorical=categorical)
 
     if select_codes:
         include_codes = select_codes
     else:
         include_codes = [k for k in cdl_crops().keys()]
 
+    if crop_purity:
+        meta['schema']['properties']['pct'] = 'float:19.11'
+        maj = [int(d['majority']) for d in stats]
+        maj_ct = [d[maj[i]] for i, d in enumerate(stats)]
+        stats = [list(d.items()) for d in stats]
+        counts = [sum([x[1] for x in l[:-1]]) for l in stats]
+        purity = [float(mct) / ct for mct, ct in zip(maj_ct, counts)]
+        stats = [(crp, pct) for crp, pct in zip(maj, purity)]
+
     ct_inval = 0
     ct_crop = 0
     ct_non_crop = 0
     with fiona.open(out_shp, mode='w', **meta) as out:
         for attr, g in zip(stats, geo):
+
             try:
-                cdl = int(attr['majority'])
+                cdl_code = int(attr['majority'])
             except TypeError:
-                cdl = 0
+                cdl_code = 0
 
-            if attr['majority'] in include_codes and not write_non_crop:
+            if crop_purity:
                 feat = {'type': 'Feature',
                         'properties': {'FID': ct,
-                                       'CDL': cdl},
+                                       'CDL': attr[0],
+                                       'pct': attr[1]},
                         'geometry': g['geometry']}
-                if not feat['geometry']:
-                    ct_inval += 1
-                elif not shape(feat['geometry']).is_valid:
-                    ct_inval += 1
-                else:
-                    out.write(feat)
-                    ct += 1
-                    ct_crop += 1
 
-            elif write_non_crop and cdl not in include_codes:
+            elif attr['majority'] in include_codes and not write_non_crop:
                 feat = {'type': 'Feature',
                         'properties': {'FID': ct,
-                                       'CDL': cdl},
+                                       'CDL': cdl_code},
                         'geometry': g['geometry']}
-                if not feat['geometry']:
-                    ct_inval += 1
-                elif not shape(feat['geometry']).is_valid:
-                    ct_inval += 1
-                else:
-                    out.write(feat)
-                    ct += 1
-                    ct_non_crop += 1
+
+            elif write_non_crop and cdl_code not in include_codes:
+                feat = {'type': 'Feature',
+                        'properties': {'FID': ct,
+                                       'CDL': cdl_code},
+                        'geometry': g['geometry']}
+
+            if not feat['geometry']:
+                ct_inval += 1
+            elif not shape(feat['geometry']).is_valid:
+                ct_inval += 1
+            else:
+                out.write(feat)
+                ct += 1
+                ct_non_crop += 1
 
         print('{} in, {} out, {} invalid, {}'.format(input_feats, ct - 1, ct_inval, out_shp))
-        os.remove(temp_file)
+    rm_files = [temp_file.replace('shp', x) for x in ['prj', 'cpg', 'dbf', 'shx']] + [temp_file]
+    [os.remove(f) for f in rm_files]
 
 
 def process_pad(in_shp, out_shp):
@@ -692,27 +707,13 @@ if __name__ == '__main__':
     else:
         home = os.path.join(home, 'data')
 
-    # states = irrmapper_states + east_states
-    # gis = os.path.join(home, 'IrrigationGIS', 'wetlands')
-    # raw = os.path.join(gis, 'raw_shp')
-    # out_dir = os.path.join(gis, 'state_select_harn_')
-    #
-    # for s in states:
-    #     files_ = [os.path.join(raw, x) for x in os.listdir(raw) if s in x and x.endswith('.shp')]
-    #     out_ = os.path.join(out_dir, '{}_wetlands.shp'.format(s))
-    #     select_wetlands(files_, out_)
+    cdl = os.path.join(home, 'IrrigationGIS', 'cdl', 'wgs')
+    raster = os.path.join(cdl, 'CDL_2017_OR.tif')
 
-    pad = os.path.join(home, 'IrrigationGIS', 'training_data', 'uncultivated', 'USGS_PAD')
-    out = os.path.join(pad, 'cdl_crop')
-    cdl = os.path.join(home, 'IrrigationGIS', 'cdl', 'crop_mask')
-    for s in ['CA']:
-        raster = os.path.join(cdl, 'CMASK_2019_{}.tif'.format(s))
-        # shape_ = os.path.join(pad, 'singlepart_nodupes',
-        #                       'PADUS2_0Combined_DOD_Fee_Designation_Easement_{}.shp'.format(s))
-        # flat = os.path.join(pad, 'cleaned', '{}.shp'.format(s))
-        flat = '/media/research/IrrigationGIS/training_data/uncultivated/CA/edits_12NOV2021/CA_uncultivated_harn.shp'
-        # cdl_attrs = os.path.join(out, '{}.shp'.format(s))
-        cdl_attrs = '/media/research/IrrigationGIS/training_data/uncultivated/CA/edits_12NOV2021/CA_uncultivated_harn_cdl.shp'
-        zonal_crop_mask(flat, raster, cdl_attrs)
+    # flat = '/media/research/IrrigationGIS/openET/OR/OR.shp'
+    flat = '/media/research/IrrigationGIS/training_data/uncultivated/OR/OR_sample.shp'
+
+    cdl_attrs = '/media/research/IrrigationGIS/training_data/unirrigated/OR/OR_sample_cdl.shp'
+    zonal_cdl(flat, raster, cdl_attrs, crop_purity=True)
 
 # ========================= EOF ====================================================================
