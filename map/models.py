@@ -157,22 +157,33 @@ def find_rf_variable_importance(csv):
     master = {}
     df = read_csv(csv, engine='python')
     # df = df[(df['POINT_TYPE'] == 0) | (df['POINT_TYPE'] == 1)]
+    for time in [None, 'm1', 'm2']:
+        for feat in ['nd', 'gi', 'nw', 'evi']:
+            periods = [x for x in range(1, 5)]
+            if time:
+                cols = ['{}_{}_{}'.format(feat, p, time) for p in periods]
+            else:
+                cols = ['{}_{}'.format(feat, p) for p in periods]
 
-    labels = df['POINT_TYPE'].values
+            df['{}_intgrt'.format(feat)] = df[cols].sum(axis=1)
+
+    labels = list(df['POINT_TYPE'].values)
     df.drop(columns=['YEAR', 'POINT_TYPE'], inplace=True)
     df.dropna(axis=1, inplace=True)
     data = df.values
     names = df.columns
 
     for x in range(10):
+        d, _, l, _ = train_test_split(data, labels, train_size=0.67)
         print('model iteration {}'.format(x))
         rf = RandomForestClassifier(n_estimators=150,
                                     n_jobs=-1,
                                     bootstrap=True)
 
-        rf.fit(data, labels)
+        rf.fit(d, l)
         _list = [(f, v) for f, v in zip(names, rf.feature_importances_)]
         imp = sorted(_list, key=lambda x: x[1], reverse=True)
+        print([f[0] for f in imp[:10]])
 
         if first:
             for (k, v) in imp:
