@@ -10,6 +10,8 @@ from call_ee import TARGET_STATES, E_STATES
 from call_ee import is_authorized, request_band_extract, export_classification
 from tables import concatenate_band_extract
 from models import find_rf_variable_importance
+from variable_importance import dec_2021_variables
+from assets import list_assets
 
 ALL_STATES = TARGET_STATES + E_STATES
 
@@ -35,10 +37,11 @@ def to_geographic(in_dir, out_dir, glob, state):
         print(out_shp)
 
 
-def push_points_to_asset(_dir, glob, state):
+def push_points_to_asset(_dir, glob, state, bucket):
     shapes = []
     local_f = os.path.join(_dir, 'points_{}_{}.shp'.format(state, glob))
-    _file = os.path.join('gs://wudr/state_points', 'points_{}_{}.shp'.format(state, glob))
+    bucket = os.path.join(bucket, 'state_points')
+    _file = os.path.join(bucket, 'points_{}_{}.shp'.format(state, glob))
     cmd = [GS, 'cp', local_f, _file]
     check_call(cmd)
     shapes.append(_file)
@@ -53,7 +56,8 @@ def push_points_to_asset(_dir, glob, state):
 
 def get_bands(pts_dir, glob, state):
     pts = os.path.join(pts_dir, 'points_{}_{}.shp'.format(state, glob))
-    with fiona.open(pts, 'r') as src:
+    pts_ = pts.replace('16', '15')
+    with fiona.open(pts_, 'r') as src:
         years = list(set([x['properties']['YEAR'] for x in src]))
     print('get bands', state)
     pts = 'users/dgketchum/points/state/points_{}_{}'.format(state, glob)
@@ -68,10 +72,11 @@ def concatenate_bands(in_dir, out_dir, glob, state):
     concatenate_band_extract(in_dir, out_dir, glob=glob_)
 
 
-def push_bands_to_asset(_dir, glob, state):
+def push_bands_to_asset(_dir, glob, state, bucket):
     shapes = []
     local_f = os.path.join(_dir, '{}_{}.csv'.format(state, glob))
-    _file = os.path.join('gs://wudr/state_bands', '{}_{}.csv'.format(state, glob))
+    bucket = os.path.join(bucket, 'state_bands')
+    _file = os.path.join(bucket, '{}_{}.csv'.format(state, glob))
     cmd = [GS, 'cp', local_f, _file]
     check_call(cmd)
     shapes.append(_file)
@@ -115,43 +120,63 @@ def classify(out_coll, variable_dir, tables, years, glob, state):
     vars = os.path.join(variable_dir, 'variables_{}_{}.json'.format(state, glob))
     with open(vars, 'r') as fp:
         d = json.load(fp)
-    all_feat = []
     features = [f[0] for f in d[state]]
     for f in ['elevation', 'slope', 'tpi_150', 'tpi_250', 'tpi_1250']:
         if f not in features:
             features.append(f)
-    [all_feat.append(f) for f in features]
+    for f in dec_2021_variables():
+        if f not in features:
+            features.append(f)
+    var_txt = os.path.join(variable_dir, '{}_vars.txt'.format(state))
+    with open(var_txt, 'w') as fp:
+        for f in features:
+            fp.write('{}\n'.format(f))
     table = os.path.join(tables, '{}_{}'.format(state, glob))
     geo = 'users/dgketchum/boundaries/{}'.format(state)
     export_classification(out_name=state, table=table, asset_root=out_coll, region=geo,
                           years=years, input_props=features, bag_fraction=0.5)
-    hist = sorted(Counter(all_feat).items(), key=lambda x: x[1], reverse=True)
+    hist = sorted(Counter(features).items(), key=lambda x: x[1], reverse=True)
     pprint(hist)
+
+
+def clean_deprecated_data(coll, pt_geo, pt_proj, bucket, check_all=False):
+    l = list_assets(coll)
+    for s in ALL_STATES:
+        pass
+    for i in l:
+        pass
 
 
 if __name__ == '__main__':
     is_authorized()
-    _glob = '10NOV2021'
+    _glob = '16NOV2021'
+    _bucket = 'gs://wudr'
+
     root = '/media/research/IrrigationGIS'
     if not os.path.exists(root):
         root = '/home/dgketchum/IrrigationGIS'
+
     pt = '/media/research/IrrigationGIS/EE_extracts/point_shp'
     pt_wgs = os.path.join(pt, 'state_wgs')
     pt_aea = os.path.join(pt, 'state_aea')
-    for s in ['WA']:
+
+    extracts = os.path.join(root, 'EE_extracts')
+    to_concat = os.path.join(extracts, 'to_concatenate/state')
+    conctenated = os.path.join(extracts, 'concatenated/state')
+    imp_json = os.path.join(extracts, 'variable_importance')
+
+    coll = 'users/dgketchum/IrrMapper/IrrMapper_sw'
+    tables = 'users/dgketchum/bands/state'
+
+    # clean_deprecated_data(coll, pt_wgs, pt_aea, _bucket)
+    for s in ['MT']:
         # to_geographic(pt_aea, pt_wgs, glob=_glob, state=s)
         # push_points_to_asset(pt_wgs, glob=_glob, state=s)
         # get_bands(pt_aea, _glob, state=s)
-        to_concat = '/media/research/IrrigationGIS/EE_extracts/to_concatenate/state'
-        conctenated = '/media/research/IrrigationGIS/EE_extracts/concatenated/state'
-        # concatenate_bands(to_concat, conctenated, glob=_glob, state=s)
-        imp_json = '/media/research/IrrigationGIS/EE_extracts/variable_importance'
-        # variable_importance(conctenated, importance_json=imp_json, glob=_glob, state=s)
-        # push_bands_to_asset(conctenated, glob=_glob, state=s)
 
-        coll = 'users/dgketchum/IrrMapper/IrrMapper_sw'
-        i = os.path.join(coll, '{}_2017'.format(s))
-        # remove_image(i)
-        tables = 'users/dgketchum/bands/state'
-        classify(coll, imp_json, tables, [x for x in range(2017, 2018)], glob=_glob, state=s)
+        # concatenate_bands(to_concat, conctenated, glob=_glob, state=s)
+        variable_importance(conctenated, importance_json=imp_json, glob=_glob, state=s)
+        # push_bands_to_asset(conctenated, glob=_glob, state=s, bucket=_bucket)
+
+        # classify(coll, imp_json, tables, [x for x in range(1985, 2022)], glob=_glob, state=s)
 # ========================= EOF ====================================================================
