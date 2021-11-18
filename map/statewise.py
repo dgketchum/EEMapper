@@ -56,6 +56,7 @@ def push_points_to_asset(_dir, glob, state, bucket):
 
 def get_bands(pts_dir, glob, state):
     pts = os.path.join(pts_dir, 'points_{}_{}.shp'.format(state, glob))
+    # TODO: remove this MT-specific hack
     pts_ = pts.replace('16', '15')
     with fiona.open(pts_, 'r') as src:
         years = list(set([x['properties']['YEAR'] for x in src]))
@@ -172,10 +173,10 @@ if __name__ == '__main__':
     for s in ['MT']:
         # to_geographic(pt_aea, pt_wgs, glob=_glob, state=s)
         # push_points_to_asset(pt_wgs, glob=_glob, state=s)
-        # get_bands(pt_aea, _glob, state=s)
+        get_bands(pt_aea, _glob, state=s)
 
         # concatenate_bands(to_concat, conctenated, glob=_glob, state=s)
-        variable_importance(conctenated, importance_json=imp_json, glob=_glob, state=s)
+        # variable_importance(conctenated, importance_json=imp_json, glob=_glob, state=s)
         # push_bands_to_asset(conctenated, glob=_glob, state=s, bucket=_bucket)
 
         # classify(coll, imp_json, tables, [x for x in range(1985, 2022)], glob=_glob, state=s)

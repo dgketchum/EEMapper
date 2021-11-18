@@ -592,6 +592,22 @@ def stack_bands(yr, roi):
         else:
             input_bands = input_bands.addBands(bands)
 
+    integrated_composite_bands = []
+
+    for time in [None, 'm1', 'm2']:
+        for feat in ['nd', 'gi', 'nw', 'evi']:
+            periods = [x for x in range(1, 5)]
+            if time:
+                c_bands = ['{}_{}_{}'.format(feat, p, time) for p in periods]
+                b = input_bands.select(c_bands).reduce(ee.Reducer.sum()).rename('{}_intgrt_{}'.format(feat, time))
+            else:
+                c_bands = ['{}_{}'.format(feat, p) for p in periods]
+                b = input_bands.select(c_bands).reduce(ee.Reducer.sum()).rename('{}_intgrt'.format(feat))
+
+            integrated_composite_bands.append(b)
+
+    input_bands = input_bands.addBands(integrated_composite_bands)
+
     for s, e, n in [(spring_s, spring_e, 'espr'),
                     (late_spring_s, late_spring_e, 'lspr'),
                     (summer_s, summer_e, 'smr'),

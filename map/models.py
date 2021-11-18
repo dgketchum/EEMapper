@@ -5,17 +5,14 @@ from time import time
 from subprocess import call
 from copy import deepcopy
 
-# import tensorflow as tf
-from numpy import dot, mean, flatnonzero, unique, array, ones_like, where, zeros_like
-from numpy.random import randint
-from pandas import read_csv, concat, get_dummies, DataFrame
+from numpy import dot, mean, flatnonzero, ones_like, where, zeros_like
+from pandas import read_csv, concat
 from scipy.stats import randint as sp_randint
 from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import confusion_matrix
 from sklearn.tree import export_graphviz
 from sklearn.model_selection import RandomizedSearchCV, GridSearchCV, train_test_split, KFold
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 from geopandas import GeoDataFrame
 from shapely.geometry import Point
@@ -157,17 +154,6 @@ def find_rf_variable_importance(csv):
     master = {}
     df = read_csv(csv, engine='python')
     # df = df[(df['POINT_TYPE'] == 0) | (df['POINT_TYPE'] == 1)]
-    # TODO: remove this experimentation
-    for time in [None, 'm1', 'm2']:
-        for feat in ['nd', 'gi', 'nw', 'evi']:
-            periods = [x for x in range(1, 5)]
-            if time:
-                cols = ['{}_{}_{}'.format(feat, p, time) for p in periods]
-                df['{}_intgrt_{}'.format(feat, time)] = df[cols].sum(axis=1)
-            else:
-                cols = ['{}_{}'.format(feat, p) for p in periods]
-                df['{}_intgrt'.format(feat)] = df[cols].sum(axis=1)
-
 
     labels = list(df['POINT_TYPE'].values)
     df.drop(columns=['YEAR', 'POINT_TYPE'], inplace=True)
