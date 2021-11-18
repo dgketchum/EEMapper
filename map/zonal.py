@@ -711,9 +711,9 @@ if __name__ == '__main__':
     raster = os.path.join(cdl, 'CDL_2017_OR.tif')
 
     # flat = '/media/research/IrrigationGIS/openET/OR/OR.shp'
-    flat = '/media/research/IrrigationGIS/training_data/uncultivated/OR/OR_sample.shp'
+    flat = os.path.join(home, 'IrrigationGIS/training_data/unirrigated/OR/OR.shp')
 
-    cdl_attrs = '/media/research/IrrigationGIS/training_data/unirrigated/OR/OR_sample_cdl.shp'
+    cdl_attrs = os.path.join(home, 'IrrigationGIS/training_data/unirrigated/OR/OR_cdl_pct.shp')
     zonal_cdl(flat, raster, cdl_attrs, crop_purity=True)
 
 # ========================= EOF ====================================================================

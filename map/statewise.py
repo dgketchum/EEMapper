@@ -10,7 +10,7 @@ from call_ee import TARGET_STATES, E_STATES
 from call_ee import is_authorized, request_band_extract, export_classification
 from tables import concatenate_band_extract
 from models import find_rf_variable_importance
-from variable_importance import dec_2021_variables
+from variable_importance import dec_2020_variables
 from assets import list_assets
 
 ALL_STATES = TARGET_STATES + E_STATES
@@ -124,7 +124,7 @@ def classify(out_coll, variable_dir, tables, years, glob, state):
     for f in ['elevation', 'slope', 'tpi_150', 'tpi_250', 'tpi_1250']:
         if f not in features:
             features.append(f)
-    for f in dec_2021_variables():
+    for f in dec_2020_variables():
         if f not in features:
             features.append(f)
     var_txt = os.path.join(variable_dir, '{}_vars.txt'.format(state))

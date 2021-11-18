@@ -157,15 +157,17 @@ def find_rf_variable_importance(csv):
     master = {}
     df = read_csv(csv, engine='python')
     # df = df[(df['POINT_TYPE'] == 0) | (df['POINT_TYPE'] == 1)]
+    # TODO: remove this experimentation
     for time in [None, 'm1', 'm2']:
         for feat in ['nd', 'gi', 'nw', 'evi']:
             periods = [x for x in range(1, 5)]
             if time:
                 cols = ['{}_{}_{}'.format(feat, p, time) for p in periods]
+                df['{}_intgrt_{}'.format(feat, time)] = df[cols].sum(axis=1)
             else:
                 cols = ['{}_{}'.format(feat, p) for p in periods]
+                df['{}_intgrt'.format(feat)] = df[cols].sum(axis=1)
 
-            df['{}_intgrt'.format(feat)] = df[cols].sum(axis=1)
 
     labels = list(df['POINT_TYPE'].values)
     df.drop(columns=['YEAR', 'POINT_TYPE'], inplace=True)

@@ -465,7 +465,7 @@ def klamath_params():
             'B5_4', 'prec_9']
 
 
-def dec_2021_variables():
+def dec_2020_variables():
     l = [('nlcd', 0.09892328398384927),
          ('cdl', 0.15356820234869015),
          ('LAT_GCS', 0.7150022799817601),
@@ -853,7 +853,7 @@ def select_variables(n=50):
 
 
 if __name__ == '__main__':
-    dec = dec_2021_variables()
+    dec = dec_2020_variables()
     dec = sorted(dec, key=lambda tup: tup[0])
     pprint(dec)
 # ========================= EOF ====================================================================

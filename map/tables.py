@@ -8,7 +8,7 @@ from pandas import read_csv, concat, errors, Series, merge, DataFrame
 from pandas import to_datetime
 from pandas.io.json import json_normalize
 from shapely.geometry import Polygon
-from map.variable_importance import dec_2021_variables
+from map.variable_importance import dec_2020_variables
 
 INT_COLS = ['POINT_TYPE', 'YEAR']
 
@@ -45,7 +45,7 @@ COLS = ['SCENE_ID',
 
 DROP_COUNTY = ['system:index', 'AFFGEOID', 'COUNTYFP', 'COUNTYNS', 'GEOID', 'LSAD', 'STATEFP', '.geo']
 
-SELECT = dec_2021_variables()
+SELECT = dec_2020_variables()
 
 
 def concatenate_county_data(folder, out_file, glob='counties', acres=False):
