@@ -274,23 +274,27 @@ def export_raster():
         print(yr)
 
 
-def export_special(roi, description):
+def export_special(coll, roi, description, min_years=5):
     fc = ee.FeatureCollection(roi)
-    roi_mask = fc.geometry().bounds().getInfo()['coordinates']
 
-    for year in [str(x) for x in range(1987, 1988)]:
-        target = ee.Image(os.path.join(RF_ASSET, year))
-        target = target.select('classification')
+    for year in [str(x) for x in range(2020, 2022)]:
+        target = ee.ImageCollection(coll).filterDate('{}-01-01'.format(year), '{}-12-31'.format(year))
+        target = target.select('classification').mosaic().remap([0, 1, 2, 3], [1, 2, 3, 4]).clip(fc.geometry())
+
+        if min_years > 0:
+            coll = ee.ImageCollection(coll)
+            sum = ee.ImageCollection(coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum()
+            sum_mask = sum.lt(min_years)
+            target = target.mask(sum_mask)
 
         task = ee.batch.Export.image.toDrive(
             target,
             description='IrrMapper_{}_{}'.format(description, year),
-            region=roi_mask,
             scale=30,
             maxPixels=1e13,
-            folder='UCRB',
-            crs='EPSG:5070'
-        )
+            folder='CO_IrrMapper_16NOV2021',
+            crs='EPSG:5070')
+
         task.start()
         print(year)
 
@@ -316,13 +320,15 @@ def export_classification(out_name, table, asset_root, region, years,
         minLeafPopulation=1,
         bagFraction=bag_fraction).setOutputMode('CLASSIFICATION')
 
+    if not input_props:
+        input_props = fc.first().propertyNames().remove('YEAR').remove('POINT_TYPE').remove('system:index')
+    else:
+        input_props = ee.List(input_props)
+
+    trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
+
     for yr in years:
         input_bands = stack_bands(yr, roi)
-
-        if not input_props:
-            input_props = fc.first().propertyNames().remove('YEAR').remove('POINT_TYPE').remove('system:index')
-        else:
-            input_props = ee.List(input_props)
 
         b, p = input_bands.bandNames().getInfo(), input_props.getInfo()
         check = [x for x in p if x not in b]
@@ -332,8 +338,7 @@ def export_classification(out_name, table, asset_root, region, years,
             else:
                 revised = [f for f in p if f not in check]
                 input_props = ee.List(revised)
-
-        trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
+                trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.unmask().classify(trained_model).int().set({
@@ -679,13 +684,9 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    geo = 'users/dgketchum/boundaries/UT'
-    t = 'users/dgketchum/to_inspect/UT_rainfed'
-    y = [2012, 2013, 2017, 2018]
-    # get_ndvi_cultivation_data_polygons(t, y, geo)
-
-    years_ = [x for x in range(2021, 2022)]
-    RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_4DEC2020_mod_CO'
+    geo = 'users/dgketchum/boundaries/CO'
+    c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
+    export_special(c, geo, description='CO', min_years=5)
     # export_classification(out_name='IM_{}'.format('CO'), table=RF_TRAINING_DATA,
     #                       asset_root='projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp',
     #                       years=years_, region=geo, bag_fraction=1.0)
