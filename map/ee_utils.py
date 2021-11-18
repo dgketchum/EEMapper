@@ -71,20 +71,21 @@ def daily_landsat(year, roi):
 
 
 def ls57mask(img):
-    sr_bands = img.select('B1', 'B2', 'B3', 'B4', 'B5', 'B7')
+    sr_bands = img.select('B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7')
     mask_sat = sr_bands.neq(20000)
     img_nsat = sr_bands.updateMask(mask_sat)
     mask1 = img.select('pixel_qa').bitwiseAnd(8).eq(0)
     mask2 = img.select('pixel_qa').bitwiseAnd(32).eq(0)
     mask_p = mask1.And(mask2)
     img_masked = img_nsat.updateMask(mask_p)
-    mask_sel = img_masked.select(['B1', 'B2', 'B3', 'B4', 'B5', 'B7'], ['B2', 'B3', 'B4', 'B5', 'B6', 'B7'])
+    mask_sel = img_masked.select(['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
+                                 ['B2', 'B3', 'B4', 'B5', 'B6', 'B10', 'B7'])
     mask_mult = mask_sel.multiply(0.0001).copyProperties(img, ['system:time_start'])
     return mask_mult
 
 
 def ls8mask(img):
-    sr_bands = img.select('B2', 'B3', 'B4', 'B5', 'B6', 'B7')
+    sr_bands = img.select('B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B10')
     mask_sat = sr_bands.neq(20000)
     img_nsat = sr_bands.updateMask(mask_sat)
     mask1 = img.select('pixel_qa').bitwiseAnd(8).eq(0)
@@ -132,6 +133,9 @@ def landsat_composites(year, start, end, roi, append_name):
         return x.expression('NIR / GREEN', {'NIR': x.select('B5'),
                                             'GREEN': x.select('B3')})
 
+    lsSR_night_masked = landsat_masked(year, roi).filterDate(start, end)\
+        .select('B10').median().rename('B10_{}'.format(append_name))
+
     lsSR_masked = landsat_masked(year, roi)
     bands_means = ee.Image(lsSR_masked.filterDate(start, end).map(
         lambda x: x.select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
@@ -148,7 +152,7 @@ def landsat_composites(year, start, end, roi, append_name):
             lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_max_{}'.format(append_name))
     else:
         ndvi = ee.Image(lsSR_masked.filterDate(start, end).map(
-        lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_{}'.format(append_name))
+            lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_{}'.format(append_name))
 
     ndwi = ee.Image(lsSR_masked.filterDate(start, end).map(
         lambda x: x.normalizedDifference(['B5', 'B6'])).max()).rename('nw_{}'.format(append_name))
@@ -156,7 +160,7 @@ def landsat_composites(year, start, end, roi, append_name):
         lambda x: evi_(x)).max()).rename('evi_{}'.format(append_name))
     gi = ee.Image(lsSR_masked.filterDate(start, end).map(
         lambda x: gi_(x)).max()).rename('gi_{}'.format(append_name))
-    bands = bands_means.addBands([ndvi, ndwi, evi, gi])
+    bands = bands_means.addBands([ndvi, ndwi, evi, gi, lsSR_night_masked])
 
     return bands
 
