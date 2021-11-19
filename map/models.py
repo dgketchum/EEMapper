@@ -109,13 +109,12 @@ def random_forest(csv, n_estimators=150, out_shape=None):
     return
 
 
-def random_forest_feature_select(csv, n_estimators=100):
+def random_forest_feature_select(csv, n_estimators=100, features=None):
     df = read_csv(csv, engine='python').sample(frac=0.1)
     labels = df['POINT_TYPE'].values
     df.drop(columns=['YEAR', 'POINT_TYPE'], inplace=True)
     df.dropna(axis=1, inplace=True)
     labels = labels.reshape((labels.shape[0],))
-    features = dec4_names()
     precision = []
     for i, c in enumerate(features, start=1):
         cols = [f for f in features[:i]]
@@ -315,11 +314,7 @@ def get_confusion_matrix(csv, spec=None):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    out_ = os.path.join('/media/research', 'IrrigationGIS', 'EE_extracts', 'concatenated')
-    # shapefile = '/media/research/IrrigationGIS/EE_extracts/evaluated_points/eval_18JAN2021.shp'
-    extracts = os.path.join(out_, 'bands_3DEC2020_fallow.csv')
-    # find_rf_variable_importance(extracts)
-    # random_forest(extracts)
-    wa = '/media/research/IrrigationGIS/EE_extracts/concatenated/state/MT_10NOV2021.csv'
-    find_rf_variable_importance(wa)
+    MT_ = '/media/research/IrrigationGIS/EE_extracts/concatenated/state/MT_16NOV2021.csv'
+    features_ = None
+    find_rf_variable_importance(MT_)
 # ========================= EOF ====================================================================

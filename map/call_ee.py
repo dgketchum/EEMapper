@@ -208,15 +208,14 @@ def attribute_irrigation():
             task.start()
 
 
-def get_ndvi_cultivation_data_polygons(table, years, region):
+def get_ndvi_cultivation_data_polygons(table, years, region, input_props):
     """
     Extracts specified data to a polygon shapefile layer.
     :return:
     """
     fc = ee.FeatureCollection(table)
     roi = ee.FeatureCollection(region)
-    input_props = ['nd_3']
-    props = ['FID']
+    props = ['FID', 'CDL', 'pct']
     input_bands = None
     first = True
     for year in years:
@@ -232,11 +231,14 @@ def get_ndvi_cultivation_data_polygons(table, years, region):
             input_bands = input_bands.addBands(add_bands_)
 
     means = input_bands.reduceRegions(collection=fc,
-                                      reducer=ee.Reducer.max(),
+                                      reducer=ee.Reducer.mean(),
                                       scale=30)
+    mn_std_dev = input_bands.reduceRegions(collection=means,
+                                           reducer=ee.Reducer.mean(),
+                                           scale=30)
 
     task = ee.batch.Export.table.toCloudStorage(
-        means,
+        mn_std_dev,
         description='{}'.format(os.path.basename(table)),
         bucket='wudr',
         fileNamePrefix='attr_{}'.format(os.path.basename(table)),
@@ -700,13 +702,13 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    geo = 'users/dgketchum/boundaries/CO'
-    c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
-    export_special(c, geo, description='CO', min_years=5)
-    # export_classification(out_name='IM_{}'.format('CO'), table=RF_TRAINING_DATA,
-    #                       asset_root='projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp',
-    #                       years=years_, region=geo, bag_fraction=1.0)
+    # geo = 'users/dgketchum/boundaries/CO'
+    # c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
+    # export_special(c, geo, description='CO', min_years=5)
 
-    # pts = 'projects/ee-dgketchum/assets/points/points_c2_CO_27OCT2021_wgs'
-    # request_band_extract('bands_CO_mod_27OCT2021', pts, region=geo, years=ALL_YEARS, filter_bounds=True)
+    years_ = [2008, 2015, 2021]
+    props = ['nd_intgrt', 'nd_3', 'nd_4']
+    geo_ = 'users/dgketchum/boundaries/OR'
+    table_ = 'users/dgketchum/to_filter/OR_purity_large'
+    get_ndvi_cultivation_data_polygons(table_, years_, geo_, props)
 # ========================= EOF ====================================================================

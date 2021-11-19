@@ -267,13 +267,18 @@ def join_shp_csv(in_shp, csv, out_shp, join_on='FID'):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     gis = os.path.join('/media/research', 'IrrigationGIS')
-    inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
-    # inspected = os.path.join(gis, 'training_data', 'unirrigated', 'to_merge')
+    # inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
+    inspected = os.path.join(gis, 'training_data', 'unirrigated', 'to_merge')
     files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    out_file = 'irrigatd_10NOV2021.shp'
+    out_file = 'dryland_18NOV2021.shp'
     out_ = os.path.join(gis, 'EE_sample', 'wgs', out_file)
-    fiona_merge_attribute(out_, files_)
+    # fiona_merge_attribute(out_, files_)
+    fiona_merge(out_, files_)
     aea = os.path.join(gis, 'EE_sample', 'aea', out_file)
     to_aea(out_, aea)
 
+    # c_ = '/media/research/IrrigationGIS/training_data/OR/attr_OR_purity_large.csv'
+    # s = '/media/research/IrrigationGIS/training_data/OR/OR_clu_purity_large.shp'
+    # o = '/media/research/IrrigationGIS/training_data/OR/OR_clu_purity_large_ndvi.shp'
+    # join_shp_csv(s, c_, o)
 # ========================= EOF ====================================================================

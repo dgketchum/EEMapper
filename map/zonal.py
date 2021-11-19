@@ -448,15 +448,18 @@ def zonal_cdl(in_shp, in_raster, out_shp=None,
 
     if crop_purity:
         meta['schema']['properties']['pct'] = 'float:19.11'
-        maj = [int(d['majority']) for d in stats]
-        maj_ct = [d[maj[i]] for i, d in enumerate(stats)]
-        stats = [list(d.items()) for d in stats]
-        counts = [sum([x[1] for x in l[:-1]]) for l in stats]
-        purity = [float(mct) / ct for mct, ct in zip(maj_ct, counts)]
-        stats = [(crp, pct) for crp, pct in zip(maj, purity)]
+        _geo, _stats = [], []
+        for d, g in zip(stats, geo):
+            try:
+                maj, maj_ct = int(d['majority']), d[d['majority']]
+                pix_ct = sum([x[1] for x in list(d.items())[:-1]])
+                purity = maj_ct / pix_ct
+                _geo.append(g), _stats.append((maj, purity))
+            except Exception as e:
+                print(e, d)
+        geo, stats = _geo, _stats
 
     ct_inval = 0
-    ct_crop = 0
     ct_non_crop = 0
     with fiona.open(out_shp, mode='w', **meta) as out:
         for attr, g in zip(stats, geo):
@@ -711,9 +714,8 @@ if __name__ == '__main__':
     raster = os.path.join(cdl, 'CDL_2017_OR.tif')
 
     # flat = '/media/research/IrrigationGIS/openET/OR/OR.shp'
-    flat = os.path.join(home, 'IrrigationGIS/training_data/unirrigated/OR/OR.shp')
-
-    cdl_attrs = os.path.join(home, 'IrrigationGIS/training_data/unirrigated/OR/OR_cdl_pct.shp')
+    flat = os.path.join(home, 'IrrigationGIS/openET/ID/id.shp')
+    cdl_attrs = os.path.join(home, 'IrrigationGIS/training_data/unirrigated/ID/ID_cdl_pct.shp')
     zonal_cdl(flat, raster, cdl_attrs, crop_purity=True)
 
 # ========================= EOF ====================================================================
