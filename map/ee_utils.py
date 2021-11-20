@@ -11,17 +11,22 @@ def add_doy(image):
     return i
 
 
-def get_world_climate(proj):
-    n = list(range(1, 13))
-    months = [str(x).zfill(2) for x in n]
-    parameters = ['tavg', 'tmin', 'tmax', 'prec']
-    combinations = [(m, p) for m in months for p in parameters]
+def get_world_climate(proj, months, param='prec'):
+    if months[0] > months[1]:
+        months = [x for x in range(months[0], 13)] + [x for x in range(1, months[1] + 1)]
+    else:
+        months = [x for x in range (months[0], months[1] + 1)]
+    months = [str(x).zfill(2) for x in months]
+    assert param in ['tavg', 'prec']
+    combinations = [(m, param) for m in months]
 
-    l = [ee.Image('WORLDCLIM/V1/MONTHLY/{}'.format(m)).select(p).resample('bilinear').reproject(crs=proj['crs'],
-                                                                                                scale=30) for m, p in
-         combinations]
-    # not sure how to do this without initializing the image with a constant
-    i = ee.Image(l)
+    l = [ee.Image('WORLDCLIM/V1/MONTHLY/{}'.format(m)).
+             select(param).resample('bilinear').reproject(crs=proj['crs'],scale=30) for m, p in combinations]
+    i = ee.ImageCollection(l)
+    if param == 'prec':
+        i = i.sum()
+    else:
+        i = i.mean()
     return i
 
 
@@ -119,7 +124,7 @@ def landsat_masked(yr, roi):
     return lsSR_masked
 
 
-def landsat_composites(year, start, end, roi, append_name):
+def landsat_composites(year, start, end, roi, append_name, composites_only=False):
     start_year = datetime.strptime(start, '%Y-%m-%d').year
     if start_year != year:
         year = start_year
@@ -133,19 +138,19 @@ def landsat_composites(year, start, end, roi, append_name):
         return x.expression('NIR / GREEN', {'NIR': x.select('B5'),
                                             'GREEN': x.select('B3')})
 
-    lsSR_night_masked = landsat_masked(year, roi).filterDate(start, end)\
-        .select('B10').median().rename('B10_{}'.format(append_name))
-
+    bands_means = None
     lsSR_masked = landsat_masked(year, roi)
-    bands_means = ee.Image(lsSR_masked.filterDate(start, end).map(
-        lambda x: x.select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
-                           ['B2_{}'.format(append_name),
-                            'B3_{}'.format(append_name),
-                            'B4_{}'.format(append_name),
-                            'B5_{}'.format(append_name),
-                            'B6_{}'.format(append_name),
-                            'B7_{}'.format(append_name)]
-                           )).mean())
+    if not composites_only:
+        bands_means = ee.Image(lsSR_masked.filterDate(start, end).map(
+            lambda x: x.select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B10'],
+                               ['B2_{}'.format(append_name),
+                                'B3_{}'.format(append_name),
+                                'B4_{}'.format(append_name),
+                                'B5_{}'.format(append_name),
+                                'B6_{}'.format(append_name),
+                                'B7_{}'.format(append_name),
+                                'B10_{}'.format(append_name)]
+                               )).mean())
 
     if append_name in ['m2', 'm1', 'cy']:
         ndvi = ee.Image(lsSR_masked.filterDate(start, end).map(
@@ -160,7 +165,11 @@ def landsat_composites(year, start, end, roi, append_name):
         lambda x: evi_(x)).max()).rename('evi_{}'.format(append_name))
     gi = ee.Image(lsSR_masked.filterDate(start, end).map(
         lambda x: gi_(x)).max()).rename('gi_{}'.format(append_name))
-    bands = bands_means.addBands([ndvi, ndwi, evi, gi, lsSR_night_masked])
+
+    if composites_only:
+        bands = ndvi.addBands([ndwi, evi, gi])
+    else:
+        bands = bands_means.addBands([ndvi, ndwi, evi, gi])
 
     return bands
 

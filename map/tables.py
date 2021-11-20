@@ -3,8 +3,8 @@ import os
 from datetime import datetime
 
 from geopandas import GeoDataFrame, read_file
-from numpy import where, sum, nan, std, array, min, max, mean, ones_like, rint, count_nonzero, isnan
-from pandas import read_csv, concat, errors, Series, merge, DataFrame
+from numpy import where, nan, std, min, max, mean, ones_like, rint
+from pandas import read_csv, concat, errors, Series, merge
 from pandas import to_datetime
 from pandas.io.json import json_normalize
 from shapely.geometry import Polygon

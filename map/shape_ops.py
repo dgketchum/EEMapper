@@ -18,11 +18,11 @@ from random import shuffle
 from collections import OrderedDict
 from subprocess import check_call
 
+import numpy as np
 import fiona
 import fiona.crs
 from geopandas import GeoDataFrame, read_file, points_from_xy, clip
 from pandas import DataFrame, read_csv, concat
-# from rasterstats import zonal_stats
 from shapely.geometry import Polygon, Point, mapping, MultiPolygon, shape
 
 CLU_UNNEEDED = ['ca', 'nv', 'ut', 'wa', 'wy']
@@ -246,10 +246,10 @@ def subselect_points_shapefile(shp, out_shp, limit=10000):
 def join_shp_csv(in_shp, csv, out_shp, join_on='FID'):
     with fiona.open(in_shp) as src:
         meta = src.meta
-        features = [{'type': 'Feature', 'properties': {'FID': f['properties']['FID']},
-                   'geometry': f['geometry']} for f in src]
+        features = [f for f in src]
 
     df = read_csv(csv, index_col=join_on)
+    df.drop(columns=['CDL', 'pct'], inplace=True)
     [meta['schema']['properties'].update({col: 'float:19.11'}) for col in df.columns]
     in_feat = len(features)
     ct = 0
@@ -264,21 +264,67 @@ def join_shp_csv(in_shp, csv, out_shp, join_on='FID'):
     print('{} of {} features joined'.format(ct, in_feat))
 
 
+def popper_test(shp, out_shp, threshold=0.79,
+                min_area=325000., min_thresh=0.78):
+    meta = fiona.open(shp).meta
+    meta['schema']['properties']['popper'] = 'float'
+
+    def popper(geometry):
+        p = (4 * np.pi * geometry.area) / (geometry.boundary.length ** 2.)
+        return p
+
+    features = []
+    ct = 0
+    non_polygon = 0
+    popper_ct = 0
+    with fiona.open(shp, 'r') as src:
+        for feat in src:
+            ct += 1
+            geo = shape(feat['geometry'])
+            if not isinstance(geo, Polygon):
+                print(type(geo))
+                non_polygon += 1
+                continue
+            popper_ = float(popper(geo))
+            if threshold > popper_ > min_thresh:
+                feat['properties']['popper'] = popper_
+                popper_ct += 1
+                if popper_ct % 1000 == 0:
+                    print('{} potential polygons of {}, {} non-polygon geometries'.format(popper_ct, ct, non_polygon))
+                features.append(feat)
+    with fiona.open(out_shp, 'w', **meta) as dst:
+        write_ct = 0
+        for i, feat in enumerate(features):
+            try:
+                dst.write(feat)
+                write_ct += 1
+            except:
+                pass
+    print('{} passing objects, {} written, {}'.format(popper_ct, write_ct, out_shp))
+
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     gis = os.path.join('/media/research', 'IrrigationGIS')
-    # inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
-    inspected = os.path.join(gis, 'training_data', 'unirrigated', 'to_merge')
+    if not os.path.exists(gis):
+        gis = '/home/dgketchum/data/IrrigationGIS'
+    inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
+    # inspected = os.path.join(gis, 'training_data', 'unirrigated', 'to_merge')
     files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    out_file = 'dryland_18NOV2021.shp'
+    out_file = 'irrigated_20NOV2021.shp'
     out_ = os.path.join(gis, 'EE_sample', 'wgs', out_file)
-    # fiona_merge_attribute(out_, files_)
-    fiona_merge(out_, files_)
+    fiona_merge_attribute(out_, files_)
+    # fiona_merge(out_, files_)
     aea = os.path.join(gis, 'EE_sample', 'aea', out_file)
     to_aea(out_, aea)
 
-    # c_ = '/media/research/IrrigationGIS/training_data/OR/attr_OR_purity_large.csv'
-    # s = '/media/research/IrrigationGIS/training_data/OR/OR_clu_purity_large.shp'
-    # o = '/media/research/IrrigationGIS/training_data/OR/OR_clu_purity_large_ndvi.shp'
-    # join_shp_csv(s, c_, o)
+    # i = os.path.join(gis, 'training_data', 'unirrigated', 'OR', 'OR_aea.shp')
+    # o = os.path.join(gis, 'training_data', 'unirrigated', 'OR', 'OR_popper.shp')
+    # popper_test(i, o, threshold=1.0, min_thresh=0.85)
+
+    # for y in [2001, 2011, 2013]:
+    #     c_ = os.path.join(gis, 'training_data', 'irrigated', 'OR', 'attr_OR_popper_{}.csv'.format(y))
+    #     s = os.path.join(gis, 'training_data', 'irrigated', 'OR', 'OR_popper.shp')
+    #     o = os.path.join(gis, 'training_data', 'irrigated', 'OR', 'OR_potential_irr_{}.shp'.format(y))
+    #     join_shp_csv(s, c_, o, join_on='FID')
 # ========================= EOF ====================================================================

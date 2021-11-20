@@ -117,12 +117,6 @@ def classify(out_coll, variable_dir, tables, years, glob, state):
     with open(vars, 'r') as fp:
         d = json.load(fp)
     features = [f[0] for f in d[state]]
-    for f in ['elevation', 'slope', 'tpi_150', 'tpi_250', 'tpi_1250']:
-        if f not in features:
-            features.append(f)
-    for f in dec_2020_variables():
-        if f not in features:
-            features.append(f)
     var_txt = os.path.join(variable_dir, '{}_vars.txt'.format(state))
     with open(var_txt, 'w') as fp:
         for f in features:
@@ -145,7 +139,7 @@ def clean_deprecated_data(coll, pt_geo, pt_proj, bucket, check_all=False):
 
 if __name__ == '__main__':
     is_authorized()
-    _glob = '18NOV2021'
+    _glob = '20NOV2021'
     _bucket = 'gs://wudr'
 
     root = '/media/research/IrrigationGIS'
@@ -166,14 +160,14 @@ if __name__ == '__main__':
     tables = 'users/dgketchum/bands/state'
 
     # clean_deprecated_data(coll, pt_wgs, pt_aea, _bucket)
-    for s in ['OR']:
-        to_geographic(pt_aea, pt_wgs, glob=_glob, state=s)
-        push_points_to_asset(pt_wgs, glob=_glob, state=s, bucket=_bucket)
-        # get_bands(pt_aea, _glob, state=s)
+    for s in ['ID', 'OR']:
+        # to_geographic(pt_aea, pt_wgs, glob=_glob, state=s)
+        # push_points_to_asset(pt_wgs, glob=_glob, state=s, bucket=_bucket)
+        get_bands(pt_aea, _glob, state=s)
 
         # concatenate_bands(to_concat, conctenated, glob=_glob, state=s)
         # variable_importance(conctenated, importance_json=imp_json, glob=_glob, state=s)
         # push_bands_to_asset(conctenated, glob=_glob, state=s, bucket=_bucket)
 
-        # classify(coll, imp_json, tables, [x for x in range(2015, 2022)], glob=_glob, state=s)
+        # classify(coll, imp_json, tables, [x for x in range(2016, 2017)], glob=_glob, state=s)
 # ========================= EOF ====================================================================
