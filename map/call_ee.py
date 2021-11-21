@@ -336,6 +336,7 @@ def export_classification(out_name, table, asset_root, region, years,
             revised = [f for f in p if f not in check]
             input_props = ee.List(revised)
             trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
+            exit()
 
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.unmask().classify(trained_model).int().set({

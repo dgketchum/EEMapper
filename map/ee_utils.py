@@ -151,7 +151,7 @@ def landsat_composites(year, start, end, roi, append_name, composites_only=False
                                 'B7_{}'.format(append_name),
                                 'B10_{}'.format(append_name)]
                                )).mean())
-
+    # TODO - doy of max ndvi, growing season mean (or at least period nd means)
     if append_name in ['m2', 'm1', 'cy']:
         ndvi = ee.Image(lsSR_masked.filterDate(start, end).map(
             lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_max_{}'.format(append_name))

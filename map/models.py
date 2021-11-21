@@ -109,8 +109,8 @@ def random_forest(csv, n_estimators=150, out_shape=None):
     return
 
 
-def random_forest_feature_select(csv, n_estimators=100, features=None):
-    df = read_csv(csv, engine='python').sample(frac=0.1)
+def random_forest_feature_select(csv, n_estimators=150, features=None):
+    df = read_csv(csv, engine='python')
     labels = df['POINT_TYPE'].values
     df.drop(columns=['YEAR', 'POINT_TYPE'], inplace=True)
     df.dropna(axis=1, inplace=True)
@@ -314,7 +314,10 @@ def get_confusion_matrix(csv, spec=None):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    MT_ = '/media/research/IrrigationGIS/EE_extracts/concatenated/state/MT_16NOV2021.csv'
+    root = '/media/research/IrrigationGIS'
+    if not os.path.exists(root):
+        root = '/home/dgketchum/data/IrrigationGIS'
+    c = os.path.join(root, 'EE_extracts/concatenated/state/MT_16NOV2021.csv')
     features_ = None
-    find_rf_variable_importance(MT_)
+    find_rf_variable_importance(c)
 # ========================= EOF ====================================================================

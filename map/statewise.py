@@ -1,23 +1,19 @@
 import os
 from subprocess import check_call
 import json
-import time
-from collections import Counter
 from pprint import pprint
 
 import fiona
-from call_ee import TARGET_STATES, E_STATES
 from call_ee import is_authorized, request_band_extract, export_classification
 from tables import concatenate_band_extract
 from models import find_rf_variable_importance
-from variable_importance import dec_2020_variables
 from assets import list_assets
-
-ALL_STATES = TARGET_STATES + E_STATES
+#
+# ALL_STATES = TARGET_STATES + E_STATES
 
 home = os.path.expanduser('~')
-EE = os.path.join(home, 'miniconda3', 'envs', 'gcs', 'bin', 'earthengine')
-GS = os.path.join(home, 'miniconda3', 'envs', 'gcs', 'bin', 'gsutil')
+EE = os.path.join(home, 'miniconda', 'envs', 'gcs', 'bin', 'earthengine')
+GS = os.path.join(home, 'miniconda', 'envs', 'gcs', 'bin', 'gsutil')
 OGR = '/usr/bin/ogr2ogr'
 AEA = '+proj=aea +lat_0=40 +lon_0=-96 +lat_1=20 +lat_2=60 +x_0=0 +y_0=0 +ellps=GRS80 ' \
       '+towgs84=0,0,0,0,0,0,0 +units=m +no_defs'
@@ -65,7 +61,7 @@ def get_bands(pts_dir, glob, state):
 def concatenate_bands(in_dir, out_dir, glob, state):
     print('\n{}\n'.format(state.upper()))
     glob_ = '{}_{}'.format(state, glob)
-    concatenate_band_extract(in_dir, out_dir, glob=glob_)
+    concatenate_band_extract(in_dir, out_dir, glob=glob_, nd_only=True)
 
 
 def push_bands_to_asset(_dir, glob, state, bucket):
@@ -84,22 +80,14 @@ def push_bands_to_asset(_dir, glob, state, bucket):
         print(id_, s)
 
 
-def variable_importance(in_dir, glob, importance_json=None, state=None):
+def variable_importance(in_dir, glob, state, importance_json=None):
     d = {}
-    for s in ALL_STATES:
-        if state and s != state:
-            continue
-        try:
-            print('\n{}\n'.format(s.upper()))
-            csv = os.path.join(in_dir, '{}_{}.csv'.format(s, glob))
-            variables = find_rf_variable_importance(csv)
-            # variables = [x for x in variables[:50]]
-            d[s] = variables
-            print(len(variables))
-            pprint([x[0] for x in variables])
-        except Exception as e:
-            print(s, e)
-            continue
+    print('\n{}\n'.format(s.upper()))
+    csv = os.path.join(in_dir, '{}_{}.csv'.format(s, glob))
+    variables = find_rf_variable_importance(csv)
+    variables = [x for x in variables[:50]]
+    d[s] = variables
+    pprint(variables)
     if importance_json:
         jsn = os.path.join(importance_json, 'variables_{}_{}.json'.format(state, glob))
         with open(jsn, 'w') as fp:
@@ -117,7 +105,7 @@ def classify(out_coll, variable_dir, tables, years, glob, state):
     with open(vars, 'r') as fp:
         d = json.load(fp)
     features = [f[0] for f in d[state]]
-    var_txt = os.path.join(variable_dir, '{}_vars.txt'.format(state))
+    var_txt = os.path.join(variable_dir, '{}_{}_vars.txt'.format(state, glob))
     with open(var_txt, 'w') as fp:
         for f in features:
             fp.write('{}\n'.format(f))
@@ -125,8 +113,7 @@ def classify(out_coll, variable_dir, tables, years, glob, state):
     geo = 'users/dgketchum/boundaries/{}'.format(state)
     export_classification(out_name=state, table=table, asset_root=out_coll, region=geo,
                           years=years, input_props=features, bag_fraction=0.5)
-    hist = sorted(Counter(features).items(), key=lambda x: x[1], reverse=True)
-    pprint(hist)
+    pprint(features)
 
 
 def clean_deprecated_data(coll, pt_geo, pt_proj, bucket, check_all=False):
@@ -139,12 +126,12 @@ def clean_deprecated_data(coll, pt_geo, pt_proj, bucket, check_all=False):
 
 if __name__ == '__main__':
     is_authorized()
-    _glob = '20NOV2021'
+    _glob = '21NOV2021'
     _bucket = 'gs://wudr'
 
     root = '/media/research/IrrigationGIS'
     if not os.path.exists(root):
-        root = '/home/dgketchum/IrrigationGIS'
+        root = '/home/dgketchum/data/IrrigationGIS'
 
     pt = '/media/research/IrrigationGIS/EE_extracts/point_shp'
     pt_wgs = os.path.join(pt, 'state_wgs')
@@ -163,11 +150,11 @@ if __name__ == '__main__':
     for s in ['ID', 'OR']:
         # to_geographic(pt_aea, pt_wgs, glob=_glob, state=s)
         # push_points_to_asset(pt_wgs, glob=_glob, state=s, bucket=_bucket)
-        get_bands(pt_aea, _glob, state=s)
+        # get_bands(pt_aea, _glob, state=s)
 
         # concatenate_bands(to_concat, conctenated, glob=_glob, state=s)
         # variable_importance(conctenated, importance_json=imp_json, glob=_glob, state=s)
         # push_bands_to_asset(conctenated, glob=_glob, state=s, bucket=_bucket)
 
-        # classify(coll, imp_json, tables, [x for x in range(2016, 2017)], glob=_glob, state=s)
+        classify(coll, imp_json, tables, [x for x in range(2018, 2019)], glob=_glob, state=s)
 # ========================= EOF ====================================================================
