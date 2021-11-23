@@ -1,6 +1,8 @@
 import os
 import sys
 from datetime import datetime, date
+
+import numpy as np
 from numpy import ceil, linspace
 from pprint import pprint
 
@@ -58,13 +60,14 @@ TEST_YEARS = [2005]
 ALL_YEARS = [x for x in range(1986, 2021)]
 
 
-def reduce_classification(asset, tables, years=None, description=None, cdl_mask=False, min_years=0):
+def reduce_classification(asset, shapes, years=None, description=None, cdl_mask=False,
+                          min_years=0, props=None, acres=False):
     """
     Reduce Regions, i.e. zonal stats: takes a statistic from a raster within the bounds of a vector.
     Use this to get e.g. irrigated area within a county, HUC, or state. This can mask based on Crop Data Layer,
     and can mask data where the sum of irrigated years is less than min_years. This will output a .csv to
     GCS bucket.
-    :param tables: vector data over which to take raster statistics
+    :param shapes: vector data over which to take raster statistics
     :param years: years over which to run the stats
     :param description: export name append str
     :param cdl_mask:
@@ -72,17 +75,19 @@ def reduce_classification(asset, tables, years=None, description=None, cdl_mask=
     :return:
     """
     sum_mask = None
-    image_list = list_assets(asset)
-    fc = ee.FeatureCollection(tables)
+    fc = ee.FeatureCollection(shapes)
+    # fc = fc.filterMetadata('GEOID', 'equals', '30073')
+    if not props:
+        props = list(fc.first().propertyNames().getInfo())
 
     if min_years > 0:
-        coll = ee.ImageCollection(image_list)
+        coll = ee.ImageCollection(asset)
         sum = ee.ImageCollection(coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum()
         sum_mask = sum.lt(min_years)
 
+    first, input_bands = True, None
     for yr in years:
-        yr_img = [x for x in image_list if x.endswith(str(yr))]
-        coll = ee.ImageCollection(yr_img)
+        coll = ee.ImageCollection(asset).filterDate('{}-01-01'.format(yr), '{}-12-31'.format(yr))
         tot = coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
 
         if cdl_mask and min_years > 0:
@@ -98,19 +103,39 @@ def reduce_classification(asset, tables, years=None, description=None, cdl_mask=
             cdl_crop_mask = cultivated.eq(1)
             tot = tot.mask(cdl_crop_mask)
 
+        _rname = 'IM_{}'.format(yr)
+        props.append(_rname)
         tot = tot.multiply(ee.Image.pixelArea())
-        reduce = tot.reduceRegions(collection=fc,
-                                   reducer=ee.Reducer.sum(),
-                                   scale=30)
-        out_desc = '{}_area_{}'.format(description, yr)
-        task = ee.batch.Export.table.toCloudStorage(
-            reduce,
-            description=out_desc,
-            bucket='wudr',
-            fileNamePrefix=out_desc,
-            fileFormat='CSV')
-        task.start()
-        print(out_desc)
+
+        if acres:
+            tot = tot.divide(4046.86)
+
+        if first:
+            input_bands = tot.rename(_rname)
+            first = False
+        else:
+            tot = tot.rename(_rname)
+            input_bands = input_bands.addBands([tot])
+
+    data = input_bands.reduceRegions(collection=fc,
+                                     reducer=ee.Reducer.sum(),
+                                     scale=30)
+
+    if len(years) == 1:
+        description = '{}_{}'.format(description, years[0])
+        props[-1] = 'sum'
+    if len(years) > 1:
+        description = '{}_{}_{}'.format(description, years[0], years[-1])
+
+    task = ee.batch.Export.table.toCloudStorage(
+        data,
+        description=description,
+        bucket='wudr',
+        fileNamePrefix=description,
+        fileFormat='CSV',
+        selectors=props)
+    task.start()
+    print(description)
 
 
 def get_sr_series(tables, out_name, max_sample=500):
@@ -208,25 +233,25 @@ def attribute_irrigation():
             task.start()
 
 
-def get_ndvi_cultivation_data_polygons(table, years, region, input_props):
+def get_ndvi_cultivation_data_polygons(table, years, region, input_props, southern=False, id_col='FID'):
     """
     Extracts specified data to a polygon shapefile layer.
     :return:
     """
     fc = ee.FeatureCollection(table)
     roi = ee.FeatureCollection(region)
-    props = ['FID', 'CDL', 'pct']
+    props = [id_col]
     input_bands = None
     first = True
     for year in years:
         rname_ = ['{}_{}'.format(x, year) for x in input_props]
         [props.append(rn) for rn in rname_]
         if first:
-            input_bands = stack_bands(year, roi).select(input_props)
+            input_bands = stack_bands(year, roi, southern).select(input_props)
             input_bands = input_bands.rename(rname_)
             first = False
         else:
-            add_bands_ = stack_bands(year, roi).select(input_props)
+            add_bands_ = stack_bands(year, roi, southern).select(input_props)
             add_bands_ = add_bands_.rename(rname_)
             input_bands = input_bands.addBands(add_bands_)
 
@@ -299,7 +324,7 @@ def export_special(coll, roi, description, min_years=5):
 
 
 def export_classification(out_name, table, asset_root, region, years,
-                          export='asset', bag_fraction=0.5, input_props=None):
+                          export='asset', bag_fraction=0.5, input_props=None, southern=False):
     """
     Trains a Random Forest classifier using a training table input, creates a stack of raster images of the same
     features, and classifies it.  I run this over a for-loop iterating state by state.
@@ -327,7 +352,7 @@ def export_classification(out_name, table, asset_root, region, years,
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
     for yr in years:
-        input_bands = stack_bands(yr, roi)
+        input_bands = stack_bands(yr, roi, southern)
 
         b, p = input_bands.bandNames().getInfo(), input_props.getInfo()
         check = [x for x in p if x not in b]
@@ -494,7 +519,7 @@ def request_validation_extract(file_prefix='validation'):
         print(yr)
 
 
-def request_band_extract(file_prefix, points_layer, region, years, filter_bounds=False, buffer=None):
+def request_band_extract(file_prefix, points_layer, region, years, filter_bounds=False, buffer=None, southern=False):
     """
     Extract raster values from a points kml file in Fusion Tables. Send annual extracts .csv to GCS wudr bucket.
     Concatenate them using map.tables.concatenate_band_extract().
@@ -510,7 +535,7 @@ def request_band_extract(file_prefix, points_layer, region, years, filter_bounds
         roi = ee.FeatureCollection([roi])
     plots = ee.FeatureCollection(points_layer)
     for yr in years:
-        stack = stack_bands(yr, roi)
+        stack = stack_bands(yr, roi, southern)
 
         if filter_bounds:
             plots = plots.filterBounds(roi)
@@ -534,10 +559,11 @@ def request_band_extract(file_prefix, points_layer, region, years, filter_bounds
         print(yr)
 
 
-def stack_bands(yr, roi):
+def stack_bands(yr, roi, southern=False):
     """
     Create a stack of bands for the year and region of interest specified.
     :param yr:
+    :param southern
     :param roi:
     :return:
     """
@@ -556,17 +582,30 @@ def stack_bands(yr, roi):
     pprev_s, pprev_e = '{}-05-01'.format(yr - 2), '{}-09-30'.format(yr - 2),
     pp_summer_s, pp_summer_e = '{}-07-15'.format(yr - 2), '{}-09-30'.format(yr - 2)
 
-    periods = [('gs', spring_e, fall_s),
-               ('1', spring_s, spring_e),
-               ('2', late_spring_s, late_spring_e),
-               ('3', summer_s, summer_e),
-               ('4', fall_s, fall_e),
+    if southern:
+        periods = [('gs', winter_s, fall_e),
+                   ('1', winter_s, spring_e),
+                   ('2', late_spring_s, late_spring_e),
+                   ('3', summer_s, summer_e),
+                   ('4', fall_s, fall_e),
 
-               ('m1', prev_s, prev_e),
-               ('3_m1', p_summer_s, p_summer_e),
+                   ('m1', prev_s, prev_e),
+                   ('3_m1', p_summer_s, p_summer_e),
 
-               ('m2', pprev_s, pprev_e),
-               ('3_m2', pp_summer_s, pp_summer_e), ]
+                   ('m2', pprev_s, pprev_e),
+                   ('3_m2', pp_summer_s, pp_summer_e)]
+    else:
+        periods = [('gs', spring_e, fall_s),
+                   ('1', spring_s, spring_e),
+                   ('2', late_spring_s, late_spring_e),
+                   ('3', summer_s, summer_e),
+                   ('4', fall_s, fall_e),
+
+                   ('m1', prev_s, prev_e),
+                   ('3_m1', p_summer_s, p_summer_e),
+
+                   ('m2', pprev_s, pprev_e),
+                   ('3_m2', pp_summer_s, pp_summer_e)]
 
     first = True
     for name, start, end in periods:
@@ -669,13 +708,11 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    # geo = 'users/dgketchum/boundaries/CO'
-    # c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
     # export_special(c, geo, description='CO', min_years=5)
 
     for y in [2001, 2003, 2004, 2007, 2016]:
-        props = ['nd_2', 'nd_3', 'nd_max_gs']
+        props = ['nd_1', 'nd_2', 'nd_3', 'nd_max_gs']
         geo_ = 'users/dgketchum/boundaries/AZ'
         table_ = 'users/dgketchum/to_filter/az_sel_popper_wgs'
-        get_ndvi_cultivation_data_polygons(table_, [y], geo_, props)
+        get_ndvi_cultivation_data_polygons(table_, [y], geo_, props, southern=True, id_col='OBJECTID')
 # ========================= EOF ====================================================================
