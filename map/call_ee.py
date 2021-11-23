@@ -547,16 +547,16 @@ def stack_bands(yr, roi):
     winter_s, winter_e = '{}-01-01'.format(yr), '{}-03-01'.format(yr),
     spring_s, spring_e = '{}-03-01'.format(yr), '{}-05-01'.format(yr),
     late_spring_s, late_spring_e = '{}-05-01'.format(yr), '{}-07-15'.format(yr)
-    summer_s, summer_e = '{}-07-15'.format(yr), '{}-09-01'.format(yr)
-    fall_s, fall_e = '{}-09-01'.format(yr), '{}-12-31'.format(yr)
+    summer_s, summer_e = '{}-07-15'.format(yr), '{}-09-30'.format(yr)
+    fall_s, fall_e = '{}-09-30'.format(yr), '{}-12-31'.format(yr)
 
-    prev_s, prev_e = '{}-01-01'.format(yr - 1), '{}-12-31'.format(yr - 1),
-    p_summer_s, p_summer_e = '{}-07-15'.format(yr - 1), '{}-09-01'.format(yr - 1)
+    prev_s, prev_e = '{}-05-01'.format(yr - 1), '{}-09-30'.format(yr - 1),
+    p_summer_s, p_summer_e = '{}-07-15'.format(yr - 1), '{}-09-30'.format(yr - 1)
 
-    pprev_s, pprev_e = '{}-01-01'.format(yr - 2), '{}-12-31'.format(yr - 2),
-    pp_summer_s, pp_summer_e = '{}-07-15'.format(yr - 2), '{}-09-01'.format(yr - 2)
+    pprev_s, pprev_e = '{}-05-01'.format(yr - 2), '{}-09-30'.format(yr - 2),
+    pp_summer_s, pp_summer_e = '{}-07-15'.format(yr - 2), '{}-09-30'.format(yr - 2)
 
-    periods = [('cy', winter_s, fall_e),
+    periods = [('gs', spring_e, fall_s),
                ('1', spring_s, spring_e),
                ('2', late_spring_s, late_spring_e),
                ('3', summer_s, summer_e),
@@ -574,7 +574,7 @@ def stack_bands(yr, roi):
         bands = landsat_composites(yr, start, end, roi, name, composites_only=prev)
         if first:
             input_bands = bands
-            proj = bands.select('B2_cy').projection().getInfo()
+            proj = bands.select('B2_gs').projection().getInfo()
             first = False
         else:
             input_bands = input_bands.addBands(bands)
@@ -593,7 +593,6 @@ def stack_bands(yr, roi):
     for s, e, n, m in [(spring_s, late_spring_e, 'spr', (3, 8)),
                        (water_year_start, spring_e, 'wy_spr', (10, 5)),
                        (water_year_start, summer_e, 'wy_smr', (10, 9))]:
-
         gridmet = ee.ImageCollection("IDAHO_EPSCOR/GRIDMET").filterBounds(
             roi).filterDate(s, e).select('pr', 'eto', 'tmmn', 'tmmx')
 
@@ -674,9 +673,9 @@ if __name__ == '__main__':
     # c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
     # export_special(c, geo, description='CO', min_years=5)
 
-    for y in [2001, 2011, 2013]:
-        props = ['nd_2', 'nd_3', 'nd_max_cy']
-        geo_ = 'users/dgketchum/boundaries/OR'
-        table_ = 'users/dgketchum/to_filter/OR_popper'
+    for y in [2001, 2003, 2004, 2007, 2016]:
+        props = ['nd_2', 'nd_3', 'nd_max_gs']
+        geo_ = 'users/dgketchum/boundaries/AZ'
+        table_ = 'users/dgketchum/to_filter/az_sel_popper_wgs'
         get_ndvi_cultivation_data_polygons(table_, [y], geo_, props)
 # ========================= EOF ====================================================================

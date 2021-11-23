@@ -12,9 +12,14 @@ from assets import list_assets
 # ALL_STATES = TARGET_STATES + E_STATES
 
 home = os.path.expanduser('~')
-EE = os.path.join(home, 'miniconda', 'envs', 'gcs', 'bin', 'earthengine')
-GS = os.path.join(home, 'miniconda', 'envs', 'gcs', 'bin', 'gsutil')
+conda = os.path.join(home, 'miniconda3', 'envs')
+if not os.path.exists(conda):
+    conda = conda.replace('miniconda3', 'miniconda')
+EE = os.path.join(conda, 'metric', 'bin', 'earthengine')
+GS = os.path.join(conda, 'metric', 'bin', 'gsutil')
+
 OGR = '/usr/bin/ogr2ogr'
+
 AEA = '+proj=aea +lat_0=40 +lon_0=-96 +lat_1=20 +lat_2=60 +x_0=0 +y_0=0 +ellps=GRS80 ' \
       '+towgs84=0,0,0,0,0,0,0 +units=m +no_defs'
 WGS = '+proj=longlat +datum=WGS84 +no_defs'
@@ -61,7 +66,7 @@ def get_bands(pts_dir, glob, state):
 def concatenate_bands(in_dir, out_dir, glob, state):
     print('\n{}\n'.format(state.upper()))
     glob_ = '{}_{}'.format(state, glob)
-    concatenate_band_extract(in_dir, out_dir, glob=glob_, nd_only=True)
+    concatenate_band_extract(in_dir, out_dir, glob=glob_, nd_only=True, test_correlations=False)
 
 
 def push_bands_to_asset(_dir, glob, state, bucket):
@@ -126,14 +131,14 @@ def clean_deprecated_data(coll, pt_geo, pt_proj, bucket, check_all=False):
 
 if __name__ == '__main__':
     is_authorized()
-    _glob = '21NOV2021'
+    _glob = '22NOV2021'
     _bucket = 'gs://wudr'
 
     root = '/media/research/IrrigationGIS'
     if not os.path.exists(root):
         root = '/home/dgketchum/data/IrrigationGIS'
 
-    pt = '/media/research/IrrigationGIS/EE_extracts/point_shp'
+    pt = os.path.join(root, 'EE_extracts/point_shp')
     pt_wgs = os.path.join(pt, 'state_wgs')
     pt_aea = os.path.join(pt, 'state_aea')
 
@@ -147,14 +152,14 @@ if __name__ == '__main__':
     tables = 'users/dgketchum/bands/state'
 
     # clean_deprecated_data(coll, pt_wgs, pt_aea, _bucket)
-    for s in ['ID', 'OR']:
+    for s in ['MT']:
         # to_geographic(pt_aea, pt_wgs, glob=_glob, state=s)
         # push_points_to_asset(pt_wgs, glob=_glob, state=s, bucket=_bucket)
-        # get_bands(pt_aea, _glob, state=s)
+        get_bands(pt_aea, _glob, state=s)
 
         # concatenate_bands(to_concat, conctenated, glob=_glob, state=s)
         # variable_importance(conctenated, importance_json=imp_json, glob=_glob, state=s)
         # push_bands_to_asset(conctenated, glob=_glob, state=s, bucket=_bucket)
 
-        classify(coll, imp_json, tables, [x for x in range(2018, 2019)], glob=_glob, state=s)
+        # classify(coll, imp_json, tables, [x for x in range(2017, 2018)], glob=_glob, state=s)
 # ========================= EOF ====================================================================

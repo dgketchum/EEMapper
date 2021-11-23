@@ -1,6 +1,6 @@
-import ee
-
 from datetime import datetime, timedelta
+
+import ee
 
 
 def add_doy(image):
@@ -15,13 +15,13 @@ def get_world_climate(proj, months, param='prec'):
     if months[0] > months[1]:
         months = [x for x in range(months[0], 13)] + [x for x in range(1, months[1] + 1)]
     else:
-        months = [x for x in range (months[0], months[1] + 1)]
+        months = [x for x in range(months[0], months[1] + 1)]
     months = [str(x).zfill(2) for x in months]
     assert param in ['tavg', 'prec']
     combinations = [(m, param) for m in months]
 
     l = [ee.Image('WORLDCLIM/V1/MONTHLY/{}'.format(m)).
-             select(param).resample('bilinear').reproject(crs=proj['crs'],scale=30) for m, p in combinations]
+             select(param).resample('bilinear').reproject(crs=proj['crs'], scale=30) for m, p in combinations]
     i = ee.ImageCollection(l)
     if param == 'prec':
         i = i.sum()
@@ -152,9 +152,33 @@ def landsat_composites(year, start, end, roi, append_name, composites_only=False
                                 'B10_{}'.format(append_name)]
                                )).mean())
     # TODO - doy of max ndvi, growing season mean (or at least period nd means)
-    if append_name in ['m2', 'm1', 'cy']:
-        ndvi = ee.Image(lsSR_masked.filterDate(start, end).map(
+    if append_name in ['m2', 'm1', 'gs']:
+        ndvi_mx = ee.Image(lsSR_masked.filterDate(start, end).map(
             lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_max_{}'.format(append_name))
+
+        ndvi_mean = ee.Image(lsSR_masked.filterDate(start, end).map(
+            lambda x: x.normalizedDifference(['B5', 'B4'])).mean()).rename('nd_mean_{}'.format(append_name))
+
+        ndvi = lsSR_masked.filterDate(start, end).filter(ee.Filter.dayOfYear(121, 200)) \
+            .map(lambda x: x.select().addBands(x.normalizedDifference(['B5', 'B4'])))
+
+        def add_doy(i):
+            doy = i.date().getRelative('day', 'year')
+            doyBand = ee.Image.constant(doy).uint16().rename('doy')
+            doyBand = doyBand.updateMask(i.select('nd').mask())
+            return i.addBands(doyBand)
+
+        nd_doy = ndvi.map(add_doy)
+
+        def add_quality_mosic(band):
+            _max = nd_doy.qualityMosaic(band)
+            doy = _max.select(['doy']).rename('doy_{}'.format(append_name))
+            return doy
+
+        ndvi_doy = add_quality_mosic('nd')
+
+        ndvi = ndvi_mx.addBands([ndvi_mean, ndvi_doy])
+
     else:
         ndvi = ee.Image(lsSR_masked.filterDate(start, end).map(
             lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_{}'.format(append_name))

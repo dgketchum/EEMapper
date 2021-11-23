@@ -6,7 +6,7 @@ from subprocess import call
 from copy import deepcopy
 
 from numpy import dot, mean, flatnonzero, ones_like, where, zeros_like
-from pandas import read_csv, concat
+from pandas import read_csv, concat, DataFrame
 from scipy.stats import randint as sp_randint
 from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestClassifier
@@ -60,11 +60,14 @@ def pca(csv):
 
 
 def random_forest(csv, n_estimators=150, out_shape=None):
-    print('\n', csv)
-    c = read_csv(csv, engine='python').sample(frac=1.0).reset_index(drop=True)
+    if not isinstance(csv, DataFrame):
+        print('\n', csv)
+        c = read_csv(csv, engine='python').sample(frac=1.0).reset_index(drop=True)
+    else:
+        c = csv
     # c = c[c['POINT_TYPE'] != 1]
-    # c = c[c['POINT_TYPE'] != 2]
-    # c = c[c['POINT_TYPE'] != 3]
+    c[c['POINT_TYPE'] == 2] = 1
+    c[c['POINT_TYPE'] == 3] = 1
 
     split = int(c.shape[0] * 0.7)
 
@@ -153,7 +156,7 @@ def find_rf_variable_importance(csv):
     master = {}
     df = read_csv(csv, engine='python')
     # df = df[(df['POINT_TYPE'] == 0) | (df['POINT_TYPE'] == 1)]
-
+    original = deepcopy(df)
     labels = list(df['POINT_TYPE'].values)
     df.drop(columns=['YEAR', 'POINT_TYPE'], inplace=True)
     df.dropna(axis=1, inplace=True)
@@ -182,6 +185,12 @@ def find_rf_variable_importance(csv):
 
     master = list(master.items())
     master = sorted(master, key=lambda x: x[1], reverse=True)
+    print('\nall features')
+    random_forest(original)
+    print('\ntop 50 features')
+    carry_features = [x[0] for x in master[:50]] + ['POINT_TYPE', 'YEAR']
+    original = original[carry_features]
+    random_forest(original)
     return master
 
 

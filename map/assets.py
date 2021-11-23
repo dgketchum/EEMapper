@@ -28,11 +28,9 @@ def change_permissions(ee_asset, user=None):
 
 
 def copy_asset(ee_asset, dst):
-    reader = list_assets(ee_asset)
-    for r in reader:
-        cmd = ['{}'.format(EXEC), 'cp', '{}'.format(r), '{}'.format(os.path.join(dst, os.path.basename(r)))]
-        print(cmd)
-        check_call(cmd)
+    cmd = ['{}'.format(EXEC), 'cp', ee_asset, dst]
+    print(cmd)
+    check_call(cmd)
 
 
 def duplicate_asset(ee_asset):
@@ -235,13 +233,17 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-    # o = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
+    c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
+    o = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
     l = list_assets(c)
     for i in l:
-        if '_CO_' in i:
-            delete_asset(i)
-            # o_name = i.replace(c, o)
-            # move_asset(i, o_name)
+        if 'CO_' in i:
+            try:
+                y = i[-4:]
+                o_name = os.path.join(o, 'IM_CO_{}'.format(y))
+                copy_asset(i, o_name)
+            except Exception as e:
+                print(e, i)
+                pass
 
 # ========================= EOF ====================================================================

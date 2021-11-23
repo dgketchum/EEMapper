@@ -308,23 +308,25 @@ if __name__ == '__main__':
     gis = os.path.join('/media/research', 'IrrigationGIS')
     if not os.path.exists(gis):
         gis = '/home/dgketchum/data/IrrigationGIS'
-    inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
+    # inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
     # inspected = os.path.join(gis, 'training_data', 'unirrigated', 'to_merge')
+    inspected = os.path.join(gis, 'training_data', 'wetlands', 'to_merge')
     files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    out_file = 'irrigated_20NOV2021.shp'
-    out_ = os.path.join(gis, 'EE_sample', 'wgs', out_file)
-    fiona_merge_attribute(out_, files_)
-    # fiona_merge(out_, files_)
-    aea = os.path.join(gis, 'EE_sample', 'aea', out_file)
+    out_file = 'wetlands_22NOV2021.shp'
+    out_ = os.path.join(gis, 'compiled_training_data', 'wgs', out_file)
+    # fiona_merge_attribute(out_, files_)
+    fiona_merge(out_, files_)
+    aea = os.path.join(gis, 'compiled_training_data', 'aea', out_file)
     to_aea(out_, aea)
 
-    # i = os.path.join(gis, 'training_data', 'unirrigated', 'OR', 'OR_aea.shp')
-    # o = os.path.join(gis, 'training_data', 'unirrigated', 'OR', 'OR_popper.shp')
+
+    # i = os.path.join(gis, 'training_data', 'irrigated', 'AZ', 'az_se_22NOV2021', 'az_sel.shp')
+    # o = os.path.join(gis, 'training_data', 'irrigated', 'AZ', 'az_se_22NOV2021', 'az_sel_popper.shp')
     # popper_test(i, o, threshold=1.0, min_thresh=0.85)
 
-    # for y in [2001, 2011, 2013]:
-    #     c_ = os.path.join(gis, 'training_data', 'irrigated', 'OR', 'attr_OR_popper_{}.csv'.format(y))
-    #     s = os.path.join(gis, 'training_data', 'irrigated', 'OR', 'OR_popper.shp')
-    #     o = os.path.join(gis, 'training_data', 'irrigated', 'OR', 'OR_potential_irr_{}.shp'.format(y))
+    # for y in [2015, 2018, 2021]:
+    #     c_ = os.path.join(gis, 'training_data', 'irrigated', 'OR', 'attr_OR_purity_large_{}.csv'.format(y))
+    #     s = os.path.join(gis, 'training_data', 'irrigated', 'OR', 'OR_clu_purity_large.shp')
+    #     o = os.path.join(gis, 'training_data', 'irrigated', 'OR', 'OR_clu_purity_large_{}.shp'.format(y))
     #     join_shp_csv(s, c_, o, join_on='FID')
 # ========================= EOF ====================================================================

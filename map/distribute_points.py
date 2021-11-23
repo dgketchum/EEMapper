@@ -238,24 +238,24 @@ class PointsRunspec(object):
 if __name__ == '__main__':
     # home = os.path.expanduser('~')
     home = '/media/research/IrrigationGIS'
-    data = os.path.join(home, 'EE_sample', 'aea')
+    data = os.path.join(home, 'compiled_training_data', 'aea')
 
     FALLOW = os.path.join(data, 'fallow_7NOV2021.shp')
-    IRRIGATED = os.path.join(data, 'irrigated_20NOV2021.shp')
+    IRRIGATED = os.path.join(data, 'irrigated_22NOV2021.shp')
     UNCULTIVATED = os.path.join(data, 'uncultivated_11JAN2021.shp')
     UNIRRIGATED = os.path.join(data, 'dryland_20NOV2021.shp')
     WETLAND = os.path.join(data, 'wetlands_9NOV2021.shp')
 
     for state in ALL_STATES:
         try:
-            if state not in ['ID', 'OR']:
+            if state not in ['MT']:
                 continue
             print('\nDist Points ', state)
             intersect_shape = '/media/research/IrrigationGIS/boundaries/states_tiger_aea/{}.shp'.format(state)
-            exclude = '/media/research/IrrigationGIS/EE_sample/grids_aea/valid_grid.shp'
+            exclude = '/media/research/IrrigationGIS/compiled_training_data/grids_aea/valid_grid.shp'
 
             kwargs = {
-                'irrigated': 6000,
+                'irrigated': 10000,
                 'wetlands': 6000,
                 'uncultivated': 6000,
                 'intersect': intersect_shape,
@@ -269,7 +269,7 @@ if __name__ == '__main__':
                 kwargs['unirrigated'] = 6000
 
             out_name = os.path.join(home, 'EE_extracts', 'point_shp',
-                                    'state_aea', 'points_{}_20NOV2021.shp'.format(state))
+                                    'state_aea', 'points_{}_22NOV2021.shp'.format(state))
             prs = PointsRunspec(data, buffer=-20, **kwargs)
             prs.save_sample_points(out_name)
         except Exception as e:
