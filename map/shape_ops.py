@@ -249,18 +249,18 @@ def join_shp_csv(in_shp, csv, out_shp, join_on='FID'):
         features = [f for f in src]
 
     df = read_csv(csv, index_col=join_on)
-    df.drop(columns=['CDL', 'pct'], inplace=True)
     [meta['schema']['properties'].update({col: 'float:19.11'}) for col in df.columns]
     in_feat = len(features)
     ct = 0
     with fiona.open(out_shp, 'w', **meta) as output:
         for feat in features:
             try:
-                feat['properties'].update(df.loc[feat['properties']['FID']])
+                _id = feat['properties'][join_on]
+                feat['properties'].update(df.loc[_id])
                 output.write(feat)
                 ct += 1
             except Exception as e:
-                print(feat['properties']['FID'], e)
+                print(feat['properties'][join_on], e)
     print('{} of {} features joined'.format(ct, in_feat))
 
 
@@ -315,18 +315,17 @@ if __name__ == '__main__':
     out_file = 'wetlands_22NOV2021.shp'
     out_ = os.path.join(gis, 'compiled_training_data', 'wgs', out_file)
     # fiona_merge_attribute(out_, files_)
-    fiona_merge(out_, files_)
-    aea = os.path.join(gis, 'compiled_training_data', 'aea', out_file)
-    to_aea(out_, aea)
-
+    # fiona_merge(out_, files_)
+    # aea = os.path.join(gis, 'compiled_training_data', 'aea', out_file)
+    # to_aea(out_, aea)
 
     # i = os.path.join(gis, 'training_data', 'irrigated', 'AZ', 'az_se_22NOV2021', 'az_sel.shp')
     # o = os.path.join(gis, 'training_data', 'irrigated', 'AZ', 'az_se_22NOV2021', 'az_sel_popper.shp')
     # popper_test(i, o, threshold=1.0, min_thresh=0.85)
 
-    # for y in [2015, 2018, 2021]:
-    #     c_ = os.path.join(gis, 'training_data', 'irrigated', 'OR', 'attr_OR_purity_large_{}.csv'.format(y))
-    #     s = os.path.join(gis, 'training_data', 'irrigated', 'OR', 'OR_clu_purity_large.shp')
-    #     o = os.path.join(gis, 'training_data', 'irrigated', 'OR', 'OR_clu_purity_large_{}.shp'.format(y))
-    #     join_shp_csv(s, c_, o, join_on='FID')
+    for y in [2001, 2003, 2004, 2007, 2016]:
+        c_ = os.path.join(gis, 'training_data', 'irrigated', 'AZ', 'az_se_22NOV2021', 'attr_az_sel_popper_wgs_{}.csv'.format(y))
+        s = os.path.join(gis, 'training_data', 'irrigated', 'AZ', 'az_se_22NOV2021', 'az_sel_popper_wgs.shp')
+        o = os.path.join(gis, 'training_data', 'irrigated', 'AZ', 'az_se_22NOV2021', 'az_early_sel_popper_wgs_{}.shp'.format(y))
+        join_shp_csv(s, c_, o, join_on='OBJECTID')
 # ========================= EOF ====================================================================

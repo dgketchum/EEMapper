@@ -1,35 +1,13 @@
-# ===============================================================================
-# Copyright 2018 dgketchum
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ===============================================================================
-
-import json
 import os
 from copy import deepcopy
-
-import matplotlib.pyplot as plt
-from geopandas import GeoDataFrame
-from numpy import nan
-from pandas import read_table, read_csv, DataFrame, Series, concat
-from pandas.io.json import json_normalize
-
-from map.tables import to_polygon
+import numpy as np
+from pandas import read_table, read_csv, concat
+import fiona
 
 DROP = ['SOURCE_DESC', 'SECTOR_DESC', 'GROUP_DESC',
         'COMMODITY_DESC', 'CLASS_DESC', 'PRODN_PRACTICE_DESC',
         'UTIL_PRACTICE_DESC', 'STATISTICCAT_DESC', 'UNIT_DESC',
-        'SHORT_DESC', 'DOMAIN_DESC', 'DOMAINCAT_DESC',  'STATE_FIPS_CODE',
+        'SHORT_DESC', 'DOMAIN_DESC', 'DOMAINCAT_DESC', 'STATE_FIPS_CODE',
         'ASD_CODE', 'ASD_DESC', 'COUNTY_ANSI',
         'REGION_DESC', 'ZIP_5', 'WATERSHED_CODE',
         'WATERSHED_DESC', 'CONGR_DISTRICT_CODE', 'COUNTRY_CODE',
@@ -38,10 +16,16 @@ DROP = ['SOURCE_DESC', 'SECTOR_DESC', 'GROUP_DESC',
         'WEEK_ENDING', 'LOAD_TIME', 'VALUE', 'AGG_LEVEL_DESC',
         'CV_%', 'STATE_ALPHA', 'STATE_NAME', 'COUNTY_NAME']
 
-
 TSV = {1987: ('DS0041/35206-0041-Data.tsv', 'ITEM01018', 'FLAG01018'),
        1992: ('DS0042/35206-0042-Data.tsv', 'ITEM010018', 'FLAG010018'),
        1997: ('DS0043/35206-0043-Data.tsv', 'ITEM01019', 'FLAG01019')}
+
+TARGET_STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
+E_STATES = ['ND', 'SD', 'NE', 'KS', 'OK', 'TX']
+STATES = TARGET_STATES + E_STATES
+
+INT_COLS = ['STATE_ANSI', 'COUNTY_CODE']
+FLOAT_COLS = ['VALUE_1987', 'VALUE_1992', 'VALUE_1997', 'VALUE_2002', 'VALUE_2007', 'VALUE_2012', 'VALUE_2017']
 
 
 def get_old_nass(_dir, out_file):
@@ -106,7 +90,7 @@ def get_nass(csv, out_file, old_nass=None):
                 (df['UNIT_DESC'] == 'ACRES') &
                 (df['SHORT_DESC'] == 'AG LAND, IRRIGATED - ACRES') &
                 (df['DOMAIN_DESC'] == 'TOTAL')]
-        df['VALUE'] = df['VALUE'].map(lambda x: nan if 'D' in x else int(x.replace(',', '')))
+        df['VALUE'] = df['VALUE'].map(lambda x: np.nan if 'D' in x else int(x.replace(',', '')))
         if first:
             first = False
             new_nass = deepcopy(df)
@@ -143,28 +127,64 @@ def merge_nass_irrmapper(nass, irrmapper, out_name):
     df.to_csv(out_name)
 
 
+def nass_shapefile(counties, out_shp, nass_data, irr_data, states):
+    with fiona.open(counties) as src:
+        meta = src.meta
+        features = []
+        for f in src:
+            f['properties']['FIPS'] = int(f['properties']['GEOID'])
+            features.append(f)
+
+    idf = read_csv(irr_data, index_col='GEOID')
+    df = read_csv(nass_data, index_col='FIPS')
+    idx = [i for i, x in enumerate(df.ST_CNTY_STR) if isinstance(x, str)]
+    df = df.iloc[idx]
+    df = df.iloc[[i for i, x in enumerate(df.index) if np.isfinite(x)]]
+    df.index = [int(i) for i in df.index]
+    df['FIPS'] = df.index
+    for c in df.columns:
+        if c in INT_COLS:
+            df[c] = df[c].astype(int, copy=True)
+        elif c in FLOAT_COLS:
+            df[c] = df[c].astype(float, copy=True)
+        else:
+            df[c] = df[c].astype(str, copy=True)
+    df = df.fillna(0)
+    cols = list(df.columns) + list(idf.columns)
+    [meta['schema']['properties'].update({col: 'int'}) for col in cols]
+    in_feat = len(features)
+    ct = 0
+    with fiona.open(out_shp, 'w', **meta) as output:
+        for feat in features:
+            try:
+                fips = feat['properties']['FIPS']
+                _ = df.loc[int(fips)].to_dict()
+                update = {}
+                for k, v in _.items():
+                    try:
+                        update[k] = v.item()
+                    except AttributeError:
+                        update[k] = v
+                feat['properties'].update(update)
+                feat['properties']['sum'] = idf.loc[fips]['sum'].item()
+                output.write(feat)
+                ct += 1
+            except Exception as e:
+                print(feat['properties']['FIPS'], e)
+    print('{} of {} features joined'.format(ct, in_feat))
+
+
 if __name__ == '__main__':
-    home = os.path.expanduser('~')
+    root = '/media/research/IrrigationGIS'
+    if not os.path.exists(root):
+        root = '/home/dgketchum/data/IrrigationGIS'
 
-    nass_tables = os.path.join(home, 'IrrigationGIS', 'time_series', 'exports_county')
-    irr_tables = os.path.join(nass_tables, 'counties_v2', 'noCdlMask_minYr5')
-
-    old_data = os.path.join(nass_tables, 'old_nass.csv')
-    old_data_dir = os.path.join(nass_tables, 'ICPSR_35206')
-
-    # get_old_nass(old_data_dir, out_file=old_data)
-    _files = [os.path.join(nass_tables, x) for x in ['qs.census2002.txt',
-                                                     'qs.census2007.txt',
-                                                     'qs.census2012.txt',
-                                                     'qs.census2017.txt']]
+    nass_tables = os.path.join(root, 'nass_data')
     merged = os.path.join(nass_tables, 'nass_merged.csv')
-    # get_nass(_files, merged, old_nass=old_data)
-
-    irr = os.path.join(irr_tables, 'irr_merged.csv')
+    irr_extract = os.path.join(nass_tables, 'co_sw_23NOV2021_2017.csv')
     nass = os.path.join(nass_tables, 'nass_merged.csv')
 
-    o = os.path.join(irr_tables, 'nass_irrMap.csv')
-
-    merge_nass_irrmapper(nass, irr, o)
-
+    co_shp = os.path.join(root, 'boundaries', 'counties', 'western_17_states_counties_wgs.shp')
+    o_shp = os.path.join(nass_tables, 'nass_counties.shp')
+    nass_shapefile(co_shp, o_shp, merged, irr_extract, STATES)
 # ========================= EOF ====================================================================
