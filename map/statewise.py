@@ -39,17 +39,20 @@ def to_geographic(in_dir, out_dir, glob, state):
 
 
 def push_points_to_asset(_dir, glob, state, bucket):
-    local_f = os.path.join(_dir, 'points_{}_{}.shp'.format(state, glob))
+    local_files = [os.path.join(_dir, 'points_{}_{}.{}'.format(state, glob, ext)) for ext in
+                   ['shp', 'prj', 'shx', 'dbf']]
     bucket = os.path.join(bucket, 'state_points')
-    _file = os.path.join(bucket, 'points_{}_{}.shp'.format(state, glob))
-    cmd = [GS, 'cp', local_f, _file]
-    check_call(cmd)
+    bucket_files = [os.path.join(bucket, 'points_{}_{}.{}'.format(state, glob, ext)) for ext in
+                    ['shp', 'prj', 'shx', 'dbf']]
+    for lf, bf in zip(local_files, bucket_files):
+        cmd = [GS, 'cp', lf, bf]
+        check_call(cmd)
 
-    asset_id = os.path.basename(local_f).split('.')[0]
-    ee_root = 'users/dgketchum/points/state/'
-    cmd = [EE, 'upload', 'table', '-f', '--asset_id={}{}'.format(ee_root, asset_id), _file]
+    asset_id = os.path.basename(bucket_files[0]).split('.')[0]
+    ee_root = 'users/dgketchum/points/state/{}'.format(asset_id)
+    cmd = [EE, 'upload', 'table', '-f', '--asset_id={}{}'.format(ee_root, asset_id), bucket_files[0]]
     check_call(cmd)
-    print(asset_id, _file)
+    print(asset_id, bucket_files[0])
 
 
 def get_bands(pts_dir, glob, state, southern=False):
@@ -63,10 +66,11 @@ def get_bands(pts_dir, glob, state, southern=False):
     request_band_extract(file_, pts, region=geo, years=years, filter_bounds=True, buffer=1e5, southern=southern)
 
 
-def concatenate_bands(in_dir, out_dir, glob, state):
+def concatenate_bands(in_dir, out_dir, glob, state, southern=False):
     print('\n{}\n'.format(state.upper()))
     glob_ = '{}_{}'.format(state, glob)
-    concatenate_band_extract(in_dir, out_dir, glob=glob_, nd_only=True, test_correlations=False)
+    concatenate_band_extract(in_dir, out_dir, glob=glob_, nd_only=True,
+                             test_correlations=False, southern=southern)
 
 
 def push_bands_to_asset(_dir, glob, state, bucket):
@@ -99,12 +103,6 @@ def variable_importance(in_dir, glob, state, importance_json=None):
             fp.write(json.dumps(d, indent=4, sort_keys=True))
 
 
-def remove_image(image):
-    cmd = [EE, 'rm', image]
-    check_call(cmd)
-    print('remove ', image)
-
-
 def classify(out_coll, variable_dir, tables, years, glob, state, southern=False):
     vars = os.path.join(variable_dir, 'variables_{}_{}.json'.format(state, glob))
     with open(vars, 'r') as fp:
@@ -123,7 +121,7 @@ def classify(out_coll, variable_dir, tables, years, glob, state, southern=False)
 
 if __name__ == '__main__':
     is_authorized()
-    _glob = '22NOV2021'
+    _glob = '24NOV2021'
     _bucket = 'gs://wudr'
     south = False
     root = '/media/research/IrrigationGIS'
@@ -147,12 +145,12 @@ if __name__ == '__main__':
         if s in ['AZ', 'CA']:
             south = True
         # to_geographic(pt_aea, pt_wgs, glob=_glob, state=s)
-        # push_points_to_asset(pt_wgs, glob=_glob, state=s, bucket=_bucket)
+        push_points_to_asset(pt_wgs, glob=_glob, state=s, bucket=_bucket)
         # get_bands(pt_aea, _glob, state=s, southern=south)
 
-        # concatenate_bands(to_concat, conctenated, glob=_glob, state=s)
+        # concatenate_bands(to_concat, conctenated, glob=_glob, state=s, southern=south)
         # variable_importance(conctenated, importance_json=imp_json, glob=_glob, state=s)
         # push_bands_to_asset(conctenated, glob=_glob, state=s, bucket=_bucket)
 
-        classify(coll, imp_json, tables, [x for x in range(2017, 2018)], glob=_glob, state=s, southern=south)
+        # classify(coll, imp_json, tables, [x for x in range(2017, 2018)], glob=_glob, state=s, southern=south)
 # ========================= EOF ====================================================================
