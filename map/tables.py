@@ -97,7 +97,7 @@ def concatenate_county_data(folder, out_file, glob='counties', acres=False):
 
 
 def concatenate_band_extract(root, out_dir, glob='None', sample=None, test_correlations=False,
-                             select=None, binary=False, fallow=False, nd_only=False):
+                             select=None, binary=False, fallow=False, nd_only=False, southern=False):
     l = [os.path.join(root, x) for x in os.listdir(root) if glob in x]
     l.sort()
     first = True
@@ -136,12 +136,27 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, test_corre
 
     points = df['POINT_TYPE'].values
     nines = ones_like(points) * 9
-    # points = where((df.POINT_TYPE == 0) & (df.nd_max_cy < 0.75), nines, points)
-    # points = where((df.POINT_TYPE == 1) & (df.nd_max_cy > 0.88), nines, points)
+
+    if 'nd_max_gs' in df.columns:
+        points = where((df.POINT_TYPE == 0) & (df.nd_max_gs < 0.68), nines, points)
+        points = where((df.POINT_TYPE == 1) & (df.nd_max_gs > 0.68), nines, points)
+    else:
+        points = where((df.POINT_TYPE == 0) & (df.nd_max_cy < 0.68), nines, points)
+        points = where((df.POINT_TYPE == 1) & (df.nd_max_cy > 0.68), nines, points)
+
+    # previous year's data is not needed in areas without dryland agriculture
+    if southern:
+        cols = list(df.columns)
+        cols_ = []
+        for c in cols:
+            if '_m1' in c or '_m2' in c:
+                continue
+            cols_.append(c)
+        df = df[cols_]
 
     df['POINT_TYPE'] = points
     print(df['POINT_TYPE'].value_counts())
-    # points = where((df['POINT_TYPE'] == 4) & (df['nd_max_gs'] > 0.6), nines, points)
+    points = where((df['POINT_TYPE'] == 4) & (df['nd_max_gs'] > 0.6), nines, points)
 
     df['POINT_TYPE'] = points
     df = df[df['POINT_TYPE'] != 9]

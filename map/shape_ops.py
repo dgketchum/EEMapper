@@ -46,7 +46,7 @@ def fiona_merge(out_shp, file_list):
     meta = fiona.open(file_list[0]).meta
     meta['schema'] = {'type': 'Feature', 'properties': OrderedDict(
         [('FID', 'int:9'), ('SOURCE', 'str:80')]), 'geometry': 'Polygon'}
-    ct = 1
+    ct, bad_geo = 1, 0
     with fiona.open(out_shp, 'w', **meta) as output:
         for s in file_list:
             sub_ct = 0
@@ -59,7 +59,7 @@ def fiona_merge(out_shp, file_list):
                     continue
                 geo = feat['geometry']
                 if geo['type'] != 'Polygon':
-                    print(geo['type'])
+                    bad_geo += 1
                     continue
                 feat = {'type': 'Feature', 'properties': {'FID': ct, 'SOURCE': src},
                         'geometry': geo}
@@ -68,7 +68,7 @@ def fiona_merge(out_shp, file_list):
                 sub_ct += 1
             print('{} features in {}'.format(sub_ct, s))
 
-    print('{} features'.format(ct))
+    print('{} features, {} non-polygons'.format(ct, bad_geo))
 
 
 def fiona_merge_attribute(out_shp, file_list):
@@ -100,6 +100,12 @@ def to_aea(in_shp, out_shp):
     cmd = [OGR, '-f', 'ESRI Shapefile', '-s_srs', WGS, '-t_srs', AEA, out_shp, in_shp]
     check_call(cmd)
     print('projected ', os.path.basename(out_shp))
+
+
+def to_geographic(in_shp, out_shp):
+    cmd = [OGR, '-f', 'ESRI Shapefile', '-t_srs', WGS, '-s_srs', AEA, out_shp, in_shp]
+    check_call(cmd)
+    print('de-projected ', os.path.basename(out_shp))
 
 
 def get_area(shp, intersect_shape=None, add_duplicate_area=True):
@@ -310,22 +316,14 @@ if __name__ == '__main__':
         gis = '/home/dgketchum/data/IrrigationGIS'
     # inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
     # inspected = os.path.join(gis, 'training_data', 'unirrigated', 'to_merge')
-    inspected = os.path.join(gis, 'training_data', 'wetlands', 'to_merge')
+    inspected = os.path.join(gis, 'training_data', 'uncultivated', 'to_merge')
+    # inspected = os.path.join(gis, 'training_data', 'wetlands', 'to_merge')
     files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    out_file = 'wetlands_22NOV2021.shp'
+    out_file = 'uncultivated_24NOV2021.shp'
     out_ = os.path.join(gis, 'compiled_training_data', 'wgs', out_file)
     # fiona_merge_attribute(out_, files_)
-    # fiona_merge(out_, files_)
-    # aea = os.path.join(gis, 'compiled_training_data', 'aea', out_file)
-    # to_aea(out_, aea)
+    fiona_merge(out_, files_)
+    aea = os.path.join(gis, 'compiled_training_data', 'aea', out_file)
+    to_aea(out_, aea)
 
-    # i = os.path.join(gis, 'training_data', 'irrigated', 'AZ', 'az_se_22NOV2021', 'az_sel.shp')
-    # o = os.path.join(gis, 'training_data', 'irrigated', 'AZ', 'az_se_22NOV2021', 'az_sel_popper.shp')
-    # popper_test(i, o, threshold=1.0, min_thresh=0.85)
-
-    for y in [2001, 2003, 2004, 2007, 2016]:
-        c_ = os.path.join(gis, 'training_data', 'irrigated', 'AZ', 'az_se_22NOV2021', 'attr_az_sel_popper_wgs_{}.csv'.format(y))
-        s = os.path.join(gis, 'training_data', 'irrigated', 'AZ', 'az_se_22NOV2021', 'az_sel_popper_wgs.shp')
-        o = os.path.join(gis, 'training_data', 'irrigated', 'AZ', 'az_se_22NOV2021', 'az_early_sel_popper_wgs_{}.shp'.format(y))
-        join_shp_csv(s, c_, o, join_on='OBJECTID')
 # ========================= EOF ====================================================================

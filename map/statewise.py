@@ -49,8 +49,8 @@ def push_points_to_asset(_dir, glob, state, bucket):
         check_call(cmd)
 
     asset_id = os.path.basename(bucket_files[0]).split('.')[0]
-    ee_root = 'users/dgketchum/points/state/{}'.format(asset_id)
-    cmd = [EE, 'upload', 'table', '-f', '--asset_id={}{}'.format(ee_root, asset_id), bucket_files[0]]
+    ee_dst = 'users/dgketchum/points/state/{}'.format(asset_id)
+    cmd = [EE, 'upload', 'table', '-f', '--asset_id={}'.format(ee_dst), bucket_files[0]]
     check_call(cmd)
     print(asset_id, bucket_files[0])
 
@@ -145,12 +145,12 @@ if __name__ == '__main__':
         if s in ['AZ', 'CA']:
             south = True
         # to_geographic(pt_aea, pt_wgs, glob=_glob, state=s)
-        push_points_to_asset(pt_wgs, glob=_glob, state=s, bucket=_bucket)
+        # push_points_to_asset(pt_wgs, glob=_glob, state=s, bucket=_bucket)
         # get_bands(pt_aea, _glob, state=s, southern=south)
 
         # concatenate_bands(to_concat, conctenated, glob=_glob, state=s, southern=south)
         # variable_importance(conctenated, importance_json=imp_json, glob=_glob, state=s)
         # push_bands_to_asset(conctenated, glob=_glob, state=s, bucket=_bucket)
 
-        # classify(coll, imp_json, tables, [x for x in range(2017, 2018)], glob=_glob, state=s, southern=south)
+        classify(coll, imp_json, tables, [x for x in range(2017, 2018)], glob=_glob, state=s, southern=south)
 # ========================= EOF ====================================================================
