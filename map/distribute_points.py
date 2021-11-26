@@ -242,7 +242,7 @@ if __name__ == '__main__':
     data = os.path.join(home, 'compiled_training_data', 'aea')
 
     FALLOW = os.path.join(data, 'fallow_7NOV2021.shp')
-    IRRIGATED = os.path.join(data, 'irrigated_22NOV2021.shp')
+    IRRIGATED = os.path.join(data, 'irrigated_26NOV2021.shp')
     UNCULTIVATED = os.path.join(data, 'uncultivated_24NOV2021.shp')
     UNIRRIGATED = os.path.join(data, 'dryland_20NOV2021.shp')
     WETLAND = os.path.join(data, 'wetlands_9NOV2021.shp')

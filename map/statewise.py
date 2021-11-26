@@ -152,5 +152,5 @@ if __name__ == '__main__':
         # variable_importance(conctenated, importance_json=imp_json, glob=_glob, state=s)
         # push_bands_to_asset(conctenated, glob=_glob, state=s, bucket=_bucket)
 
-        classify(coll, imp_json, tables, [x for x in range(2017, 2018)], glob=_glob, state=s, southern=south)
+        # classify(coll, imp_json, tables, [x for x in range(2017, 2018)], glob=_glob, state=s, southern=south)
 # ========================= EOF ====================================================================

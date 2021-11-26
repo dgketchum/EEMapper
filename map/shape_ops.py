@@ -314,15 +314,15 @@ if __name__ == '__main__':
     gis = os.path.join('/media/research', 'IrrigationGIS')
     if not os.path.exists(gis):
         gis = '/home/dgketchum/data/IrrigationGIS'
-    # inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
+    inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
     # inspected = os.path.join(gis, 'training_data', 'unirrigated', 'to_merge')
-    inspected = os.path.join(gis, 'training_data', 'uncultivated', 'to_merge')
+    # inspected = os.path.join(gis, 'training_data', 'uncultivated', 'to_merge')
     # inspected = os.path.join(gis, 'training_data', 'wetlands', 'to_merge')
     files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    out_file = 'uncultivated_24NOV2021.shp'
+    out_file = 'irrigated_26NOV2021.shp'
     out_ = os.path.join(gis, 'compiled_training_data', 'wgs', out_file)
-    # fiona_merge_attribute(out_, files_)
-    fiona_merge(out_, files_)
+    fiona_merge_attribute(out_, files_)
+    # fiona_merge(out_, files_)
     aea = os.path.join(gis, 'compiled_training_data', 'aea', out_file)
     to_aea(out_, aea)
 
