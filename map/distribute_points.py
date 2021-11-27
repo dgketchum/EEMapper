@@ -37,57 +37,48 @@ class PointsRunspec(object):
         self.class_type = None
         self.intersect_buffer = None
 
+        self.irrigated = None
+        self.wetland = None
+        self.uncultivated = None
+        self.unirrigated = None
+        self.fallow = None
+
         if kwargs['intersect_buffer']:
             self.intersect_buffer = kwargs['intersect_buffer']
 
-        self.irr_path = IRRIGATED
-        self.unirr_path = UNIRRIGATED
-        self.uncult_path = UNCULTIVATED
-        self.wetland_path = WETLAND
-        self.fallow_path = FALLOW
+        [setattr(self, k, v) for k, v in kwargs.items()]
 
-        self.paths = [IRRIGATED, UNIRRIGATED, UNCULTIVATED, WETLAND, FALLOW]
+        self.paths = [v for k, v in kwargs.items() if '_path' in k]
         if kwargs['intersect']:
             self.paths.append(kwargs['intersect'])
         if kwargs['exclude']:
             self.paths.append(kwargs['exclude'])
-
         self._check_crs()
 
         if 'exclude' in kwargs.keys():
             self.exclude = kwargs['exclude']
         if 'intersect' in kwargs.keys():
             self.intersect = kwargs['intersect']
-        if 'irrigated' in kwargs.keys():
-            self.irrigated(kwargs['irrigated'])
-        if 'fallowed' in kwargs.keys():
-            self.fallowed(kwargs['fallowed'])
-        if 'unirrigated' in kwargs.keys():
-            self.unirrigated(kwargs['unirrigated'])
-        if 'wetlands' in kwargs.keys():
-            self.wetlands(kwargs['wetlands'])
-        if 'uncultivated' in kwargs.keys():
-            self.uncultivated(kwargs['uncultivated'])
 
-    def irrigated(self, n):
-        self.class_type = 'irrigated'
-        self.create_sample_points(n, self.irr_path, code=0, attribute='YEAR', set_years=True)
+        if self.irrigated:
+            self.class_type = 'irrigated'
+            self.create_sample_points(code=0, attribute='YEAR', set_years=True)
 
-    def wetlands(self, n):
-        self.class_type = 'wetlands'
-        self.create_sample_points(n, self.wetland_path, code=3)
+        if self.wetland:
+            self.class_type = 'wetland'
+            self.create_sample_points(code=3)
 
-    def uncultivated(self, n):
-        self.class_type = 'uncultivated'
-        self.create_sample_points(n, self.uncult_path, code=2)
+        if self.uncultivated:
+            self.class_type = 'uncultivated'
+            self.create_sample_points(code=2)
 
-    def unirrigated(self, n):
-        self.class_type = 'unirrigated'
-        self.create_sample_points(n, self.unirr_path, code=1)
+        if self.unirrigated:
+            self.class_type = 'unirrigated'
+            self.create_sample_points(code=1)
 
-    def fallowed(self, n):
-        self.class_type = 'fallow'
-        self.create_sample_points(n, self.fallow_path, code=4, attribute='YEAR')
+        if self.fallow:
+            self.class_type = 'fallow'
+            self.create_sample_points(code=4, attribute='YEAR')
 
     def _check_crs(self):
 
@@ -102,8 +93,10 @@ class PointsRunspec(object):
                 if f.crs != crs:
                     raise NotImplementedError('CRS do not match\n{}\n{}'.format(self.crs, f.crs))
 
-    def create_sample_points(self, n, shp, code, attribute=None, set_years=False):
+    def create_sample_points(self, code, attribute=None, set_years=False):
 
+        shp = getattr(self, '{}_path'.format(self.class_type))
+        n = getattr(self, self.class_type)
         instance_ct = 0
         polygons = self._get_polygons(shp, attr=attribute)
         shuffle(polygons)
@@ -241,38 +234,35 @@ if __name__ == '__main__':
         home = '/home/dgketchum/data/IrrigationGIS'
     data = os.path.join(home, 'compiled_training_data', 'aea')
 
-    FALLOW = os.path.join(data, 'fallow_7NOV2021.shp')
-    IRRIGATED = os.path.join(data, 'irrigated_26NOV2021.shp')
-    UNCULTIVATED = os.path.join(data, 'uncultivated_24NOV2021.shp')
-    UNIRRIGATED = os.path.join(data, 'dryland_20NOV2021.shp')
-    WETLAND = os.path.join(data, 'wetlands_9NOV2021.shp')
+    kwargs = {'fallow_path': os.path.join(data, 'fallow_7NOV2021.shp'),
+              'irrigated_path': os.path.join(data, 'irrigated_26NOV2021.shp'),
+              'uncultivated_path': os.path.join(data, 'uncultivated_24NOV2021.shp'),
+              'unirrigated_path': os.path.join(data, 'dryland_20NOV2021.shp'),
+              'wetland_path': os.path.join(data, 'wetlands_9NOV2021.shp')}
 
     for state in ALL_STATES:
-        try:
-            if state not in ['AZ']:
-                continue
-            print('\nDist Points ', state)
-            intersect_shape = '/media/research/IrrigationGIS/boundaries/states_tiger_aea/{}.shp'.format(state)
-            exclude = '/media/research/IrrigationGIS/compiled_training_data/grids_aea/valid_grid.shp'
+        if state not in ['AZ']:
+            continue
+        print('\nDist Points ', state)
+        intersect_shape = '/media/research/IrrigationGIS/boundaries/states_tiger_aea/{}.shp'.format(state)
+        exclude = '/media/research/IrrigationGIS/compiled_training_data/grids_aea/valid_grid.shp'
 
-            kwargs = {
-                'irrigated': 10000,
-                'wetlands': 6000,
-                'uncultivated': 6000,
-                'intersect': intersect_shape,
-                'intersect_buffer': 100000,
-                'exclude': exclude,
-            }
-            if state in ['CA', 'NV', 'AZ']:
-                kwargs['fallowed'] = 2000
-            else:
-                kwargs['fallowed'] = 1000
-                kwargs['unirrigated'] = 6000
+        kwargs.update({
+            'irrigated': 100,
+            'wetland': 100,
+            'uncultivated': 100,
+            'intersect': intersect_shape,
+            'intersect_buffer': 100000,
+            'exclude': exclude,
+        })
+        if state in ['CA', 'NV', 'AZ']:
+            kwargs['fallow'] = 100
+        else:
+            kwargs['fallow'] = 1000
+            kwargs['unirrigated'] = 6000
 
-            out_name = os.path.join(home, 'EE_extracts', 'point_shp',
-                                    'state_aea', 'points_{}_24NOV2021.shp'.format(state))
-            prs = PointsRunspec(data, buffer=-20, **kwargs)
-            prs.save_sample_points(out_name)
-        except Exception as e:
-            print(state, e)
+        out_name = os.path.join(home, 'EE_extracts', 'point_shp',
+                                'state_aea', 'points_{}_xNOV2021.shp'.format(state))
+        prs = PointsRunspec(data, buffer=-20, **kwargs)
+        prs.save_sample_points(out_name)
 # ========================= EOF ====================================================================
