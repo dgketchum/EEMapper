@@ -8,10 +8,6 @@ from pandas import DataFrame
 from shapely.geometry import shape, Point, mapping
 from shapely.errors import TopologicalError
 
-from call_ee import TARGET_STATES, E_STATES
-
-ALL_STATES = TARGET_STATES + E_STATES
-
 YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997,
          1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
          2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015,
@@ -23,8 +19,7 @@ os.environ['GDAL_DATA'] = 'miniconda3/envs/gcs/share/gdal/'
 
 class PointsRunspec(object):
 
-    def __init__(self, root, buffer, **kwargs):
-        self.root = root
+    def __init__(self, buffer, **kwargs):
         self.features = []
         self.object_id = 0
         self.year = None
@@ -35,6 +30,7 @@ class PointsRunspec(object):
         self.years = None
         self.exclude = None
         self.class_type = None
+        self.intersect = None
         self.intersect_buffer = None
 
         self.irrigated = None
@@ -43,15 +39,18 @@ class PointsRunspec(object):
         self.unirrigated = None
         self.fallow = None
 
-        if kwargs['intersect_buffer']:
+        if 'years' in kwargs.keys():
+            self.years = kwargs['years']
+
+        if 'intersect_buffer' in kwargs.keys():
             self.intersect_buffer = kwargs['intersect_buffer']
 
         [setattr(self, k, v) for k, v in kwargs.items()]
 
         self.paths = [v for k, v in kwargs.items() if '_path' in k]
-        if kwargs['intersect']:
+        if 'intersect' in kwargs.keys():
             self.paths.append(kwargs['intersect'])
-        if kwargs['exclude']:
+        if 'exclude' in kwargs.keys():
             self.paths.append(kwargs['exclude'])
         self._check_crs()
 
@@ -62,7 +61,10 @@ class PointsRunspec(object):
 
         if self.irrigated:
             self.class_type = 'irrigated'
-            self.create_sample_points(code=0, attribute='YEAR', set_years=True)
+            if self.years:
+                self.create_sample_points(code=0)
+            else:
+                self.create_sample_points(code=0, attribute='YEAR', set_years=True)
 
         if self.wetland:
             self.class_type = 'wetland'
@@ -78,7 +80,10 @@ class PointsRunspec(object):
 
         if self.fallow:
             self.class_type = 'fallow'
-            self.create_sample_points(code=4, attribute='YEAR')
+            if self.years:
+                self.create_sample_points(code=4)
+            else:
+                self.create_sample_points(code=4, attribute='YEAR')
 
     def _check_crs(self):
 
@@ -106,7 +111,7 @@ class PointsRunspec(object):
                 self.years = years
 
         positive_area = sum([x.area for x in polygons])
-        print('{} area: {} in {} features'.format(self.class_type, positive_area / 1e6, len(polygons)))
+        print('{} area: {:.2f} in {} features'.format(self.class_type, positive_area / 1e6, len(polygons)))
         for i, poly in enumerate(polygons):
             try:
                 if attribute:
@@ -115,10 +120,6 @@ class PointsRunspec(object):
                     self.year = choice(self.years)
                 else:
                     self.year = choice(YEARS)
-
-                # too much data in 2013, only extract irrigated and fallow
-                if self.year == 2013 and code in [1, 2, 3]:
-                    continue
 
                 if self.buffer:
                     buf_poly = poly.buffer(self.buffer, resolution=128)
@@ -240,29 +241,27 @@ if __name__ == '__main__':
               'unirrigated_path': os.path.join(data, 'dryland_20NOV2021.shp'),
               'wetland_path': os.path.join(data, 'wetlands_9NOV2021.shp')}
 
-    for state in ALL_STATES:
-        if state not in ['AZ']:
-            continue
-        print('\nDist Points ', state)
-        intersect_shape = '/media/research/IrrigationGIS/boundaries/states_tiger_aea/{}.shp'.format(state)
-        exclude = '/media/research/IrrigationGIS/compiled_training_data/grids_aea/valid_grid.shp'
+    state = 'AZ'
+    print('\nDist Points ', state)
+    intersect_shape = '/media/research/IrrigationGIS/boundaries/states_tiger_aea/{}.shp'.format(state)
+    exclude = '/media/research/IrrigationGIS/compiled_training_data/grids_aea/valid_grid.shp'
 
-        kwargs.update({
-            'irrigated': 100,
-            'wetland': 100,
-            'uncultivated': 100,
-            'intersect': intersect_shape,
-            'intersect_buffer': 100000,
-            'exclude': exclude,
-        })
-        if state in ['CA', 'NV', 'AZ']:
-            kwargs['fallow'] = 100
-        else:
-            kwargs['fallow'] = 1000
-            kwargs['unirrigated'] = 6000
+    kwargs.update({
+        'irrigated': 100,
+        'wetland': 100,
+        'uncultivated': 100,
+        'intersect': intersect_shape,
+        'intersect_buffer': 100000,
+        'exclude': exclude,
+    })
+    if state in ['CA', 'NV', 'AZ']:
+        kwargs['fallow'] = 100
+    else:
+        kwargs['fallow'] = 1000
+        kwargs['unirrigated'] = 6000
 
-        out_name = os.path.join(home, 'EE_extracts', 'point_shp',
-                                'state_aea', 'points_{}_xNOV2021.shp'.format(state))
-        prs = PointsRunspec(data, buffer=-20, **kwargs)
-        prs.save_sample_points(out_name)
+    out_name = os.path.join(home, 'EE_extracts', 'point_shp',
+                            'state_aea', 'points_{}_xNOV2021.shp'.format(state))
+    prs = PointsRunspec(buffer=-20, **kwargs)
+    prs.save_sample_points(out_name)
 # ========================= EOF ====================================================================

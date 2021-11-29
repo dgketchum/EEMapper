@@ -2,7 +2,6 @@ import os
 import sys
 from datetime import datetime, date
 
-import numpy as np
 from numpy import ceil, linspace
 from pprint import pprint
 
@@ -11,9 +10,7 @@ import ee
 sys.path.insert(0, os.path.abspath('..'))
 from map.assets import list_assets
 from map.ee_utils import get_world_climate, landsat_composites, landsat_masked, daily_landsat
-from map.tables import SELECT
 from map.cdl import get_cdl
-from shape_ops import count_points
 
 sys.setrecursionlimit(2000)
 
@@ -361,7 +358,6 @@ def export_classification(out_name, table, asset_root, region, years,
             revised = [f for f in p if f not in check]
             input_props = ee.List(revised)
             trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
-            exit()
 
         annual_stack = input_bands.select(input_props)
         classified_img = annual_stack.unmask().classify(trained_model).int().set({
@@ -519,7 +515,8 @@ def request_validation_extract(file_prefix='validation'):
         print(yr)
 
 
-def request_band_extract(file_prefix, points_layer, region, years, filter_bounds=False, buffer=None, southern=False):
+def request_band_extract(file_prefix, points_layer, region, years, filter_bounds=False, buffer=None,
+                         southern=False, filter_years=True):
     """
     Extract raster values from a points kml file in Fusion Tables. Send annual extracts .csv to GCS wudr bucket.
     Concatenate them using map.tables.concatenate_band_extract().
@@ -540,7 +537,10 @@ def request_band_extract(file_prefix, points_layer, region, years, filter_bounds
         if filter_bounds:
             plots = plots.filterBounds(roi)
 
-        filtered = plots.filter(ee.Filter.eq('YEAR', yr))
+        if filter_years:
+            filtered = plots.filter(ee.Filter.eq('YEAR', yr))
+        else:
+            filtered = plots
 
         plot_sample_regions = stack.sampleRegions(
             collection=filtered,
@@ -556,7 +556,6 @@ def request_band_extract(file_prefix, points_layer, region, years, filter_bounds
             fileFormat='CSV')
 
         task.start()
-        print(yr)
 
 
 def stack_bands(yr, roi, southern=False):
