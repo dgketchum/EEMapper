@@ -190,7 +190,10 @@ def find_rf_variable_importance(csv):
     print('\ntop 50 features')
     carry_features = [x[0] for x in master[:50]] + ['POINT_TYPE', 'YEAR']
     original = original[carry_features]
-    random_forest(original)
+    try:
+        random_forest(original)
+    except KeyError:
+        pass
     return master
 
 

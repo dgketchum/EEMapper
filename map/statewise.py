@@ -135,7 +135,7 @@ if __name__ == '__main__':
     extracts = os.path.join(root, 'EE_extracts')
     to_concat = os.path.join(extracts, 'to_concatenate/state')
     conctenated = os.path.join(extracts, 'concatenated/state')
-    imp_json = os.path.join(extracts, 'variable_importance')
+    imp_json = os.path.join(extracts, 'variable_importance', 'statewise')
 
     coll = 'users/dgketchum/IrrMapper/IrrMapper_sw'
     # coll = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
@@ -149,7 +149,7 @@ if __name__ == '__main__':
         # get_bands(pt_aea, _glob, state=s, southern=south)
 
         # concatenate_bands(to_concat, conctenated, glob=_glob, state=s, southern=south)
-        # variable_importance(conctenated, importance_json=imp_json, glob=_glob, state=s)
+        variable_importance(conctenated, importance_json=imp_json, glob=_glob, state=s)
         # push_bands_to_asset(conctenated, glob=_glob, state=s, bucket=_bucket)
 
         classify(coll, imp_json, tables, [x for x in range(1985, 1987)], glob=_glob, state=s, southern=south)
