@@ -269,48 +269,46 @@ def export_raster():
         print(yr)
 
 
-def export_special(input_coll, out_coll, roi, description, min_years=5, mask_terrain=False,
-                   clean_ndvi=False):
+def export_special(input_coll, out_coll, roi, description):
     fc = ee.FeatureCollection(roi)
 
-    slope = ee.Terrain.products('USGS/NED').select('slope')
-
     for year in range(2020, 2021):
+        bands = stack_bands(year, fc)
+
+        ndvi = bands.select('nd_max_gs')
+        slope = bands.select('slope')
+        cropland = bands.select('cropland')
+
         target = ee.Image(os.path.join(input_coll, '{}_{}'.format(description, year)))
         props = target.getInfo()['properties']
-        props.update({'dev_note': 'mask terrain slope.gt(3)'})
-        target.set(props)
-        target = target.select('classification').clip(fc.geometry()).remap([0, 1, 2, 3], [1, 2, 3, 4])
+
+        target = target.select('classification').clip(fc.geometry())
 
         sum_coll = ee.ImageCollection(input_coll)
         sum = ee.ImageCollection(
-            sum_coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum()
+            sum_coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum().rename('sum')
 
-        if min_years > 0:
-            expr = target.rename('classification').addBands([sum]).rename(['classification', 'sum'])
-            target = expr.expression(
-                '(IRR < 2) & (SUM < 7) ? 2 : IRR', {
-                    'IRR': expr.select('classification'),
-                    'SUM': expr.select('sum')})
+        expr = target.addBands([sum, ndvi, slope, cropland])
 
-        if mask_terrain:
-            expr = target.rename('classification').addBands([slope]).rename(['classification', 'slope'])
-            target = expr.expression(
-                '(IRR < 2) & (SLOPE > 3) ? 3 : IRR', {
-                    'IRR': expr.select('classification'),
-                    'SLOPE': expr.select('slope')})
+        expression_ = '(IRR == 0) ? 0' \
+                      ':(IRR == 1) && (NDVI > 0.8) && (SUM > 20) ? 0' \
+                      ': (IRR == 0) && (NDVI < 0.68) && (SUM > 10) ? 1' \
+                      ': (IRR == 0) && (SLOPE > 8) ? 1' \
+                      ': (IRR == 0) && (SUM < 5) ? 1' \
+                      ': (IRR == 0) && (CROP > 140) && (CROP < 176) ? 1' \
+                      ': 1'
 
-        if clean_ndvi:
-            bands = stack_bands(year, fc, southern=False)
-            ndvi_max = bands.select('nd_max_gs')
-            expr = target.addBands([sum, ndvi_max]).rename(['classification', 'sum', 'ndvi'])
-            target = expr.expression(
-                '(IRR > 1) & (NDVI > 0.86) & (SUM > 10) ? 1 : IRR', {
-                    'IRR': expr.select('classification'),
-                    'SUM': expr.select('sum'),
-                    'NDVI': expr.select('ndvi')})
+        target = expr.expression(expression_,
+                                 {'IRR': expr.select('classification'),
+                                  'SUM': expr.select('sum'),
+                                  'NDVI': expr.select('nd_max_gs'),
+                                  'SLOPE': expr.select('slope'),
+                                  'CROP': expr.select('cropland')})
 
-        target = target.rename('classification').int()
+        props.update({'post_process': expression_})
+        target.set(props)
+        target = target.rename('classification')
+
         desc = '{}_{}'.format(description, year)
         _id = os.path.join(out_coll, desc)
         task = ee.batch.Export.image.toAsset(
@@ -319,6 +317,7 @@ def export_special(input_coll, out_coll, roi, description, min_years=5, mask_ter
             pyramidingPolicy={'.default': 'mode'},
             assetId=_id,
             scale=30,
+            # shardSize=56,
             maxPixels=1e13)
 
         task.start()
@@ -482,7 +481,7 @@ def filter_irrigated(asset, yr, region, filter_type='irrigated', addl_yr=None):
     task.start()
 
 
-def request_validation_extract(file_prefix='validation'):
+def request_validation_extract(roi, file_prefix='validation'):
     """
     This takes a sample points set and extracts the classification result.  This is a roundabout cross-validation.
     Rather than using holdouts in the Random Forest classifier, we just run all the training data to train the
@@ -493,7 +492,7 @@ def request_validation_extract(file_prefix='validation'):
     :param file_prefix:
     :return:
     """
-    roi = ee.FeatureCollection(GEO_DOMAIN)
+    roi = ee.FeatureCollection(roi)
     plots = ee.FeatureCollection(None).filterBounds(roi)
     image_list = list_assets('users/dgketchum/IrrMapper/version_2')
 
@@ -712,12 +711,12 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    for s in ['CO']:
+    for s, fip in zip(['CO', 'ID'], ['08083', '16031']):
         in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
         out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
         # geo_ = 'users/dgketchum/boundaries/{}'.format(s)
-        geo_ = 'users/dgketchum/boundaries/08083'
-        export_special(in_c, out_c, geo_, description=s, min_years=5, mask_terrain=True, clean_ndvi=True)
+        geo_ = 'users/dgketchum/boundaries/{}'.format(fip)
+        export_special(in_c, out_c, geo_, description=s)
 
     # s = 'AZ'
     # geo_ = 'users/dgketchum/boundaries/{}'.format(s)
