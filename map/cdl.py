@@ -270,34 +270,38 @@ def remap_cdl():
 
 
 def get_cdl(yr):
-    first = True
     cultivated, crop = None, None
-    cld_years = [x for x in range(2013, 2019)]
+    cdl_years = [x for x in range(1997, 2021)]
+    cultivated_years = [x for x in range(2013, 2019)]
 
-    if yr in cld_years:
+    mode_reduce = ee.Reducer.mode()
 
+    first = True
+    for y in cultivated_years:
+        image = ee.Image('USDA/NASS/CDL/{}'.format(y))
+        cultivated = image.select('cultivated')
+        cultivated = cultivated.remap([1, 2], [0, 1])
+        if first:
+            cultivated = cultivated.rename('clt_{}'.format(y))
+            first = False
+        else:
+            cultivated.addBands(cultivated.rename('clt_{}'.format(y)))
+
+    cultivated = cultivated.reduce(mode_reduce).resample('bilinear').rename('cdl')
+
+    if yr in cdl_years:
         image = ee.Image('USDA/NASS/CDL/{}'.format(yr))
-        cultivated = image.select('cultivated').remap([1, 2], [0, 1]).rename('cdl')
         crop = image.select('cropland')
-
     else:
-        mode_reduce = ee.Reducer.mode()
-        for y in cld_years:
-
+        first = True
+        for y in cdl_years:
             image = ee.Image('USDA/NASS/CDL/{}'.format(y))
-            cultivated = image.select('cultivated')
-            cultivated = cultivated.remap([1, 2], [0, 1])
             crop = image.select('cropland')
-
             if first:
-                cultivated = cultivated.rename('clt_{}'.format(y))
                 crop = crop.rename('crop_{}'.format(y))
                 first = False
             else:
-                cultivated.addBands(cultivated.rename('clt_{}'.format(y)))
                 crop.addBands(crop.rename('crop_{}'.format(y)))
-
-        cultivated = cultivated.reduce(mode_reduce).resample('bilinear').rename('cdl')
         crop = crop.reduce(mode_reduce).rename('cropland')
 
     cdl_keys, our_keys = remap_cdl()
