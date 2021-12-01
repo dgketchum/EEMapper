@@ -268,12 +268,12 @@ def export_raster():
         print(yr)
 
 
-def export_special(input_coll, target_coll, roi, description, min_years=5, mask_terrain=False, mask_water=False):
+def export_special(input_coll, out_coll, roi, description, min_years=5, mask_terrain=False):
     fc = ee.FeatureCollection(roi)
 
-    slope = ee.Terrain.products('USGS/NED')
+    slope = ee.Terrain.products('USGS/NED').select('slope')
 
-    for year in [str(x) for x in range(2017, 2018)]:
+    for year in range(1985, 2022):
         target = ee.Image(os.path.join(input_coll, '{}_{}'.format(description, year)))
         props = target.getInfo()['properties']
         props.update({'dev_note': 'mask terrain slope.gt(3)'})
@@ -281,9 +281,9 @@ def export_special(input_coll, target_coll, roi, description, min_years=5, mask_
         target = target.select('classification').clip(fc.geometry())
 
         if min_years > 0:
-            input_coll = ee.ImageCollection(input_coll)
+            sum_coll = ee.ImageCollection(input_coll)
             sum = ee.ImageCollection(
-                input_coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum()
+                sum_coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum()
             sum_mask = sum.lt(min_years)
             target = target.mask(sum_mask)
 
@@ -291,17 +291,17 @@ def export_special(input_coll, target_coll, roi, description, min_years=5, mask_
             target = target.mask(slope.gt(3))
 
         desc = '{}_{}'.format(description, year)
+        _id = '{}/{}'.format(out_coll, desc)
         task = ee.batch.Export.image.toAsset(
             target,
             description=desc,
             pyramidingPolicy={'.default': 'mode'},
-            assetId=os.path.join(target_coll, desc),
+            assetId=_id,
             scale=30,
             maxPixels=1e13)
 
         task.start()
         print(year)
-
 
 def export_classification(out_name, table, asset_root, region, years,
                           export='asset', bag_fraction=0.5, input_props=None, southern=False):
