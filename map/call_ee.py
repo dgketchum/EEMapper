@@ -14,38 +14,11 @@ from map.cdl import get_cdl
 
 sys.setrecursionlimit(2000)
 
-GEO_DOMAIN = 'users/dgketchum/boundaries/western_states_expanded_union'
 BOUNDARIES = 'users/dgketchum/boundaries'
-ASSET_ROOT = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
 IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
-FILTER_TARGET = 'users/dgketchum/to_filter/MT_2012'
-RF_ASSET = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_RF'
-
-RF_TRAINING_DATA = 'projects/ee-dgketchum/assets/bands/bands_4DEC2020'
-RF_TRAINING_POINTS = 'projects/ee-dgketchum/assets/points/train_pts_18JAN2021'
-
-HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
-HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
-COUNTIES = 'users/dgketchum/boundaries/western_counties'
-MT_BASINS = 'users/dgketchum/boundaries/MT_Admin_Basins'
 
 TARGET_STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
-
 E_STATES = ['ND', 'SD', 'NE', 'KS', 'OK', 'TX']
-
-IRR = {'ND': [2013, 2017],
-       'SD': [2017, 2019],
-       'NE': [2012, 2013, 2016],
-       'KS': [2018, 2019],
-       'OK': [2011, 2019]}
-
-DRY = {
-    # 'ND': [2006, 2012],
-    # 'SD': [2006, 2012],
-    # 'NE': [2002, 2012],
-    # 'KS': [2002, 2012],
-    'OK': [2001, 2011],
-    'TX': [2011, 2020]}
 
 # list of years we have verified irrigated fields
 YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997,
@@ -203,7 +176,7 @@ def get_sr_series(tables, out_name, max_sample=500):
     print('{} total points'.format(pt_ct))
 
 
-def attribute_irrigation():
+def attribute_irrigation(collection):
     """
     Extracts fraction of vector classified as irrigated. Been using this to attribute irrigation to
     field polygon coverages.
@@ -212,7 +185,7 @@ def attribute_irrigation():
     fc = ee.FeatureCollection(IRRIGATION_TABLE)
     for state in TARGET_STATES:
         for yr in range(2011, 2021):
-            images = os.path.join(ASSET_ROOT, '{}_{}'.format(state, yr))
+            images = os.path.join(collection, '{}_{}'.format(state, yr))
             coll = ee.Image(images)
             tot = coll.select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
             means = tot.reduceRegions(collection=fc,
@@ -295,26 +268,36 @@ def export_raster():
         print(yr)
 
 
-def export_special(coll, roi, description, min_years=5):
+def export_special(input_coll, target_coll, roi, description, min_years=5, mask_terrain=False, mask_water=False):
     fc = ee.FeatureCollection(roi)
 
-    for year in [str(x) for x in range(2020, 2022)]:
-        target = ee.ImageCollection(coll).filterDate('{}-01-01'.format(year), '{}-12-31'.format(year))
-        target = target.select('classification').mosaic().remap([0, 1, 2, 3], [1, 2, 3, 4]).clip(fc.geometry())
+    slope = ee.Terrain.products('USGS/NED')
+
+    for year in [str(x) for x in range(2017, 2018)]:
+        target = ee.Image(os.path.join(input_coll, '{}_{}'.format(description, year)))
+        props = target.getInfo()['properties']
+        props.update({'dev_note': 'mask terrain slope.gt(3)'})
+        target.set(props)
+        target = target.select('classification').clip(fc.geometry())
 
         if min_years > 0:
-            coll = ee.ImageCollection(coll)
-            sum = ee.ImageCollection(coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum()
+            input_coll = ee.ImageCollection(input_coll)
+            sum = ee.ImageCollection(
+                input_coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum()
             sum_mask = sum.lt(min_years)
             target = target.mask(sum_mask)
 
-        task = ee.batch.Export.image.toDrive(
+        if mask_terrain:
+            target = target.mask(slope.gt(3))
+
+        desc = '{}_{}'.format(description, year)
+        task = ee.batch.Export.image.toAsset(
             target,
-            description='IrrMapper_{}_{}'.format(description, year),
+            description=desc,
+            pyramidingPolicy={'.default': 'mode'},
+            assetId=os.path.join(target_coll, desc),
             scale=30,
-            maxPixels=1e13,
-            folder='CO_IrrMapper_16NOV2021',
-            crs='EPSG:5070')
+            maxPixels=1e13)
 
         task.start()
         print(year)
@@ -707,11 +690,13 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    # export_special(c, geo, description='CO', min_years=5)
+    in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
+    out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
+    geo_ = 'users/dgketchum/boundaries/MT'
+    export_special(in_c, out_c, geo_, description='MT', min_years=5, mask_terrain=True)
 
-    for y in [2001, 2003, 2004, 2007, 2016]:
-        props = ['nd_1', 'nd_2', 'nd_3', 'nd_max_gs']
-        geo_ = 'users/dgketchum/boundaries/AZ'
-        table_ = 'users/dgketchum/to_filter/az_sel_popper_wgs'
-        get_ndvi_cultivation_data_polygons(table_, [y], geo_, props, southern=True, id_col='OBJECTID')
+    # for y in [2001, 2003, 2004, 2007, 2016]:
+    #     props = ['nd_1', 'nd_2', 'nd_3', 'nd_max_gs']
+    #     table_ = 'users/dgketchum/to_filter/az_sel_popper_wgs'
+    #     get_ndvi_cultivation_data_polygons(table_, [y], geo_, props, southern=True, id_col='OBJECTID')
 # ========================= EOF ====================================================================
