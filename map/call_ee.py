@@ -203,7 +203,8 @@ def attribute_irrigation(collection):
             task.start()
 
 
-def get_ndvi_cultivation_data_polygons(table, years, region, input_props, southern=False, id_col='FID'):
+def get_ndvi_cultivation_data_polygons(table, years, region, input_props,
+                                       bucket='wudr', southern=False, id_col='FID'):
     """
     Extracts specified data to a polygon shapefile layer.
     :return:
@@ -714,14 +715,18 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    for s in ['CO', 'WY', 'MT', 'UT', 'WA', 'ID']:
-        in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
-        out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
-        geo_ = 'users/dgketchum/boundaries/{}'.format(s)
-        export_special(in_c, out_c, geo_, description=s, min_years=5, mask_terrain=True, clean_ndvi=True)
+    # for s in ['CO', 'WY', 'MT', 'UT', 'WA', 'ID']:
+    #     in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
+    #     out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
+    #     geo_ = 'users/dgketchum/boundaries/{}'.format(s)
+    #     export_special(in_c, out_c, geo_, description=s, min_years=5, mask_terrain=True, clean_ndvi=True)
 
-    # for y in [2001, 2003, 2004, 2007, 2016]:
-    #     props = ['nd_1', 'nd_2', 'nd_3', 'nd_max_gs']
-    #     table_ = 'users/dgketchum/to_filter/az_sel_popper_wgs'
-    #     get_ndvi_cultivation_data_polygons(table_, [y], geo_, props, southern=True, id_col='OBJECTID')
+    s = 'AZ'
+    geo_ = 'users/dgketchum/boundaries/{}'.format(s)
+    band_names = stack_bands(2020, ee.FeatureCollection(geo_)).bandNames().getInfo()
+    for y in [2001, 2003, 2004, 2007, 2016]:
+        props = ['nd_1', 'nd_2', 'nd_3', 'nd_max_gs']
+        table_ = 'users/dgketchum/to_filter/az_sel_popper_wgs'
+        get_ndvi_cultivation_data_polygons(table_, [y], geo_, props, bucket='wudr',
+                                           southern=True, id_col='OBJECTID')
 # ========================= EOF ====================================================================
