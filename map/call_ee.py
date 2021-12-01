@@ -275,45 +275,42 @@ def export_special(input_coll, out_coll, roi, description, min_years=5, mask_ter
 
     slope = ee.Terrain.products('USGS/NED').select('slope')
 
-    for year in range(1985, 2022):
+    for year in range(2020, 2021):
         target = ee.Image(os.path.join(input_coll, '{}_{}'.format(description, year)))
         props = target.getInfo()['properties']
         props.update({'dev_note': 'mask terrain slope.gt(3)'})
         target.set(props)
-        target = target.select('classification').clip(fc.geometry())
+        target = target.select('classification').clip(fc.geometry()).remap([0, 1, 2, 3], [1, 2, 3, 4])
 
         sum_coll = ee.ImageCollection(input_coll)
         sum = ee.ImageCollection(
             sum_coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum()
-        sum_mask = sum.lt(min_years)
 
         if min_years > 0:
-            target = target.mask(slope.gt(3))
-            expr = target.rename('classification').addBands([sum_mask]).rename(['classification', 'sum'])
+            expr = target.rename('classification').addBands([sum]).rename(['classification', 'sum'])
             target = expr.expression(
-                '(IRR < 1) & (SUM < 3) ? 1 : IRR', {
+                '(IRR < 2) & (SUM < 7) ? 2 : IRR', {
                     'IRR': expr.select('classification'),
-                    'SUM': expr.select('sum')}).rename('classification')
+                    'SUM': expr.select('sum')})
 
         if mask_terrain:
-            target = target.mask(slope.gt(3))
             expr = target.rename('classification').addBands([slope]).rename(['classification', 'slope'])
             target = expr.expression(
-                '(IRR < 1) & (SLOPE > 3) ? 3 : IRR', {
+                '(IRR < 2) & (SLOPE > 3) ? 3 : IRR', {
                     'IRR': expr.select('classification'),
-                    'SLOPE': expr.select('slope')}).rename('classification')
+                    'SLOPE': expr.select('slope')})
 
         if clean_ndvi:
             bands = stack_bands(year, fc, southern=False)
             ndvi_max = bands.select('nd_max_gs')
-            expr = target.addBands([sum, ndvi_max]).rename(['classification', 'slope', 'ndvi'])
+            expr = target.addBands([sum, ndvi_max]).rename(['classification', 'sum', 'ndvi'])
             target = expr.expression(
-                '(IRR > 0) & (NDVI > 0.86) & (SUM > 10) ? 0 : IRR', {
+                '(IRR > 1) & (NDVI > 0.86) & (SUM > 10) ? 1 : IRR', {
                     'IRR': expr.select('classification'),
-                    'SUM': expr.select('slope'),
-                    'NDVI': expr.select('ndvi')}).rename('classification')
+                    'SUM': expr.select('sum'),
+                    'NDVI': expr.select('ndvi')})
 
-        target = target.int()
+        target = target.rename('classification').int()
         desc = '{}_{}'.format(description, year)
         _id = os.path.join(out_coll, desc)
         task = ee.batch.Export.image.toAsset(
@@ -715,18 +712,19 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    # for s in ['CO', 'WY', 'MT', 'UT', 'WA', 'ID']:
-    #     in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
-    #     out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
-    #     geo_ = 'users/dgketchum/boundaries/{}'.format(s)
-    #     export_special(in_c, out_c, geo_, description=s, min_years=5, mask_terrain=True, clean_ndvi=True)
+    for s in ['CO']:
+        in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
+        out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
+        # geo_ = 'users/dgketchum/boundaries/{}'.format(s)
+        geo_ = 'users/dgketchum/boundaries/08083'
+        export_special(in_c, out_c, geo_, description=s, min_years=5, mask_terrain=True, clean_ndvi=True)
 
-    s = 'AZ'
-    geo_ = 'users/dgketchum/boundaries/{}'.format(s)
-    band_names = stack_bands(2020, ee.FeatureCollection(geo_)).bandNames().getInfo()
-    for y in [2001, 2003, 2004, 2007, 2016]:
-        props = ['nd_1', 'nd_2', 'nd_3', 'nd_max_gs']
-        table_ = 'users/dgketchum/to_filter/az_sel_popper_wgs'
-        get_ndvi_cultivation_data_polygons(table_, [y], geo_, props, bucket='wudr',
-                                           southern=True, id_col='OBJECTID')
+    # s = 'AZ'
+    # geo_ = 'users/dgketchum/boundaries/{}'.format(s)
+    # band_names = stack_bands(2020, ee.FeatureCollection(geo_)).bandNames().getInfo()
+    # for y in [2001, 2003, 2004, 2007, 2016]:
+    #     props = ['nd_1', 'nd_2', 'nd_3', 'nd_max_gs']
+    #     table_ = 'users/dgketchum/to_filter/az_sel_popper_wgs'
+    #     get_ndvi_cultivation_data_polygons(table_, [y], geo_, props, bucket='wudr',
+    #                                        southern=True, id_col='OBJECTID')
 # ========================= EOF ====================================================================
