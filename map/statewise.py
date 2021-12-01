@@ -121,7 +121,7 @@ def classify(out_coll, variable_dir, tables, years, glob, state, southern=False)
 
 if __name__ == '__main__':
     is_authorized()
-    _glob = '24NOV2021'
+    _glob = '10NOV2021'
     _bucket = 'gs://wudr'
     south = False
     root = '/media/research/IrrigationGIS'
@@ -141,16 +141,16 @@ if __name__ == '__main__':
     # coll = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
     tables = 'users/dgketchum/bands/state'
 
-    for s in ['AZ']:
+    for s in ['CO']:
         if s in ['AZ', 'CA']:
             south = True
         # to_geographic(pt_aea, pt_wgs, glob=_glob, state=s)
         # push_points_to_asset(pt_wgs, glob=_glob, state=s, bucket=_bucket)
         # get_bands(pt_aea, _glob, state=s, southern=south)
 
-        # concatenate_bands(to_concat, conctenated, glob=_glob, state=s, southern=south)
-        variable_importance(conctenated, importance_json=imp_json, glob=_glob, state=s)
+        concatenate_bands(to_concat, conctenated, glob=_glob, state=s, southern=south)
+        # variable_importance(conctenated, importance_json=imp_json, glob=_glob, state=s)
         # push_bands_to_asset(conctenated, glob=_glob, state=s, bucket=_bucket)
 
-        classify(coll, imp_json, tables, [x for x in range(1985, 1987)], glob=_glob, state=s, southern=south)
+        # classify(coll, imp_json, tables, [x for x in range(1985, 1987)], glob=_glob, state=s, southern=south)
 # ========================= EOF ====================================================================

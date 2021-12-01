@@ -268,7 +268,8 @@ def export_raster():
         print(yr)
 
 
-def export_special(input_coll, out_coll, roi, description, min_years=5, mask_terrain=False):
+def export_special(input_coll, out_coll, roi, description, min_years=5, mask_terrain=False,
+                   clean_ndvi=False):
     fc = ee.FeatureCollection(roi)
 
     slope = ee.Terrain.products('USGS/NED').select('slope')
@@ -280,18 +281,40 @@ def export_special(input_coll, out_coll, roi, description, min_years=5, mask_ter
         target.set(props)
         target = target.select('classification').clip(fc.geometry())
 
+        sum_coll = ee.ImageCollection(input_coll)
+        sum = ee.ImageCollection(
+            sum_coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum()
+        sum_mask = sum.lt(min_years)
+
         if min_years > 0:
-            sum_coll = ee.ImageCollection(input_coll)
-            sum = ee.ImageCollection(
-                sum_coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum()
-            sum_mask = sum.lt(min_years)
-            target = target.mask(sum_mask)
+            target = target.mask(slope.gt(3))
+            expr = target.rename('classification').addBands([sum_mask]).rename(['classification', 'sum'])
+            target = expr.expression(
+                '(IRR < 1) & (SUM < 3) ? 1 : IRR', {
+                    'IRR': expr.select('classification'),
+                    'SUM': expr.select('sum')}).rename('classification')
 
         if mask_terrain:
             target = target.mask(slope.gt(3))
+            expr = target.rename('classification').addBands([slope]).rename(['classification', 'slope'])
+            target = expr.expression(
+                '(IRR < 1) & (SLOPE > 3) ? 3 : IRR', {
+                    'IRR': expr.select('classification'),
+                    'SLOPE': expr.select('slope')}).rename('classification')
 
+        if clean_ndvi:
+            bands = stack_bands(year, fc, southern=False)
+            ndvi_max = bands.select('nd_max_gs')
+            expr = target.addBands([sum, ndvi_max]).rename(['classification', 'slope', 'ndvi'])
+            target = expr.expression(
+                '(IRR > 0) & (NDVI > 0.86) & (SUM > 10) ? 0 : IRR', {
+                    'IRR': expr.select('classification'),
+                    'SUM': expr.select('slope'),
+                    'NDVI': expr.select('ndvi')}).rename('classification')
+
+        target = target.int()
         desc = '{}_{}'.format(description, year)
-        _id = '{}/{}'.format(out_coll, desc)
+        _id = os.path.join(out_coll, desc)
         task = ee.batch.Export.image.toAsset(
             target,
             description=desc,
@@ -302,6 +325,7 @@ def export_special(input_coll, out_coll, roi, description, min_years=5, mask_ter
 
         task.start()
         print(year)
+
 
 def export_classification(out_name, table, asset_root, region, years,
                           export='asset', bag_fraction=0.5, input_props=None, southern=False):
@@ -690,10 +714,11 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
-    out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
-    geo_ = 'users/dgketchum/boundaries/MT'
-    export_special(in_c, out_c, geo_, description='MT', min_years=5, mask_terrain=True)
+    for s in ['CO', 'WY', 'MT', 'UT', 'WA', 'ID']:
+        in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
+        out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
+        geo_ = 'users/dgketchum/boundaries/{}'.format(s)
+        export_special(in_c, out_c, geo_, description=s, min_years=5, mask_terrain=True, clean_ndvi=True)
 
     # for y in [2001, 2003, 2004, 2007, 2016]:
     #     props = ['nd_1', 'nd_2', 'nd_3', 'nd_max_gs']
