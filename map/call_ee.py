@@ -233,7 +233,7 @@ def get_ndvi_cultivation_data_polygons(table, years, region, input_props,
     task = ee.batch.Export.table.toCloudStorage(
         means,
         description='{}'.format(os.path.basename(table)),
-        bucket='wudr',
+        bucket=bucket,
         fileNamePrefix='attr_{}_{}'.format(os.path.basename(table), years[0]),
         fileFormat='CSV',
         selectors=props)
