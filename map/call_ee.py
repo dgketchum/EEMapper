@@ -290,13 +290,13 @@ def export_special(input_coll, out_coll, roi, description):
 
         expr = target.addBands([sum, ndvi, slope, cropland])
 
-        expression_ = '(IRR == 0) ? 0' \
-                      ':(IRR == 1) && (NDVI > 0.8) && (SUM > 20) ? 0' \
-                      ': (IRR == 0) && (NDVI < 0.68) && (SUM > 10) ? 1' \
-                      ': (IRR == 0) && (SLOPE > 8) ? 1' \
-                      ': (IRR == 0) && (SUM < 5) ? 1' \
-                      ': (IRR == 0) && (CROP > 140) && (CROP < 176) ? 1' \
-                      ': 1'
+        expression_ = '(IRR == 0) ? 1' \
+                      ':(IRR == 1) && (NDVI > 0.8) && (SUM > 20) ? 1' \
+                      ': (IRR == 0) && (NDVI < 0.68) && (SUM > 10) ? 0' \
+                      ': (IRR == 0) && (SLOPE > 8) ? 0' \
+                      ': (IRR == 0) && (SUM < 5) ? 0' \
+                      ': (IRR == 0) && (CROP > 140) && (CROP < 176) ? 0' \
+                      ': 0'
 
         target = expr.expression(expression_,
                                  {'IRR': expr.select('classification'),
