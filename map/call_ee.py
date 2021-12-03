@@ -520,7 +520,7 @@ def request_validation_extract(roi, file_prefix='validation'):
 
 
 def request_band_extract(file_prefix, points_layer, region, years, filter_bounds=False, buffer=None,
-                         southern=False, filter_years=True):
+                         southern=False, filter_years=True, diagnose=False):
     """
     Extract raster values from a points kml file in Fusion Tables. Send annual extracts .csv to GCS wudr bucket.
     Concatenate them using map.tables.concatenate_band_extract().
@@ -545,6 +545,31 @@ def request_band_extract(file_prefix, points_layer, region, years, filter_bounds
             filtered = plots.filter(ee.Filter.eq('YEAR', yr))
         else:
             filtered = plots
+
+        filtered = ee.FeatureCollection([filtered.first()])
+
+        # if tables are coming out empty, use this to find missing bands
+        if diagnose:
+            bad_ = []
+            bands = stack.bandNames().getInfo()
+            for b in bands:
+                stack_ = stack.select([b])
+
+                def sample_regions(i, points):
+                    red = ee.Reducer.toCollection(i.bandNames())
+                    reduced = i.reduceRegions(points, red, 30, stack_.select(b).projection())
+                    fc = reduced.map(lambda f: ee.FeatureCollection(f.get('features'))
+                                     .map(lambda q: q.copyProperties(f, None, ['features'])))
+                    return fc.flatten()
+
+                data = sample_regions(stack_, filtered)
+                try:
+                    print(b, data.getInfo()['features'][0]['properties'][b])
+                except Exception as e:
+                    print(b, 'not there', e)
+                    bad_.append(b)
+            print(bad_)
+            return None
 
         plot_sample_regions = stack.sampleRegions(
             collection=filtered,
@@ -716,7 +741,7 @@ if __name__ == '__main__':
         out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
         # geo_ = 'users/dgketchum/boundaries/{}'.format(s)
         geo_ = 'users/dgketchum/boundaries/{}'.format(fip)
-        export_special(in_c, out_c, geo_, description=s)
+        # export_special(in_c, out_c, geo_, description=s)
 
     # s = 'AZ'
     # geo_ = 'users/dgketchum/boundaries/{}'.format(s)
