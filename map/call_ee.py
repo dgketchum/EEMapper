@@ -546,10 +546,9 @@ def request_band_extract(file_prefix, points_layer, region, years, filter_bounds
         else:
             filtered = plots
 
-        filtered = ee.FeatureCollection([filtered.first()])
-
         # if tables are coming out empty, use this to find missing bands
         if diagnose:
+            filtered = ee.FeatureCollection([filtered.first()])
             bad_ = []
             bands = stack.bandNames().getInfo()
             for b in bands:
