@@ -233,14 +233,14 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
-    o = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+    c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
+    o = 'users/dgketchum/IrrMapper/IrrMapper_sw'
     l = list_assets(c)
     for i in l:
-        if 'OR_' in i:
+        if 'CO_' in i:
             try:
                 y = i[-4:]
-                o_name = os.path.join(o, 'OR_{}'.format(y))
+                o_name = os.path.join(o, 'CO_{}'.format(y))
                 copy_asset(i, o_name)
             except Exception as e:
                 print(e, i)

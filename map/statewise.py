@@ -63,7 +63,11 @@ def get_bands(pts_dir, glob, state, southern=False):
     pts = 'users/dgketchum/points/state/points_{}_{}'.format(state, glob)
     geo = 'users/dgketchum/boundaries/{}'.format(s)
     file_ = 'bands_{}_{}'.format(s, glob)
-    request_band_extract(file_, pts, region=geo, years=years, filter_bounds=True, buffer=1e5, southern=southern)
+    request_band_extract(file_, pts, region=geo, years=[1998, 2001, 2003,
+                                                        2004, 2006],
+                         filter_bounds=True,
+                         buffer=1e5, southern=southern,
+                         diagnose=False)
 
 
 def concatenate_bands(in_dir, out_dir, glob, state, southern=False):
@@ -121,7 +125,7 @@ def classify(out_coll, variable_dir, tables, years, glob, state, southern=False)
 
 if __name__ == '__main__':
     is_authorized()
-    _glob = '10NOV2021'
+    _glob = '2DEC2021'
     _bucket = 'gs://wudr'
     south = False
     root = '/media/research/IrrigationGIS'
@@ -137,8 +141,8 @@ if __name__ == '__main__':
     conctenated = os.path.join(extracts, 'concatenated/state')
     imp_json = os.path.join(extracts, 'variable_importance', 'statewise')
 
-    coll = 'users/dgketchum/IrrMapper/IrrMapper_sw'
-    # coll = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
+    # coll = 'users/dgketchum/IrrMapper/IrrMapper_sw'
+    coll = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
     tables = 'users/dgketchum/bands/state'
 
     for s in ['CO']:
@@ -148,9 +152,9 @@ if __name__ == '__main__':
         # push_points_to_asset(pt_wgs, glob=_glob, state=s, bucket=_bucket)
         # get_bands(pt_aea, _glob, state=s, southern=south)
 
-        concatenate_bands(to_concat, conctenated, glob=_glob, state=s, southern=south)
+        # concatenate_bands(to_concat, conctenated, glob=_glob, state=s, southern=south)
         # variable_importance(conctenated, importance_json=imp_json, glob=_glob, state=s)
         # push_bands_to_asset(conctenated, glob=_glob, state=s, bucket=_bucket)
 
-        # classify(coll, imp_json, tables, [x for x in range(1985, 1987)], glob=_glob, state=s, southern=south)
+        classify(coll, imp_json, tables, [x for x in range(1985, 2022)], glob=_glob, state=s, southern=south)
 # ========================= EOF ====================================================================

@@ -241,27 +241,27 @@ if __name__ == '__main__':
               'unirrigated_path': os.path.join(data, 'dryland_20NOV2021.shp'),
               'wetland_path': os.path.join(data, 'wetlands_9NOV2021.shp')}
 
-    state = 'AZ'
-    print('\nDist Points ', state)
-    intersect_shape = '/media/research/IrrigationGIS/boundaries/states_tiger_aea/{}.shp'.format(state)
-    exclude = '/media/research/IrrigationGIS/compiled_training_data/grids_aea/valid_grid.shp'
+    for state in ['CO', 'ID', 'UT']:
+        print('\nDist Points ', state)
+        intersect_shape = os.path.join(home, 'boundaries/states_tiger_aea/{}.shp'.format(state))
+        exclude = os.path.join(home, 'compiled_training_data/grids_aea/valid_grid.shp')
 
-    kwargs.update({
-        'irrigated': 100,
-        'wetland': 100,
-        'uncultivated': 100,
-        'intersect': intersect_shape,
-        'intersect_buffer': 100000,
-        'exclude': exclude,
-    })
-    if state in ['CA', 'NV', 'AZ']:
-        kwargs['fallow'] = 100
-    else:
-        kwargs['fallow'] = 1000
-        kwargs['unirrigated'] = 6000
+        kwargs.update({
+            'irrigated': 10000,
+            'wetland': 4000,
+            'uncultivated': 4000,
+            'intersect': intersect_shape,
+            'intersect_buffer': 50000,
+            'exclude': exclude,
+        })
+        if state in ['CA', 'NV', 'AZ']:
+            kwargs['fallow'] = 4000
+        else:
+            kwargs['fallow'] = 1000
+            kwargs['unirrigated'] = 6000
 
-    out_name = os.path.join(home, 'EE_extracts', 'point_shp',
-                            'state_aea', 'points_{}_xNOV2021.shp'.format(state))
-    prs = PointsRunspec(buffer=-20, **kwargs)
-    prs.save_sample_points(out_name)
+        out_name = os.path.join(home, 'EE_extracts', 'point_shp',
+                                'state_aea', 'points_{}_2DEC2021.shp'.format(state))
+        prs = PointsRunspec(buffer=-20, **kwargs)
+        prs.save_sample_points(out_name)
 # ========================= EOF ====================================================================

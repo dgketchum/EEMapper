@@ -139,10 +139,10 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, test_corre
 
     if 'nd_max_gs' in df.columns:
         points = where((df.POINT_TYPE == 0) & (df.nd_max_gs < 0.68), nines, points)
-        points = where((df.POINT_TYPE == 1) & (df.nd_max_gs > 0.68), nines, points)
+        # points = where((df.POINT_TYPE == 1) & (df.nd_max_gs > 0.68), nines, points)
     else:
         points = where((df.POINT_TYPE == 0) & (df.nd_max_cy < 0.68), nines, points)
-        points = where((df.POINT_TYPE == 1) & (df.nd_max_cy > 0.68), nines, points)
+        # points = where((df.POINT_TYPE == 1) & (df.nd_max_cy > 0.68), nines, points)
 
     # previous year's data is not needed in areas without dryland agriculture
     if southern:
@@ -161,13 +161,7 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, test_corre
     df['POINT_TYPE'] = points
     df = df[df['POINT_TYPE'] != 9]
 
-    if fallow:
-        df = df[df['POINT_TYPE'] != 1]
-        df = df[df['POINT_TYPE'] != 2]
-        df = df[df['POINT_TYPE'] != 3]
-        glob = '{}_fallow'.format(glob)
-    else:
-        df['POINT_TYPE'][df['POINT_TYPE'] == 4] = 1
+    df['POINT_TYPE'][df['POINT_TYPE'] == 4] = 1
 
     print(df['POINT_TYPE'].value_counts())
 

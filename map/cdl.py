@@ -271,7 +271,7 @@ def remap_cdl():
 
 def get_cdl(yr):
     cultivated, crop = None, None
-    cdl_years = [x for x in range(1997, 2021) if x not in [2005, 2007]]
+    cdl_years = [x for x in range(2008, 2021)]
     cultivated_years = [x for x in range(2013, 2019)]
 
     mode_reduce = ee.Reducer.mode()
