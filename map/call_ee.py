@@ -1,11 +1,10 @@
 import os
 import sys
 from datetime import datetime, date
-
-from numpy import ceil, linspace
 from pprint import pprint
 
 import ee
+from numpy import ceil, linspace
 
 sys.path.insert(0, os.path.abspath('..'))
 from map.assets import list_assets
@@ -271,32 +270,34 @@ def export_raster():
 
 def export_special(input_coll, out_coll, roi, description):
     fc = ee.FeatureCollection(roi)
+    ned = ee.Image('USGS/NED')
+    slope = ee.Terrain.products(ned).select('slope')
 
-    for year in range(2020, 2021):
-        bands = stack_bands(year, fc)
 
-        ndvi = bands.select('nd_max_gs')
-        slope = bands.select('slope')
-        cropland = bands.select('cropland')
+
+    for year in range(1985, 2022):
+        start, end = '{}-05-01'.format(year), '{}-09-30'.format(year)
+        ndvi = landsat_composites(year, start, end, fc, 'gs', composites_only=True).select('nd_max_gs')
+
+        cropland = get_cdl(year)[1].select('cropland')
 
         target = ee.Image(os.path.join(input_coll, '{}_{}'.format(description, year)))
         props = target.getInfo()['properties']
-
         target = target.select('classification').clip(fc.geometry())
 
         sum_coll = ee.ImageCollection(input_coll)
-        sum = ee.ImageCollection(
-            sum_coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum().rename('sum')
+        remap = ee.ImageCollection(sum_coll).map(lambda x: x.select('classification').remap([0,1,2,3], [1,0,0,0]))
+        sum = remap.sum().rename('sum')
 
         expr = target.addBands([sum, ndvi, slope, cropland])
 
-        expression_ = '(IRR == 0) ? 1' \
-                      ':(IRR == 1) && (NDVI > 0.8) && (SUM > 20) ? 1' \
-                      ': (IRR == 0) && (NDVI < 0.68) && (SUM > 10) ? 0' \
-                      ': (IRR == 0) && (SLOPE > 8) ? 0' \
-                      ': (IRR == 0) && (SUM < 5) ? 0' \
-                      ': (IRR == 0) && (CROP > 140) && (CROP < 176) ? 0' \
-                      ': 0'
+
+        expression_ = '(IRR == 1) && (NDVI > 0.75) && (SUM > 10) ? 0' \
+                      ': (IRR == 0) && (NDVI < 0.68) && (SUM > 10) ? 1' \
+                      ': (IRR == 0) && (SLOPE > 8) ? 3' \
+                      ': (IRR == 0) && (SUM < 7) ? 1' \
+                      ': (IRR == 0) && (CROP > 140) && (CROP < 176) ? 3' \
+                      ': IRR'
 
         target = expr.expression(expression_,
                                  {'IRR': expr.select('classification'),
@@ -317,7 +318,6 @@ def export_special(input_coll, out_coll, roi, description):
             pyramidingPolicy={'.default': 'mode'},
             assetId=_id,
             scale=30,
-            # shardSize=56,
             maxPixels=1e13)
 
         task.start()
@@ -711,11 +711,11 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    for s, fip in zip(['CO', 'ID'], ['08083', '16031']):
+    for s in ['ID']:
         in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
         out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
-        # geo_ = 'users/dgketchum/boundaries/{}'.format(s)
-        geo_ = 'users/dgketchum/boundaries/{}'.format(fip)
+        geo_ = 'users/dgketchum/boundaries/{}'.format(s)
+        # geo_ = 'users/dgketchum/boundaries/{}'.format(fip)
         export_special(in_c, out_c, geo_, description=s)
 
     # s = 'AZ'
