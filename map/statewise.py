@@ -63,8 +63,7 @@ def get_bands(pts_dir, glob, state, southern=False):
     pts = 'users/dgketchum/points/state/points_{}_{}'.format(state, glob)
     geo = 'users/dgketchum/boundaries/{}'.format(s)
     file_ = 'bands_{}_{}'.format(s, glob)
-    request_band_extract(file_, pts, region=geo, years=[1998, 2001, 2003,
-                                                        2004, 2006],
+    request_band_extract(file_, pts, region=geo, years=years,
                          filter_bounds=True,
                          buffer=1e5, southern=southern,
                          diagnose=False)
@@ -125,7 +124,7 @@ def classify(out_coll, variable_dir, tables, years, glob, state, southern=False)
 
 if __name__ == '__main__':
     is_authorized()
-    _glob = '2DEC2021'
+    _glob = '3DEC2021'
     _bucket = 'gs://wudr'
     south = False
     root = '/media/research/IrrigationGIS'
@@ -145,7 +144,7 @@ if __name__ == '__main__':
     coll = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
     tables = 'users/dgketchum/bands/state'
 
-    for s in ['CO']:
+    for s in ['MT']:
         if s in ['AZ', 'CA']:
             south = True
         # to_geographic(pt_aea, pt_wgs, glob=_glob, state=s)
@@ -156,5 +155,5 @@ if __name__ == '__main__':
         # variable_importance(conctenated, importance_json=imp_json, glob=_glob, state=s)
         # push_bands_to_asset(conctenated, glob=_glob, state=s, bucket=_bucket)
 
-        classify(coll, imp_json, tables, [x for x in range(1985, 2022)], glob=_glob, state=s, southern=south)
+        classify(coll, imp_json, tables, [x for x in range(2017, 2018)], glob=_glob, state=s, southern=south)
 # ========================= EOF ====================================================================
