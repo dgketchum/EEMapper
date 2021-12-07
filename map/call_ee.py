@@ -734,6 +734,51 @@ def stack_bands(yr, roi, southern=False):
     return input_bands
 
 
+def get_landcover_info(basin_id):
+    year = 2018
+
+    roi = ee.FeatureCollection('users/dgketchum/gages/gage_basins').filterMetadata('STAID', 'equals', basin_id)
+    bands = stack_bands(year, roi, southern=False)
+    dem = bands.select('elevation')
+
+    # 0: bare soil 1: grasses, 2: shrubs, 3: trees
+    nlcd = bands.select('nlcd').remap([11, 12, 21, 22, 23, 24, 31, 41, 42, 43, 51, 52, 71, 72, 73, 74, 81, 82, 90, 95],
+                                      [0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 2, 2, 1, 2, 0, 0, 1, 1, 3, 2]).rename('nlcd')
+    bands = nlcd.addBands([dem])
+    proj = bands.select('nlcd').projection().getInfo()
+
+    clay = ee.Image('projects/openet/soil/ssurgo_Clay_WTA_0to152cm_composite').select(['b1']).rename('clay')
+    sand = ee.Image('projects/openet/soil/ssurgo_Sand_WTA_0to152cm_composite').select(['b1']).rename('sand')
+    loam = ee.Image(1).subtract(clay).subtract(sand).rename('loam')
+
+    soil = clay.addBands([sand, loam])
+    expression_ = 'clay > 0.5 ? 3' \
+                  ': sand > 0.5 ? 1' \
+                  ': 3'
+
+    target = soil.expression(expression_,
+                             {'clay': soil.select('clay'),
+                              'sand': soil.select('sand'),
+                              'loam': soil.select('loam')})
+
+    target = target.rename('soil')
+    target = target.reproject(crs=proj['crs'], scale=30).addBands(bands)
+
+    desc = '{}_7DEC2021'.format(basin_id)
+    task = ee.batch.Export.image.toCloudStorage(
+        target,
+        fileNamePrefix=desc,
+        region=roi.first().geometry(),
+        description=desc,
+        fileFormat='GeoTIFF',
+        bucket='wudr',
+        scale=30,
+        maxPixels=1e13)
+
+    task.start()
+    print(year)
+
+
 def is_authorized():
     try:
         ee.Initialize()  # investigate (use_cloud_api=True)
@@ -746,20 +791,13 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    for s in ['CO', 'UT']:
-        # in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
-        in_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-        out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
-        geo_ = 'users/dgketchum/boundaries/{}'.format(s)
-        # geo_ = 'users/dgketchum/boundaries/{}'.format(fip)
-        export_special(in_c, out_c, geo_, description=s)
+    # for s in ['CO', 'UT']:
+    #     # in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
+    #     in_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+    #     out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
+    #     geo_ = 'users/dgketchum/boundaries/{}'.format(s)
+    #     # geo_ = 'users/dgketchum/boundaries/{}'.format(fip)
+    #     export_special(in_c, out_c, geo_, description=s)
 
-    # s = 'AZ'
-    # geo_ = 'users/dgketchum/boundaries/{}'.format(s)
-    # band_names = stack_bands(2020, ee.FeatureCollection(geo_)).bandNames().getInfo()
-    # for y in [2001, 2003, 2004, 2007, 2016]:
-    #     props = ['nd_1', 'nd_2', 'nd_3', 'nd_max_gs']
-    #     table_ = 'users/dgketchum/to_filter/az_sel_popper_wgs'
-    #     get_ndvi_cultivation_data_polygons(table_, [y], geo_, props, bucket='wudr',
-    #                                        southern=True, id_col='OBJECTID')
+    get_landcover_info('06192500')
 # ========================= EOF ====================================================================
