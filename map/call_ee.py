@@ -274,8 +274,11 @@ def export_special(input_coll, out_coll, roi, description):
     fc = ee.FeatureCollection(roi)
     ned = ee.Image('USGS/NED')
     slope = ee.Terrain.products(ned).select('slope')
+    pivot = ee.FeatureCollection('users/dgketchum/openet/western_17_pivots').filterBounds(fc)
+    class_labels = ee.Image(0).byte()
+    pivot = class_labels.paint(pivot, 1).rename('pivot')
 
-    for year in range(1986, 2022):
+    for year in range(1985, 2022):
         start, end = '{}-05-01'.format(year), '{}-09-30'.format(year)
         ndvi = landsat_composites(year, start, end, fc, 'gs', composites_only=True).select('nd_max_gs')
 
@@ -286,23 +289,18 @@ def export_special(input_coll, out_coll, roi, description):
         target = target.select('classification').clip(fc.geometry())
 
         sum_coll = ee.ImageCollection(input_coll)
-        remap = ee.ImageCollection(sum_coll).map(lambda x: x.select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0]))
+        remap = ee.ImageCollection(sum_coll).map(lambda x: x.select('classification').remap([0, 1, 2, 3],
+                                                                                            [1, 0, 0, 0]))
         sum = remap.sum().rename('sum')
 
-        expr = target.addBands([sum, ndvi, slope, cropland])
+        expr = target.addBands([sum, ndvi, slope, cropland, pivot])
 
-        expression_ = '(IRR == 1) && (NDVI > 0.65) && (SUM > 10) ? 0' \
+        expression_ = '(IRR == 1) && (NDVI > 0.75) && (SUM > 10) ? 0' \
+                      ': (IRR == 0) && (NDVI < 0.68) && (SUM > 10) ? 1' \
                       ': (IRR == 0) && (SLOPE > 5) ? 3' \
                       ': (IRR == 0) && (SUM < 7) ? 1' \
                       ': (IRR == 0) && (CROP > 140) && (CROP < 176) ? 3' \
                       ': IRR'
-
-        # expression_ = '(IRR == 1) && (NDVI > 0.75) && (SUM > 10) ? 0' \
-        #               ': (IRR == 0) && (NDVI < 0.68) && (SUM > 10) ? 1' \
-        #               ': (IRR == 0) && (SLOPE > 8) ? 3' \
-        #               ': (IRR == 0) && (SUM < 7) ? 1' \
-        #               ': (IRR == 0) && (CROP > 140) && (CROP < 176) ? 3' \
-        #               ': IRR'
 
         target = expr.expression(expression_,
                                  {'IRR': expr.select('classification'),
@@ -310,6 +308,14 @@ def export_special(input_coll, out_coll, roi, description):
                                   'NDVI': expr.select('nd_max_gs'),
                                   'SLOPE': expr.select('slope'),
                                   'CROP': expr.select('cropland')})
+
+        expression_ = '(IRR != 0) && (NDVI > 0.68) && (PIVOT == 1) ? 0' \
+                      ': IRR'
+
+        target = target.expression(expression_,
+                                   {'IRR': target.select('classification'),
+                                    'NDVI': expr.select('nd_max_gs'),
+                                    'PIVOT': expr.select('pivot')})
 
         props.update({'post_process': expression_})
         target.set(props)
@@ -740,8 +746,9 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    for s in ['CA']:
-        in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
+    for s in ['CO', 'UT']:
+        # in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
+        in_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
         out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
         geo_ = 'users/dgketchum/boundaries/{}'.format(s)
         # geo_ = 'users/dgketchum/boundaries/{}'.format(fip)
