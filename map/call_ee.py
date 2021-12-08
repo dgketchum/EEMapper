@@ -295,12 +295,12 @@ def export_special(input_coll, out_coll, roi, description):
 
         expr = target.addBands([sum, ndvi, slope, cropland, pivot])
 
-        expression_ = '(IRR == 1) && (NDVI > 0.75) && (SUM > 10) ? 0' \
-                      ': (IRR == 0) && (NDVI < 0.68) && (SUM > 10) ? 1' \
-                      ': (IRR == 0) && (SLOPE > 5) ? 3' \
+        expression_ = '(IRR == 1) && (NDVI > 0.75) && (SUM > 6) ? 0' \
+                      ': (IRR == 0) && (NDVI < 0.68) && (SUM > 6) ? 1' \
+                      ': (IRR == 0) && (SLOPE > 3) ? 3' \
                       ': (IRR == 0) && (SUM < 7) ? 1' \
-                      ': (IRR == 0) && (CROP > 140) && (CROP < 176) ? 3' \
                       ': IRR'
+        # ': (IRR == 0) && (CROP > 140) && (CROP < 176) ? 3' \
 
         target = expr.expression(expression_,
                                  {'IRR': expr.select('classification'),
@@ -776,7 +776,7 @@ def get_landcover_info(basin_id):
         maxPixels=1e13)
 
     task.start()
-    print(year)
+    print(desc)
 
 
 def is_authorized():
@@ -791,13 +791,13 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    # for s in ['CO', 'UT']:
-    #     # in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
-    #     in_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-    #     out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
-    #     geo_ = 'users/dgketchum/boundaries/{}'.format(s)
-    #     # geo_ = 'users/dgketchum/boundaries/{}'.format(fip)
-    #     export_special(in_c, out_c, geo_, description=s)
+    for s in ['ID', 'OR']:
+        in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
+        # in_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+        out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
+        geo_ = 'users/dgketchum/boundaries/{}'.format(s)
+        # geo_ = 'users/dgketchum/boundaries/{}'.format(fip)
+        export_special(in_c, out_c, geo_, description=s)
 
-    get_landcover_info('06192500')
+    # get_landcover_info('06192500')
 # ========================= EOF ====================================================================
