@@ -276,7 +276,7 @@ def export_special(input_coll, out_coll, roi, description):
     class_labels = ee.Image(0).byte()
     pivot = class_labels.paint(pivot, 1).rename('pivot')
 
-    for year in range(1985, 2022):
+    for year in range(2017, 2022):
         start, end = '{}-05-01'.format(year), '{}-09-30'.format(year)
         ndvi = landsat_composites(year, start, end, fc, 'gs', composites_only=True).select('nd_max_gs')
 
@@ -315,6 +315,7 @@ def export_special(input_coll, out_coll, roi, description):
 
             target = target.expression(expression_,
                                        {'IRR': target.select('classification'),
+                                        'SUM': expr.select('sum'),
                                         'NDVI': expr.select('nd_max_gs'),
                                         'PIVOT': expr.select('pivot')})
 
