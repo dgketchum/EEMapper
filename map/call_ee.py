@@ -295,27 +295,31 @@ def export_special(input_coll, out_coll, roi, description):
 
         expr = target.addBands([sum, ndvi, slope, cropland, pivot])
 
-        expression_ = '(IRR == 1) && (NDVI > 0.75) && (SUM > 6) ? 0' \
-                      ': (IRR == 0) && (NDVI < 0.68) && (SUM > 6) ? 1' \
-                      ': (IRR == 0) && (SLOPE > 3) ? 3' \
-                      ': (IRR == 0) && (SUM < 7) ? 1' \
-                      ': IRR'
-        # ': (IRR == 0) && (CROP > 140) && (CROP < 176) ? 3' \
+
+        threshold = 5 if year < 2016 else (2021 - year - 1)
+        if threshold < 0:
+            threshold = 0
+
+        expression_ = '(IRR == 1) && (NDVI > 0.75) && (SUM > {t}) ? 0' \
+                      ': (IRR == 0) && (SUM < {t}) ? 1' \
+                      ': (IRR == 0) && (SLOPE > 10) ? 3' \
+                      ': IRR'.format(t=threshold)
 
         target = expr.expression(expression_,
                                  {'IRR': expr.select('classification'),
                                   'SUM': expr.select('sum'),
                                   'NDVI': expr.select('nd_max_gs'),
-                                  'SLOPE': expr.select('slope'),
-                                  'CROP': expr.select('cropland')})
+                                  'SLOPE': expr.select('slope')})
 
-        expression_ = '(IRR != 0) && (NDVI > 0.68) && (PIVOT == 1) ? 0' \
-                      ': IRR'
+        if year > 2016:
+            expression_ = '(IRR != 0) && (NDVI > 0.68) && (PIVOT == 1) && (SUM > {t}) ? 0' \
+                          ': IRR'.format(t=threshold)
 
-        target = target.expression(expression_,
-                                   {'IRR': target.select('classification'),
-                                    'NDVI': expr.select('nd_max_gs'),
-                                    'PIVOT': expr.select('pivot')})
+            target = target.expression(expression_,
+                                       {'IRR': target.select('classification'),
+                                        'SUM': expr.select('sum'),
+                                        'NDVI': expr.select('nd_max_gs'),
+                                        'PIVOT': expr.select('pivot')})
 
         props.update({'post_process': expression_})
         target.set(props)
@@ -795,7 +799,6 @@ def get_landcover_info(basin_id):
         scale=30,
         maxPixels=1e13)
 
-    print(desc)
     task.start()
     prop = 'elevation'
     desc = '{}_{}_8DEC2021'.format(prop, basin_id)
@@ -853,14 +856,13 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    # for s in ['ID', 'OR']:
-    #     in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
-    #     # in_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-    #     out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
-    #     geo_ = 'users/dgketchum/boundaries/{}'.format(s)
-    #     # geo_ = 'users/dgketchum/boundaries/{}'.format(fip)
-    #     export_special(in_c, out_c, geo_, description=s)
+    for s in ['OR']:
+        in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
+        # in_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+        out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
+        geo_ = 'users/dgketchum/boundaries/{}'.format(s)
+        # geo_ = 'users/dgketchum/boundaries/{}'.format(fip)
+        export_special(in_c, out_c, geo_, description=s)
 
-    get_landcover_info('06192500')
-    # export_resmaple_irr_frequency()
+    # get_landcover_info('06192500')
 # ========================= EOF ====================================================================
