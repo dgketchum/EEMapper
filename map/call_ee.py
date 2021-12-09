@@ -274,8 +274,11 @@ def export_special(input_coll, out_coll, roi, description):
     fc = ee.FeatureCollection(roi)
     ned = ee.Image('USGS/NED')
     slope = ee.Terrain.products(ned).select('slope')
+    pivot = ee.FeatureCollection('users/dgketchum/openet/western_17_pivots').filterBounds(fc)
+    class_labels = ee.Image(0).byte()
+    pivot = class_labels.paint(pivot, 1).rename('pivot')
 
-    for year in range(1986, 2022):
+    for year in range(1985, 2022):
         start, end = '{}-05-01'.format(year), '{}-09-30'.format(year)
         ndvi = landsat_composites(year, start, end, fc, 'gs', composites_only=True).select('nd_max_gs')
 
@@ -286,23 +289,18 @@ def export_special(input_coll, out_coll, roi, description):
         target = target.select('classification').clip(fc.geometry())
 
         sum_coll = ee.ImageCollection(input_coll)
-        remap = ee.ImageCollection(sum_coll).map(lambda x: x.select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0]))
+        remap = ee.ImageCollection(sum_coll).map(lambda x: x.select('classification').remap([0, 1, 2, 3],
+                                                                                            [1, 0, 0, 0]))
         sum = remap.sum().rename('sum')
 
-        expr = target.addBands([sum, ndvi, slope, cropland])
+        expr = target.addBands([sum, ndvi, slope, cropland, pivot])
 
-        expression_ = '(IRR == 1) && (NDVI > 0.65) && (SUM > 10) ? 0' \
-                      ': (IRR == 0) && (SLOPE > 5) ? 3' \
+        expression_ = '(IRR == 1) && (NDVI > 0.75) && (SUM > 6) ? 0' \
+                      ': (IRR == 0) && (NDVI < 0.68) && (SUM > 6) ? 1' \
+                      ': (IRR == 0) && (SLOPE > 3) ? 3' \
                       ': (IRR == 0) && (SUM < 7) ? 1' \
-                      ': (IRR == 0) && (CROP > 140) && (CROP < 176) ? 3' \
                       ': IRR'
-
-        # expression_ = '(IRR == 1) && (NDVI > 0.75) && (SUM > 10) ? 0' \
-        #               ': (IRR == 0) && (NDVI < 0.68) && (SUM > 10) ? 1' \
-        #               ': (IRR == 0) && (SLOPE > 8) ? 3' \
-        #               ': (IRR == 0) && (SUM < 7) ? 1' \
-        #               ': (IRR == 0) && (CROP > 140) && (CROP < 176) ? 3' \
-        #               ': IRR'
+        # ': (IRR == 0) && (CROP > 140) && (CROP < 176) ? 3' \
 
         target = expr.expression(expression_,
                                  {'IRR': expr.select('classification'),
@@ -310,6 +308,14 @@ def export_special(input_coll, out_coll, roi, description):
                                   'NDVI': expr.select('nd_max_gs'),
                                   'SLOPE': expr.select('slope'),
                                   'CROP': expr.select('cropland')})
+
+        expression_ = '(IRR != 0) && (NDVI > 0.68) && (PIVOT == 1) ? 0' \
+                      ': IRR'
+
+        target = target.expression(expression_,
+                                   {'IRR': target.select('classification'),
+                                    'NDVI': expr.select('nd_max_gs'),
+                                    'PIVOT': expr.select('pivot')})
 
         props.update({'post_process': expression_})
         target.set(props)
@@ -728,6 +734,51 @@ def stack_bands(yr, roi, southern=False):
     return input_bands
 
 
+def get_landcover_info(basin_id):
+    year = 2018
+
+    roi = ee.FeatureCollection('users/dgketchum/gages/gage_basins').filterMetadata('STAID', 'equals', basin_id)
+    bands = stack_bands(year, roi, southern=False)
+    dem = bands.select('elevation')
+
+    # 0: bare soil 1: grasses, 2: shrubs, 3: trees
+    nlcd = bands.select('nlcd').remap([11, 12, 21, 22, 23, 24, 31, 41, 42, 43, 51, 52, 71, 72, 73, 74, 81, 82, 90, 95],
+                                      [0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 2, 2, 1, 2, 0, 0, 1, 1, 3, 2]).rename('nlcd')
+    bands = nlcd.addBands([dem])
+    proj = bands.select('nlcd').projection().getInfo()
+
+    clay = ee.Image('projects/openet/soil/ssurgo_Clay_WTA_0to152cm_composite').select(['b1']).rename('clay')
+    sand = ee.Image('projects/openet/soil/ssurgo_Sand_WTA_0to152cm_composite').select(['b1']).rename('sand')
+    loam = ee.Image(1).subtract(clay).subtract(sand).rename('loam')
+
+    soil = clay.addBands([sand, loam])
+    expression_ = 'clay > 0.5 ? 3' \
+                  ': sand > 0.5 ? 1' \
+                  ': 3'
+
+    target = soil.expression(expression_,
+                             {'clay': soil.select('clay'),
+                              'sand': soil.select('sand'),
+                              'loam': soil.select('loam')})
+
+    target = target.rename('soil')
+    target = target.reproject(crs=proj['crs'], scale=30).addBands(bands)
+
+    desc = '{}_7DEC2021'.format(basin_id)
+    task = ee.batch.Export.image.toCloudStorage(
+        target,
+        fileNamePrefix=desc,
+        region=roi.first().geometry(),
+        description=desc,
+        fileFormat='GeoTIFF',
+        bucket='wudr',
+        scale=30,
+        maxPixels=1e13)
+
+    task.start()
+    print(desc)
+
+
 def is_authorized():
     try:
         ee.Initialize()  # investigate (use_cloud_api=True)
@@ -740,19 +791,13 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    for s in ['CA']:
+    for s in ['ID', 'OR']:
         in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
+        # in_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
         out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
         geo_ = 'users/dgketchum/boundaries/{}'.format(s)
         # geo_ = 'users/dgketchum/boundaries/{}'.format(fip)
         export_special(in_c, out_c, geo_, description=s)
 
-    # s = 'AZ'
-    # geo_ = 'users/dgketchum/boundaries/{}'.format(s)
-    # band_names = stack_bands(2020, ee.FeatureCollection(geo_)).bandNames().getInfo()
-    # for y in [2001, 2003, 2004, 2007, 2016]:
-    #     props = ['nd_1', 'nd_2', 'nd_3', 'nd_max_gs']
-    #     table_ = 'users/dgketchum/to_filter/az_sel_popper_wgs'
-    #     get_ndvi_cultivation_data_polygons(table_, [y], geo_, props, bucket='wudr',
-    #                                        southern=True, id_col='OBJECTID')
+    # get_landcover_info('06192500')
 # ========================= EOF ====================================================================
