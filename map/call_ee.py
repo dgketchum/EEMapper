@@ -305,7 +305,10 @@ def export_special(input_coll, out_coll, roi, description):
             pivot = class_labels.paint(pivot, 1).rename('pivot')
             expr = target.addBands([sum, ndvi, slope, cropland, pivot])
 
-            threshold = 4
+            if year < 2010:
+                threshold = 4
+            else:
+                threshold = 0
 
             expression_ = '(IRR == 1) && (NDVI > 0.75) && (SUM > {t}) ? 0' \
                           ': (IRR == 0) && (SUM < {t}) ? 1' \
@@ -327,7 +330,45 @@ def export_special(input_coll, out_coll, roi, description):
                                         'NDVI': expr.select('nd_max_gs'),
                                         'PIVOT': expr.select('pivot')})
 
-        else:
+        elif description == 'ID':
+            pivot = ee.FeatureCollection('users/dgketchum/openet/western_17_pivots').filterBounds(fc)
+
+            class_labels = ee.Image(0).byte()
+            pivot = class_labels.paint(pivot, 1).rename('pivot')
+            expr = target.addBands([sum, ndvi, slope, cropland, pivot])
+
+            threshold = 5 if year < 2011 else (2021 - year - 1)
+            if threshold < 0:
+                threshold = 0
+
+            expression_ = ' (IRR == 0) && (NDVI < 0.68) && (SUM > {t}) ? 1' \
+                          ': (IRR != 0) && (NDVI > 0.75) && (SUM > {t}) ? 0' \
+                          ': (IRR == 0) && (SUM < {t}) ? 1' \
+                          ': IRR'.format(t=threshold)
+
+            target = expr.expression(expression_,
+                                     {'IRR': expr.select('classification'),
+                                      'SUM': expr.select('sum'),
+                                      'NDVI': expr.select('nd_max_gs')})
+
+            expression_ = ' (IRR == 0) && (SLOPE > 6) ? 3' \
+                          ': IRR'.format(t=threshold)
+
+            target = target.expression(expression_,
+                                       {'IRR': target.select('classification'),
+                                        'SLOPE': expr.select('slope')})
+
+            if year > 2010:
+                expression_ = '(IRR != 0) && (NDVI > 0.68) && (PIVOT == 1) && (SUM > {t}) ? 0' \
+                              ': IRR'.format(t=threshold)
+
+                target = target.expression(expression_,
+                                           {'IRR': target.select('classification'),
+                                            'SUM': expr.select('sum'),
+                                            'NDVI': expr.select('nd_max_gs'),
+                                            'PIVOT': expr.select('pivot')})
+
+        elif description in ['WA', 'OR']:
             pivot = ee.FeatureCollection('users/dgketchum/openet/western_17_pivots').filterBounds(fc)
 
             class_labels = ee.Image(0).byte()
@@ -349,7 +390,7 @@ def export_special(input_coll, out_coll, roi, description):
                                       'NDVI': expr.select('nd_max_gs'),
                                       'SLOPE': expr.select('slope')})
 
-            if year > 2016:
+            if year > 2011:
                 expression_ = '(IRR != 0) && (NDVI > 0.68) && (PIVOT == 1) && (SUM > {t}) ? 0' \
                               ': IRR'.format(t=threshold)
 
@@ -358,6 +399,9 @@ def export_special(input_coll, out_coll, roi, description):
                                             'SUM': expr.select('sum'),
                                             'NDVI': expr.select('nd_max_gs'),
                                             'PIVOT': expr.select('pivot')})
+
+        else:
+            raise NotImplementedError('No rule written for this state')
 
         props.update({'post_process': expression_})
         target.set(props)
