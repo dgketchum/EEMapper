@@ -749,12 +749,12 @@ def get_landcover_info(basin_id):
 
     clay = ee.Image('projects/openet/soil/ssurgo_Clay_WTA_0to152cm_composite').select(['b1']).rename('clay')
     sand = ee.Image('projects/openet/soil/ssurgo_Sand_WTA_0to152cm_composite').select(['b1']).rename('sand')
-    loam = ee.Image(1).subtract(clay).subtract(sand).rename('loam')
+    loam = ee.Image(100).subtract(clay).subtract(sand).rename('loam')
 
     soil = clay.addBands([sand, loam])
-    expression_ = 'clay > 0.5 ? 3' \
-                  ': sand > 0.5 ? 1' \
-                  ': 3'
+    expression_ = 'clay > 50 ? 3' \
+                  ': sand > 50 ? 1' \
+                  ': 2'
 
     target = soil.expression(expression_,
                              {'clay': soil.select('clay'),
@@ -762,11 +762,17 @@ def get_landcover_info(basin_id):
                               'loam': soil.select('loam')})
 
     target = target.rename('soil')
-    target = target.reproject(crs=proj['crs'], scale=30).addBands(bands)
+    soil = target.reproject(crs=proj['crs'], scale=30).int()
 
-    desc = '{}_7DEC2021'.format(basin_id)
+    # pt = ee.FeatureCollection([ee.Feature(ee.Geometry.Point([-110.64, 45.45])).set('FID', 1)])
+    # data = target.sampleRegions(collection=pt,
+    #                             scale=30)
+    # pprint(data.getInfo())
+
+    prop = 'soil'
+    desc = '{}_{}_8DEC2021'.format(prop, basin_id)
     task = ee.batch.Export.image.toCloudStorage(
-        target,
+        soil,
         fileNamePrefix=desc,
         region=roi.first().geometry(),
         description=desc,
@@ -777,6 +783,62 @@ def get_landcover_info(basin_id):
 
     task.start()
     print(desc)
+    prop = 'nlcd'
+    desc = '{}_{}_8DEC2021'.format(prop, basin_id)
+    task = ee.batch.Export.image.toCloudStorage(
+        nlcd,
+        fileNamePrefix=desc,
+        region=roi.first().geometry(),
+        description=desc,
+        fileFormat='GeoTIFF',
+        bucket='wudr',
+        scale=30,
+        maxPixels=1e13)
+
+    print(desc)
+    task.start()
+    prop = 'elevation'
+    desc = '{}_{}_8DEC2021'.format(prop, basin_id)
+    task = ee.batch.Export.image.toCloudStorage(
+        dem,
+        fileNamePrefix=desc,
+        region=roi.first().geometry(),
+        description=desc,
+        fileFormat='GeoTIFF',
+        bucket='wudr',
+        scale=30,
+        maxPixels=1e13)
+
+    print(desc)
+    task.start()
+
+
+def export_resmaple_irr_frequency():
+    bounds_dir = 'users/dgketchum/boundaries'
+    im = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+    remap = ee.ImageCollection(im) \
+        .filterDate('1991-01-01', '2020-12-31') \
+        .map(lambda x: x.select('classification')
+             .remap([0, 1, 2, 3], [1, 0, 0, 0]))
+    sum_ = remap.sum().rename('sum')
+
+    proj = ee.Projection('EPSG:5070')
+    sum_ = sum_.setDefaultProjection(proj)
+    sum_ = sum_.resample('bilinear').reproject(proj, scale=16000)
+
+    for bounds in ['CMB_RB_CLIP', 'CO_RB', 'umrb_ylstn_clip']:
+        roi = ee.FeatureCollection(os.path.join(bounds_dir, bounds)).geometry()
+        i = sum_.clip(roi)
+
+        task = ee.batch.Export.image.toCloudStorage(
+            image=i,
+            description='{}'.format(bounds),
+            bucket='wudr',
+            fileNamePrefix='{}'.format(bounds),
+            scale=16000,
+            maxPixels=1e13)
+        task.start()
+        print(bounds)
 
 
 def is_authorized():
@@ -791,13 +853,14 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    for s in ['ID', 'OR']:
-        in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
-        # in_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-        out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
-        geo_ = 'users/dgketchum/boundaries/{}'.format(s)
-        # geo_ = 'users/dgketchum/boundaries/{}'.format(fip)
-        export_special(in_c, out_c, geo_, description=s)
+    # for s in ['ID', 'OR']:
+    #     in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
+    #     # in_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+    #     out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
+    #     geo_ = 'users/dgketchum/boundaries/{}'.format(s)
+    #     # geo_ = 'users/dgketchum/boundaries/{}'.format(fip)
+    #     export_special(in_c, out_c, geo_, description=s)
 
-    # get_landcover_info('06192500')
+    get_landcover_info('06192500')
+    # export_resmaple_irr_frequency()
 # ========================= EOF ====================================================================
