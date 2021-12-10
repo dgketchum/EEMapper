@@ -237,10 +237,10 @@ if __name__ == '__main__':
     o = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
     l = list_assets(c)
     for i in l:
-        if 'WY_' in i:
+        if 'NM_' in i:
             try:
                 y = i[-4:]
-                o_name = os.path.join(o, 'WY_{}'.format(y))
+                o_name = os.path.join(o, 'NM_{}'.format(y))
                 copy_asset(i, o_name)
             except Exception as e:
                 print(e, i)

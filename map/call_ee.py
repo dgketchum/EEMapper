@@ -276,7 +276,7 @@ def export_special(input_coll, out_coll, roi, description):
     slope = ee.Terrain.products(ned).select('slope')
 
     for year in range(1985, 2022):
-        start, end = '{}-05-01'.format(year), '{}-09-30'.format(year)
+        start, end = '{}-03-01'.format(year), '{}-12-30'.format(year)
         ndvi = landsat_composites(year, start, end, fc, 'gs', composites_only=True).select('nd_max_gs')
 
         cropland = get_cdl(year)[1].select('cropland')
@@ -368,7 +368,7 @@ def export_special(input_coll, out_coll, roi, description):
                                             'NDVI': expr.select('nd_max_gs'),
                                             'PIVOT': expr.select('pivot')})
 
-        elif description in ['WA', 'OR']:
+        elif description in ['WA', 'OR', 'NM', 'NV']:
             pivot = ee.FeatureCollection('users/dgketchum/openet/western_17_pivots').filterBounds(fc)
 
             class_labels = ee.Image(0).byte()
@@ -400,6 +400,37 @@ def export_special(input_coll, out_coll, roi, description):
                                             'NDVI': expr.select('nd_max_gs'),
                                             'PIVOT': expr.select('pivot')})
 
+        elif description in ['CA']:
+            pivot = ee.FeatureCollection('users/dgketchum/openet/western_17_pivots').filterBounds(fc)
+
+            class_labels = ee.Image(0).byte()
+            pivot = class_labels.paint(pivot, 1).rename('pivot')
+            expr = target.addBands([sum, ndvi, slope, cropland, pivot])
+
+            threshold = 5 if year < 2016 else (2021 - year - 1)
+            if threshold < 0:
+                threshold = 0
+
+            expression_ = '(IRR == 1) && (NDVI > 0.75) && (SUM > {t}) ? 0' \
+                          ': (IRR == 0) && (SUM < {t}) ? 1' \
+                          ': (IRR == 0) && (SLOPE > 10) ? 3' \
+                          ': IRR'.format(t=threshold)
+
+            target = expr.expression(expression_,
+                                     {'IRR': expr.select('classification'),
+                                      'SUM': expr.select('sum'),
+                                      'NDVI': expr.select('nd_max_gs'),
+                                      'SLOPE': expr.select('slope')})
+
+            if year > 2011:
+                expression_ = '(IRR != 0) && (NDVI > 0.68) && (PIVOT == 1) && (SUM > {t}) ? 0' \
+                              ': IRR'.format(t=threshold)
+
+                target = target.expression(expression_,
+                                           {'IRR': target.select('classification'),
+                                            'SUM': expr.select('sum'),
+                                            'NDVI': expr.select('nd_max_gs'),
+                                            'PIVOT': expr.select('pivot')})
         else:
             raise NotImplementedError('No rule written for this state')
 
@@ -938,7 +969,7 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    for s in ['MT']:
+    for s in ['NV']:
         in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
         # in_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
         out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
