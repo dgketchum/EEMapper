@@ -1,11 +1,8 @@
 import csv
 import os
 import subprocess
-from calendar import monthrange
 from subprocess import Popen, PIPE, check_call
 import json
-from pprint import pprint
-from shapely.geometry import Polygon
 import ee
 
 TARGET_STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
@@ -29,7 +26,6 @@ def change_permissions(ee_asset, user=None):
 
 def copy_asset(ee_asset, dst):
     cmd = ['{}'.format(EXEC), 'cp', ee_asset, dst]
-    print(cmd)
     check_call(cmd)
 
 

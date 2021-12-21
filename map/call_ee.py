@@ -275,7 +275,7 @@ def export_special(input_coll, out_coll, roi, description):
     ned = ee.Image('USGS/NED')
     slope = ee.Terrain.products(ned).select('slope')
 
-    for year in range(1985, 2022):
+    for year in range(2010, 2022):
         start, end = '{}-03-01'.format(year), '{}-12-30'.format(year)
         ndvi = landsat_composites(year, start, end, fc, 'gs', composites_only=True).select('nd_max_gs')
 
@@ -305,30 +305,39 @@ def export_special(input_coll, out_coll, roi, description):
             pivot = class_labels.paint(pivot, 1).rename('pivot')
             expr = target.addBands([sum, ndvi, slope, cropland, pivot])
 
-            if year < 2010:
-                threshold = 4
+            threshold = 6
+            if year < 2008:
+
+                expression_ = '(IRR == 1) && (NDVI > 0.75) && (SUM > {t}) ? 0' \
+                              ': (IRR == 0) && (SUM < {t}) ? 1' \
+                              ': (IRR == 0) && (SLOPE > 10) ? 3' \
+                              ': IRR'.format(t=threshold)
+
+                target = expr.expression(expression_,
+                                         {'IRR': expr.select('classification'),
+                                          'SUM': expr.select('sum'),
+                                          'NDVI': expr.select('nd_max_gs'),
+                                          'SLOPE': expr.select('slope')})
             else:
-                threshold = 0
+                expression_ = '(IRR == 1) && (NDVI > 0.75) && (SUM > {t}) ? 0' \
+                              ': (IRR == 0) && (SUM < {t}) ? 1' \
+                              ': (IRR == 0) && (SLOPE > 10) ? 3' \
+                              ': IRR'.format(t=threshold)
 
-            expression_ = '(IRR == 1) && (NDVI > 0.75) && (SUM > {t}) ? 0' \
-                          ': (IRR == 0) && (SUM < {t}) ? 1' \
-                          ': (IRR == 0) && (SLOPE > 10) ? 3' \
-                          ': IRR'.format(t=threshold)
+                target = expr.expression(expression_,
+                                         {'IRR': expr.select('classification'),
+                                          'SUM': expr.select('sum'),
+                                          'NDVI': expr.select('nd_max_gs'),
+                                          'SLOPE': expr.select('slope')})
 
-            target = expr.expression(expression_,
-                                     {'IRR': expr.select('classification'),
-                                      'SUM': expr.select('sum'),
-                                      'NDVI': expr.select('nd_max_gs'),
-                                      'SLOPE': expr.select('slope')})
+                expression_ = '(IRR != 0) && (NDVI > 0.68) && (PIVOT == 1) ? 0' \
+                              ': IRR'.format(t=threshold)
 
-            expression_ = '(IRR != 0) && (NDVI > 0.68) && (PIVOT == 1) && (SUM > {t}) ? 0' \
-                          ': IRR'.format(t=threshold)
-
-            target = target.expression(expression_,
-                                       {'IRR': target.select('classification'),
-                                        'SUM': expr.select('sum'),
-                                        'NDVI': expr.select('nd_max_gs'),
-                                        'PIVOT': expr.select('pivot')})
+                target = target.expression(expression_,
+                                           {'IRR': target.select('classification'),
+                                            'SUM': expr.select('sum'),
+                                            'NDVI': expr.select('nd_max_gs'),
+                                            'PIVOT': expr.select('pivot')})
 
         elif description == 'ID':
             pivot = ee.FeatureCollection('users/dgketchum/openet/western_17_pivots').filterBounds(fc)
@@ -940,18 +949,18 @@ def export_resmaple_irr_frequency():
 
     proj = ee.Projection('EPSG:5070')
     sum_ = sum_.setDefaultProjection(proj)
-    sum_ = sum_.resample('bilinear').reproject(proj, scale=16000)
+    sum_ = sum_.resample('bilinear').reproject(proj, scale=1000)
 
     for bounds in ['CMB_RB_CLIP', 'CO_RB', 'umrb_ylstn_clip']:
         roi = ee.FeatureCollection(os.path.join(bounds_dir, bounds)).geometry()
-        i = sum_.clip(roi)
+        i = sum_.clip(roi).int()
 
         task = ee.batch.Export.image.toCloudStorage(
             image=i,
             description='{}'.format(bounds),
             bucket='wudr',
             fileNamePrefix='{}'.format(bounds),
-            scale=16000,
+            scale=1000,
             maxPixels=1e13)
         task.start()
         print(bounds)
@@ -969,13 +978,14 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    for s in ['NV']:
+    for s in ['MT']:
         in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
-        # in_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-        out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
+        out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+        # out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
         geo_ = 'users/dgketchum/boundaries/{}'.format(s)
         # geo_ = 'users/dgketchum/boundaries/{}'.format(fip)
         export_special(in_c, out_c, geo_, description=s)
 
     # get_landcover_info('06192500')
+    # export_resmaple_irr_frequency()
 # ========================= EOF ====================================================================
