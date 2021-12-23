@@ -939,7 +939,7 @@ def get_landcover_info(basin_id):
 
 
 def export_resmaple_irr_frequency():
-    bounds_dir = 'users/dgketchum/boundaries'
+    bounds = 'users/dgketchum/boundaries/impacts_basins_join'
     im = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
     remap = ee.ImageCollection(im) \
         .filterDate('1991-01-01', '2020-12-31') \
@@ -951,19 +951,59 @@ def export_resmaple_irr_frequency():
     sum_ = sum_.setDefaultProjection(proj)
     sum_ = sum_.resample('bilinear').reproject(proj, scale=1000)
 
-    for bounds in ['CMB_RB_CLIP', 'CO_RB', 'umrb_ylstn_clip']:
-        roi = ee.FeatureCollection(os.path.join(bounds_dir, bounds)).geometry()
-        i = sum_.clip(roi).int()
+    roi = ee.FeatureCollection(os.path.join(bounds)).geometry()
+    i = sum_.clip(roi).int()
 
-        task = ee.batch.Export.image.toCloudStorage(
-            image=i,
-            description='{}'.format(bounds),
-            bucket='wudr',
-            fileNamePrefix='{}'.format(bounds),
-            scale=1000,
-            maxPixels=1e13)
-        task.start()
-        print(bounds)
+    task = ee.batch.Export.image.toCloudStorage(
+        image=i,
+        description='{}'.format('irr_freq_1991_2020'),
+        bucket='wudr',
+        fileNamePrefix='{}'.format('irr_freq_1991_2020'),
+        scale=1000,
+        maxPixels=1e13)
+    task.start()
+    print(bounds)
+
+
+def export_resmaple_irr_change():
+    bounds = 'users/dgketchum/boundaries/impacts_basins_join'
+    im = ee.ImageCollection('projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp')
+
+    remap = ee.ImageCollection(im) \
+        .filterDate('1991-01-01', '2020-12-31') \
+        .map(lambda x: x.select('classification')
+             .remap([0, 1, 2, 3], [1, 0, 0, 0]))
+    sum_ = remap.sum().rename('sum')
+    mask = sum_.gt(5)
+
+    early_coll = im.filterDate('1991-01-01', '1995-12-31').select('classification')
+    early_rm = early_coll.map(lambda x:  x.lt(1))
+    early_sum = early_rm.sum().gte(2)
+
+    late_coll = im.filterDate('2016-01-01', '2020-12-31').select('classification')
+    late_rm = late_coll.map(lambda x:  x.lt(1))
+    late_sum = late_rm.sum().gte(2)
+
+    difference = late_sum.subtract(early_sum)
+
+    proj = ee.Projection('EPSG:5070')
+    difference = difference.setDefaultProjection(proj)
+    difference = difference.reduceResolution(reducer=ee.Reducer.mean(),
+                                             bestEffort=True).reproject(crs=proj, scale=1000)
+    # difference = difference.mask(mask)
+
+    roi = ee.FeatureCollection(os.path.join(bounds)).geometry()
+    i = difference.clip(roi).int()
+
+    task = ee.batch.Export.image.toCloudStorage(
+        image=i,
+        description='{}'.format('irr_change_1990_2020_unmasked'),
+        bucket='wudr',
+        fileNamePrefix='{}'.format('irr_change_1990_2020_unmasked'),
+        scale=1000,
+        maxPixels=1e13)
+    task.start()
+    print(bounds)
 
 
 def is_authorized():
@@ -978,14 +1018,14 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    for s in ['MT']:
-        in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
-        out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-        # out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
-        geo_ = 'users/dgketchum/boundaries/{}'.format(s)
-        # geo_ = 'users/dgketchum/boundaries/{}'.format(fip)
-        export_special(in_c, out_c, geo_, description=s)
+    # for s in ['MT']:
+    #     in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
+    #     out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+    #     # out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
+    #     geo_ = 'users/dgketchum/boundaries/{}'.format(s)
+    #     # geo_ = 'users/dgketchum/boundaries/{}'.format(fip)
+    #     export_special(in_c, out_c, geo_, description=s)
 
     # get_landcover_info('06192500')
-    # export_resmaple_irr_frequency()
+    export_resmaple_irr_change()
 # ========================= EOF ====================================================================
