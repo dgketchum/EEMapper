@@ -860,43 +860,33 @@ def stack_bands(yr, roi, southern=False):
     return input_bands
 
 
-def get_landcover_info(basin_id):
+def get_landcover_info(basin_id, glob='none'):
     year = 2018
 
-    roi = ee.FeatureCollection('users/dgketchum/gages/gage_basins').filterMetadata('STAID', 'equals', basin_id)
+    roi = ee.FeatureCollection('users/dgketchum/boundaries/{}'.format(basin_id))
     bands = stack_bands(year, roi, southern=False)
     dem = bands.select('elevation')
 
     # 0: bare soil 1: grasses, 2: shrubs, 3: trees
-    nlcd = bands.select('nlcd').remap([11, 12, 21, 22, 23, 24, 31, 41, 42, 43, 51, 52, 71, 72, 73, 74, 81, 82, 90, 95],
-                                      [0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 2, 2, 1, 2, 0, 0, 1, 1, 3, 2]).rename('nlcd')
+    nlcd = bands.select('nlcd')
     bands = nlcd.addBands([dem])
     proj = bands.select('nlcd').projection().getInfo()
 
     clay = ee.Image('projects/openet/soil/ssurgo_Clay_WTA_0to152cm_composite').select(['b1']).rename('clay')
     sand = ee.Image('projects/openet/soil/ssurgo_Sand_WTA_0to152cm_composite').select(['b1']).rename('sand')
     loam = ee.Image(100).subtract(clay).subtract(sand).rename('loam')
+    ksat = ee.Image('projects/openet/soil/ssurgo_Ksat_WTA_0to152cm_composite').select(['b1']).rename('ksat')
+    awc = ee.Image('projects/openet/soil/ssurgo_AWC_WTA_0to152cm_composite').select(['b1']).rename('awc')
 
-    soil = clay.addBands([sand, loam])
-    expression_ = 'clay > 50 ? 3' \
-                  ': sand > 50 ? 1' \
-                  ': 2'
-
-    target = soil.expression(expression_,
-                             {'clay': soil.select('clay'),
-                              'sand': soil.select('sand'),
-                              'loam': soil.select('loam')})
-
-    target = target.rename('soil')
-    soil = target.reproject(crs=proj['crs'], scale=30).int()
+    soil = clay.addBands([sand, loam, ksat, awc])
 
     # pt = ee.FeatureCollection([ee.Feature(ee.Geometry.Point([-110.64, 45.45])).set('FID', 1)])
-    # data = target.sampleRegions(collection=pt,
-    #                             scale=30)
+    # data = soil.sampleRegions(collection=pt,
+    #                           scale=30)
     # pprint(data.getInfo())
 
     prop = 'soil'
-    desc = '{}_{}_8DEC2021'.format(prop, basin_id)
+    desc = '{}_{}_{}'.format(prop, basin_id, glob)
     task = ee.batch.Export.image.toCloudStorage(
         soil,
         fileNamePrefix=desc,
@@ -906,11 +896,11 @@ def get_landcover_info(basin_id):
         bucket='wudr',
         scale=30,
         maxPixels=1e13)
-
     task.start()
     print(desc)
+
     prop = 'nlcd'
-    desc = '{}_{}_8DEC2021'.format(prop, basin_id)
+    desc = '{}_{}_{}'.format(prop, basin_id, glob)
     task = ee.batch.Export.image.toCloudStorage(
         nlcd,
         fileNamePrefix=desc,
@@ -920,10 +910,11 @@ def get_landcover_info(basin_id):
         bucket='wudr',
         scale=30,
         maxPixels=1e13)
-
     task.start()
+    print(desc)
+
     prop = 'elevation'
-    desc = '{}_{}_8DEC2021'.format(prop, basin_id)
+    desc = '{}_{}_{}'.format(prop, basin_id, glob)
     task = ee.batch.Export.image.toCloudStorage(
         dem,
         fileNamePrefix=desc,
@@ -933,7 +924,6 @@ def get_landcover_info(basin_id):
         bucket='wudr',
         scale=30,
         maxPixels=1e13)
-
     print(desc)
     task.start()
 
@@ -947,10 +937,6 @@ def export_resmaple_irr_frequency():
              .remap([0, 1, 2, 3], [1, 0, 0, 0]))
     sum_ = remap.sum().rename('sum')
 
-    proj = ee.Projection('EPSG:5070')
-    sum_ = sum_.setDefaultProjection(proj)
-    sum_ = sum_.resample('bilinear').reproject(proj, scale=1000)
-
     roi = ee.FeatureCollection(os.path.join(bounds)).geometry()
     i = sum_.clip(roi).int()
 
@@ -959,14 +945,17 @@ def export_resmaple_irr_frequency():
         description='{}'.format('irr_freq_1991_2020'),
         bucket='wudr',
         fileNamePrefix='{}'.format('irr_freq_1991_2020'),
-        scale=1000,
+        scale=30,
         maxPixels=1e13)
     task.start()
     print(bounds)
 
 
 def export_resmaple_irr_change():
-    bounds = 'users/dgketchum/boundaries/impacts_basins_join'
+    bounds = 'users/dgketchum/boundaries/western_17_counties'
+    bounds = ee.FeatureCollection(bounds)  # .filterMetadata('GEOID', 'equals', '16001')
+    roi = bounds.geometry()
+
     im = ee.ImageCollection('projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp')
 
     remap = ee.ImageCollection(im) \
@@ -977,33 +966,30 @@ def export_resmaple_irr_change():
     mask = sum_.gt(5)
 
     early_coll = im.filterDate('1991-01-01', '1995-12-31').select('classification')
-    early_rm = early_coll.map(lambda x:  x.lt(1))
+    early_rm = early_coll.map(lambda x: x.lt(1))
     early_sum = early_rm.sum().gte(2)
 
     late_coll = im.filterDate('2016-01-01', '2020-12-31').select('classification')
-    late_rm = late_coll.map(lambda x:  x.lt(1))
+    late_rm = late_coll.map(lambda x: x.lt(1))
     late_sum = late_rm.sum().gte(2)
 
     difference = late_sum.subtract(early_sum)
+    difference = difference.mask(mask).add(2)
 
-    proj = ee.Projection('EPSG:5070')
-    difference = difference.setDefaultProjection(proj)
-    difference = difference.reduceResolution(reducer=ee.Reducer.mean(),
-                                             bestEffort=True).reproject(crs=proj, scale=1000)
-    # difference = difference.mask(mask)
+    # proj_ = ee.Projection('EPSG:4326')
+    # difference = difference.reproject(proj_)
 
-    roi = ee.FeatureCollection(os.path.join(bounds)).geometry()
     i = difference.clip(roi).int()
 
     task = ee.batch.Export.image.toCloudStorage(
         image=i,
-        description='{}'.format('irr_change_1990_2020_unmasked'),
+        description='{}'.format('delta_irr_1990_2020'),
         bucket='wudr',
-        fileNamePrefix='{}'.format('irr_change_1990_2020_unmasked'),
-        scale=1000,
+        fileNamePrefix='{}'.format('delta_irr_1990_2020'),
+        scale=30,
         maxPixels=1e13)
+
     task.start()
-    print(bounds)
 
 
 def is_authorized():
@@ -1026,6 +1012,7 @@ if __name__ == '__main__':
     #     # geo_ = 'users/dgketchum/boundaries/{}'.format(fip)
     #     export_special(in_c, out_c, geo_, description=s)
 
-    # get_landcover_info('06192500')
-    export_resmaple_irr_change()
+    get_landcover_info('upper_yellowstone', glob='13JAN2022')
+    # export_resmaple_irr_change()
+    # export_resmaple_irr_frequency()
 # ========================= EOF ====================================================================

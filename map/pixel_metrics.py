@@ -1,9 +1,14 @@
 import os
-import ee
-import numpy as np
-import os
+import json
 import datetime
-from collections import defaultdict
+
+from pandas import read_csv, DataFrame
+import numpy as np
+import ee
+import fiona
+from shapely.geometry import shape
+
+from state_county_names_codes import state_name_abbreviation, state_fips_code
 
 ee.Initialize()
 BOUNDARIES = 'users/dgketchum/boundaries'
@@ -15,11 +20,11 @@ def confusion(irr_labels, unirr_labels, irr_image, unirr_image, state):
     domain = domain.toList(domain.size()).get(0)
     domain = ee.Feature(domain)
 
-    true_positive = irr_image.eq(irr_labels)  # pred. irrigated, labeled irrigated
-    false_positive = irr_image.eq(unirr_labels)  # pred. irrigated, labeled unirrigated
+    true_positive = irr_image.eq(irr_labels)
+    false_positive = irr_image.eq(unirr_labels)
 
-    true_negative = unirr_image.eq(unirr_labels)  # pred unirrigated, labeled unirrigated
-    false_negative = unirr_image.eq(irr_labels)  # pred unirrigated, labeled irrigated
+    true_negative = unirr_image.eq(unirr_labels)
+    false_negative = unirr_image.eq(irr_labels)
 
     TP = true_positive.reduceRegion(
         geometry=domain.geometry(),
@@ -50,11 +55,7 @@ def confusion(irr_labels, unirr_labels, irr_image, unirr_image, state):
         scale=30
     )
 
-    out = {}
-    out['TP'] = TP.getInfo()
-    out['FP'] = FP.getInfo()
-    out['FN'] = FN.getInfo()
-    out['TN'] = TN.getInfo()
+    out = {'TP': TP.getInfo(), 'FP': FP.getInfo(), 'FN': FN.getInfo(), 'TN': TN.getInfo()}
     return out
 
 
@@ -72,8 +73,7 @@ def create_lanid_labels(year, geo):
 
 def create_rf_labels(year, state_abv):
 
-    rf = ee.Image('projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp/IM_{}_{}'.format(state_abv, year))
-
+    rf = ee.Image('projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp/{}_{}'.format(state_abv, year))
     irrMask = rf.lt(1)
     unirrImage = ee.Image(1).byte().updateMask(irrMask.Not())
     irrImage = ee.Image(1).byte().updateMask(irrMask)
@@ -89,13 +89,13 @@ def create_irrigated_labels(all_data, year):
         non_irrigated = non_irrigated.merge(fallow)
         irrigated = irrigated.filter(ee.Filter.eq('YEAR', year))
     else:
-        root = 'projects/ee-dgketchum/assets/validation_polygons/'
-        non_irrigated = ee.FeatureCollection(root + 'uncultivated_3DEC2020')
-        non_irrigated = non_irrigated.merge(ee.FeatureCollection(root + 'unirrigated_29NOV2020'))
-        non_irrigated = non_irrigated.merge(ee.FeatureCollection(root + 'wetlands_14JUL2020'))
+        root = 'users/dgketchum/validation/'
+        non_irrigated = ee.FeatureCollection(root + 'uncultivated')
+        non_irrigated = non_irrigated.merge(ee.FeatureCollection(root + 'dryland'))
+        non_irrigated = non_irrigated.merge(ee.FeatureCollection(root + 'wetlands'))
 
-        fallow = ee.FeatureCollection(root + 'fallow_2DEC2020')
-        irrigated = ee.FeatureCollection(root + 'irrigated_7DEC2020')
+        fallow = ee.FeatureCollection(root + 'fallow')
+        irrigated = ee.FeatureCollection(root + 'irrigated')
         fallow = fallow.filter(ee.Filter.eq('YEAR', year))
         non_irrigated = non_irrigated.merge(fallow)
         irrigated = irrigated.filter(ee.Filter.eq('YEAR', year))
@@ -114,56 +114,106 @@ def metrics(arr):
     return precision, recall
 
 
+def calculate_accuracy_by_state(climate_json, csv_out):
+    sdf = DataFrame(columns=['state', 'year', 'anomaly', 'normal',
+                             'TP', 'FN', 'FP', 'TN', 'prec', 'rec'])
+    with open(climate_json, 'r') as fp:
+        stdct = json.load(fp)
+    for k, v in stdct.items():
+        for yr, tup_ in v.items():
+            sdf = sdf.append({'state': k, 'year': yr, 'anomaly': tup_[1], 'normal': tup_[0]}, ignore_index=True)
+
+    print(datetime.datetime.now())
+    globe_conf = np.zeros((2, 2))
+
+    for i, row in sdf.iterrows():
+        print('\n {} precip: {}'.format(row['year'], row['anomaly']))
+        annual_conf = np.zeros((2, 2))
+        try:
+            irr_labels, unirr_labels = create_irrigated_labels(False, int(row['year']))
+            irr_image, unirr_image = create_rf_labels(row['year'], state_abv=row['state'])
+            cmt = confusion(irr_labels, unirr_labels, irr_image, unirr_image, row['state'])
+            print('{} {}'.format(row['state'], cmt))
+            for pos, ct in zip([(0, 0), (0, 1), (1, 0), (1, 1)], ['TP', 'FN', 'FP', 'TN']):
+                globe_conf[pos] += cmt[ct]['constant']
+                annual_conf[pos] += cmt[ct]['constant']
+                row[ct] = cmt[ct]['constant']
+
+            p, r = metrics(annual_conf)
+            row['prec'], row['rec'] = np.round(p, decimals=3), np.round(r, decimals=3)
+            sdf.loc[i] = row
+            print('prec {:.3f}, rec {:.3f}'.format(p, r))
+
+        except Exception as e:
+            print(e, row['state'], row['year'])
+            pass
+
+    print(globe_conf)
+    p, r = metrics(globe_conf)
+    sdf.to_csv(csv_out)
+    print('prec {}, rec {}'.format(p, r))
+    print(datetime.datetime.now())
+
+
+def get_training_data_climate(training_data, state_boundaries, climate, o_json):
+    clime_files = {os.path.basename(x)[:2]: os.path.join(climate, x) for x in os.listdir(climate)}
+
+    st_geos = {}
+    with fiona.open(state_boundaries, 'r') as st_src:
+        for st in st_src:
+            state = st['properties']['STUSPS']
+            if state in ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']:
+                poly = shape(st['geometry'])
+                st_geos[state] = poly
+
+    with fiona.open(training_data, 'r') as src:
+        ct = 0
+        st_years = {}
+        for f in src:
+            ct += 1
+            y = f['properties']['YEAR']
+            try:
+                field = shape(f['geometry']).centroid
+                for st, poly in st_geos.items():
+                    if field.intersects(poly):
+                        if st not in st_years.keys():
+                            st_years[st] = [y]
+                        elif y not in st_years[st]:
+                            st_years[st].append(y)
+                        else:
+                            pass
+            except Exception as e:
+                print(e, y)
+
+    st_clim = {}
+    for st, yrs in st_years.items():
+        df = read_csv(clime_files[st], header=4)
+        df.index = [int(str(x)[:4]) for x in df['Date']]
+        first = True
+        for yr in yrs:
+            try:
+                if first:
+                    st_clim[st] = {yr: (df.loc[yr]['Value'], df.loc[yr]['Anomaly'])}
+                    first = False
+                else:
+                    st_clim[st].update({yr: (df.loc[yr]['Value'], df.loc[yr]['Anomaly'])})
+            except KeyError:
+                print(yr)
+
+    with open(o_json, 'w') as fp:
+        fp.write(json.dumps(st_clim, indent=4, sort_keys=True))
+
+
 if __name__ == '__main__':
-
-    # im = np.array([[804828, 56825], [563617, 42072843]])
-    # p, r = metrics(im)
-    # print('IM prec {}, rec {}'.format(p, r))
-    #
-    # lid = np.array([[710976, 150677], [273559, 42362906]])
-    # p, r = metrics(lid)
-    # print('LANID prec {}, rec {}'.format(p, r))
-
-    print(datetime.datetime.now())
-    conf = np.zeros((2, 2))
-    print('\n\n\n IrrMapper')
-    for year in [x for x in range(1997, 2018)]:
-        print('\n {}'.format(year))
-        for state in ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']:
-            try:
-                irr_labels, unirr_labels = create_irrigated_labels(False, year)
-                irr_image, unirr_image = create_rf_labels(year, state_abv=state)
-                cmt = confusion(irr_labels, unirr_labels, irr_image, unirr_image, state)
-                print('{} {}'.format(state, cmt))
-                for pos, ct in zip([(0, 0), (0, 1), (1, 0), (1, 1)], ['TP', 'FN', 'FP', 'TN']):
-                    conf[pos] += cmt[ct]['constant']
-            except Exception as e:
-                print(e, state, year)
-                pass
-    print(conf)
-    p, r = metrics(conf)
-    print('prec {}, rec {}'.format(p, r))
-    print(datetime.datetime.now())
-
-    print('\n\n\n LANID')
-    conf = np.zeros((2, 2))
-    for year in [x for x in range(1997, 2018)]:
-        print('\n {}'.format(year))
-        for state in ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']:
-            try:
-                irr_labels, unirr_labels = create_irrigated_labels(False, year)
-                geo = ee.FeatureCollection(os.path.join(BOUNDARIES, state))
-                irr_image, unirr_image = create_lanid_labels(year, geo)
-                cmt = confusion(irr_labels, unirr_labels, irr_image, unirr_image, state)
-                print('{} {}'.format(state, cmt))
-                for pos, ct in zip([(0, 0), (0, 1), (1, 0), (1, 1)], ['TP', 'FN', 'FP', 'TN']):
-                    conf[pos] += cmt[ct]['constant']
-            except Exception as e:
-                print(e, state, year)
-                pass
-    print(conf)
-    p, r = metrics(conf)
-    print('prec {}, rec {}'.format(p, r))
-    print(datetime.datetime.now())
+    root = '/media/research/IrrigationGIS'
+    if not os.path.exists(root):
+        root = '/home/dgketchum/data/IrrigationGIS'
+    irr_shp = os.path.join(root, 'compiled_training_data/wgs/irrigated_26NOV2021.shp')
+    state_shp = os.path.join(root, 'boundaries/states/western_states_11_wgs.shp')
+    climate_ = os.path.join(root, 'climate')
+    _json = os.path.join(climate_, 'training_climate.json')
+    _csv = os.path.join(climate_, 'pixel_metric_climate.csv')
+    # get_training_data_climate(irr_shp, state_shp, climate_, json_out)
+    calculate_accuracy_by_state(_json, _csv)
 
 # ========================= EOF ====================================================================

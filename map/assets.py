@@ -1,5 +1,7 @@
+from pprint import pprint
 import csv
 import os
+import json
 import subprocess
 from subprocess import Popen, PIPE, check_call
 import json
@@ -11,7 +13,8 @@ EDIT_STATES = ['KS', 'ND', 'NE', 'OK', 'SD']
 TEST_YEARS = [1986, 1996, 2006, 2016]
 
 home = os.path.expanduser('~')
-EXEC = os.path.join(home, 'miniconda3', 'envs', 'gcs', 'bin', 'earthengine')
+EE = os.path.join(home, 'miniconda3', 'envs', 'gcs', 'bin', 'earthengine')
+GSUTIL = os.path.join(home, 'miniconda3', 'envs', 'gcs', 'bin', 'gsutil')
 
 
 def change_permissions(ee_asset, user=None):
@@ -19,14 +22,23 @@ def change_permissions(ee_asset, user=None):
     _list = [x for x in reader if x[-4:] in ['2016', '2017', '2018']]
     for r in _list:
         command = 'acl'
-        cmd = ['{}'.format(EXEC), '{}'.format(command), 'set', 'private', '{}'.format(r)]
+        cmd = ['{}'.format(EE), '{}'.format(command), 'set', 'private', '{}'.format(r)]
         print(cmd)
         check_call(cmd)
 
 
 def copy_asset(ee_asset, dst):
-    cmd = ['{}'.format(EXEC), 'cp', ee_asset, dst]
+    cmd = ['{}'.format(EE), 'cp', ee_asset, dst]
     check_call(cmd)
+
+
+def asset_info(ee_asset):
+    cmd = ['{}'.format(EE), 'asset', 'info', ee_asset]
+    asset_list = Popen(cmd, stdout=PIPE)
+    stdout, stderr = asset_list.communicate()
+    str_ = stdout.decode('utf-8').replace("'", '"')
+    data = json.loads(str_)
+    return data
 
 
 def duplicate_asset(ee_asset):
@@ -34,7 +46,7 @@ def duplicate_asset(ee_asset):
     _list = [x for x in reader if x[-4:] in ['2016', '2017', '2018']]
     for r in _list:
         if '2018' in r:
-            cmd = ['{}'.format(EXEC), 'cp', '{}'.format(r), '{}'.format(r.replace('2018', '2019'))]
+            cmd = ['{}'.format(EE), 'cp', '{}'.format(r), '{}'.format(r.replace('2018', '2019'))]
             print(cmd)
             check_call(cmd)
 
@@ -44,21 +56,21 @@ def set_metadata(ee_asset, property='--time_start'):
     for r in reader:
         year = os.path.basename(r)
         if int(year) > 2017:
-            cmd = ['{}'.format(EXEC), 'asset', 'set',
+            cmd = ['{}'.format(EE), 'asset', 'set',
                    '{}'.format(property), '{}-12-31T00:00:00'.format(year), r]
             print(' '.join(cmd))
             check_call(cmd)
 
 
 def get_metadata(ee_asset):
-    cmd = ['{}'.format(EXEC), 'asset', 'info', ee_asset]
+    cmd = ['{}'.format(EE), 'asset', 'info', ee_asset]
     meta = check_call(cmd)
     return meta
 
 
 def delete_asset(ee_asset_path):
     command = 'rm'
-    cmd = ['{}'.format(EXEC), '{}'.format(command), '{}'.format(ee_asset_path)]
+    cmd = ['{}'.format(EE), '{}'.format(command), '{}'.format(ee_asset_path)]
     print(cmd)
     check_call(cmd)
 
@@ -76,7 +88,7 @@ def rename_assets(ee_asset_path, new_path, years_=None):
     for old_name in reader:
         command = 'mv'
         new_name = os.path.join(new_path, os.path.basename(old_name))
-        cmd = ['{}'.format(EXEC), '{}'.format(command), old_name, new_name]
+        cmd = ['{}'.format(EE), '{}'.format(command), old_name, new_name]
         try:
             check_call(cmd)
             print(old_name, new_name)
@@ -86,7 +98,7 @@ def rename_assets(ee_asset_path, new_path, years_=None):
 
 def move_asset(asset, out_name):
     command = 'mv'
-    cmd = ['{}'.format(EXEC), command, asset, out_name]
+    cmd = ['{}'.format(EE), command, asset, out_name]
     try:
         print(asset, out_name)
         check_call(cmd)
@@ -112,7 +124,7 @@ def export_to_cloud(location, bucket):
             # dimensions='41448x53138',
             crs="EPSG:3857")
         # task.start()
-        cmd = ['{}'.format(EXEC), 'rm', i]
+        cmd = ['{}'.format(EE), 'rm', i]
         check_call(cmd)
         print('rm', i)
 
@@ -121,7 +133,7 @@ def cancel_tasks():
     task_list = ee.data.getTaskList()
     for t in task_list:
         if t['state'] == 'READY' and 'IM_' in t['description']:
-            cmd = ['{}'.format(EXEC), 'task', 'cancel', '{}'.format(t['id'])]
+            cmd = ['{}'.format(EE), 'task', 'cancel', '{}'.format(t['id'])]
             check_call(cmd)
             print(cmd)
 
@@ -180,7 +192,7 @@ def mask_move(min_years=3):
 
 def list_assets(location):
     command = 'ls'
-    cmd = ['{}'.format(EXEC), '{}'.format(command), '{}'.format(location)]
+    cmd = ['{}'.format(EE), '{}'.format(command), '{}'.format(location)]
     asset_list = Popen(cmd, stdout=PIPE)
     stdout, stderr = asset_list.communicate()
     reader = csv.DictReader(stdout.decode('ascii').splitlines(),
@@ -196,7 +208,7 @@ def filter_by_metadata(collection):
     dct = {}
     for a in assets:
         try:
-            cmd = ['{}'.format(EXEC), 'asset', 'info', '{}'.format(a)]
+            cmd = ['{}'.format(EE), 'asset', 'info', '{}'.format(a)]
             popr = Popen(cmd, stdout=PIPE)
             stdout, stderr = popr.communicate()
             info = json.loads(stdout[86:])
@@ -227,19 +239,31 @@ def is_authorized():
         return False
 
 
+def clean_gcs():
+    command = 'ls'
+    cmd = ['{}'.format(EE), '{}'.format(command), 'users/dgketchum/bands/state']
+    asset_list = Popen(cmd, stdout=PIPE)
+    stdout, stderr = asset_list.communicate()
+    str_ = stdout.decode('utf-8').replace("'", '"')
+    ee_l = str_.split()
+    ee_l = [os.path.basename(x) for x in ee_l]
+
+    cmd = ['{}'.format(GSUTIL), '{}'.format(command), 'gs://wudr/state_points']
+    asset_list = Popen(cmd, stdout=PIPE)
+    stdout, stderr = asset_list.communicate()
+    str_ = stdout.decode('utf-8').replace("'", '"')
+    gcs_l = str_.split()
+    for csv in gcs_l:
+        name_ = os.path.basename(csv).split('.')[0][7:]
+        if name_ not in ee_l:
+            cmd = [GSUTIL, 'rm', csv]
+            # print(cmd)
+            check_call(cmd)
+    pass
+
+
 if __name__ == '__main__':
     is_authorized()
-    c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
-    o = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-    l = list_assets(c)
-    for i in l:
-        if 'NM_' in i:
-            try:
-                y = i[-4:]
-                o_name = os.path.join(o, 'NM_{}'.format(y))
-                copy_asset(i, o_name)
-            except Exception as e:
-                print(e, i)
-                pass
-
+    c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+    clean_gcs()
 # ========================= EOF ====================================================================
