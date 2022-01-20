@@ -860,10 +860,10 @@ def stack_bands(yr, roi, southern=False):
     return input_bands
 
 
-def get_landcover_info(basin_id, glob='none'):
+def get_landcover_info(basin, glob='none'):
     year = 2018
 
-    roi = ee.FeatureCollection('users/dgketchum/boundaries/{}'.format(basin_id))
+    roi = ee.FeatureCollection('users/dgketchum/boundaries/{}'.format(basin))
     bands = stack_bands(year, roi, southern=False)
     dem = bands.select('elevation')
 
@@ -880,52 +880,31 @@ def get_landcover_info(basin_id, glob='none'):
 
     soil = clay.addBands([sand, loam, ksat, awc])
 
+    landfire_cov = ee.Image('LANDFIRE/Vegetation/EVC/v1_4_0/CONUS')
+    landfire_type = ee.Image('LANDFIRE/Vegetation/EVT/v1_4_0/CONUS')
+
     # pt = ee.FeatureCollection([ee.Feature(ee.Geometry.Point([-110.64, 45.45])).set('FID', 1)])
     # data = soil.sampleRegions(collection=pt,
     #                           scale=30)
     # pprint(data.getInfo())
 
-    prop = 'soil'
-    desc = '{}_{}_{}'.format(prop, basin_id, glob)
-    task = ee.batch.Export.image.toCloudStorage(
-        soil,
-        fileNamePrefix=desc,
-        region=roi.first().geometry(),
-        description=desc,
-        fileFormat='GeoTIFF',
-        bucket='wudr',
-        scale=30,
-        maxPixels=1e13)
-    task.start()
-    print(desc)
+    for prop, var in zip(['soil', 'nlcd', 'elevation', 'landfire_cover', 'landfire_type'],
+                         [soil, nlcd, dem, landfire_cov, landfire_type]):
 
-    prop = 'nlcd'
-    desc = '{}_{}_{}'.format(prop, basin_id, glob)
-    task = ee.batch.Export.image.toCloudStorage(
-        nlcd,
-        fileNamePrefix=desc,
-        region=roi.first().geometry(),
-        description=desc,
-        fileFormat='GeoTIFF',
-        bucket='wudr',
-        scale=30,
-        maxPixels=1e13)
-    task.start()
-    print(desc)
+        desc = '{}_{}_{}'.format(prop, basin, glob)
+        task = ee.batch.Export.image.toCloudStorage(
+            var,
+            fileNamePrefix=desc,
+            region=roi.first().geometry(),
+            description=desc,
+            fileFormat='GeoTIFF',
+            bucket='wudr',
+            scale=30,
+            maxPixels=1e13,
+            crs="EPSG:5071")
 
-    prop = 'elevation'
-    desc = '{}_{}_{}'.format(prop, basin_id, glob)
-    task = ee.batch.Export.image.toCloudStorage(
-        dem,
-        fileNamePrefix=desc,
-        region=roi.first().geometry(),
-        description=desc,
-        fileFormat='GeoTIFF',
-        bucket='wudr',
-        scale=30,
-        maxPixels=1e13)
-    print(desc)
-    task.start()
+        task.start()
+        print(desc)
 
 
 def export_resmaple_irr_frequency():
@@ -1012,7 +991,7 @@ if __name__ == '__main__':
     #     # geo_ = 'users/dgketchum/boundaries/{}'.format(fip)
     #     export_special(in_c, out_c, geo_, description=s)
 
-    get_landcover_info('upper_yellowstone', glob='13JAN2022')
+    get_landcover_info('upper_yellowstone', glob='21JAN2022')
     # export_resmaple_irr_change()
     # export_resmaple_irr_frequency()
 # ========================= EOF ====================================================================
