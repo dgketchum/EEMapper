@@ -132,6 +132,10 @@ def get_area(shp, intersect_shape=None, add_duplicate_area=True):
         unq = 0
         ct = 0
         for feat in s:
+
+            if feat['geometry'] is None:
+                continue
+
             if feat['geometry']['type'] == 'Polygon':
                 coords = feat['geometry']['coordinates'][0]
 
@@ -315,15 +319,13 @@ if __name__ == '__main__':
     if not os.path.exists(gis):
         gis = '/home/dgketchum/data/IrrigationGIS'
     inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
-    # inspected = os.path.join(gis, 'training_data', 'unirrigated', 'to_merge')
-    # inspected = os.path.join(gis, 'training_data', 'uncultivated', 'to_merge')
-    # inspected = os.path.join(gis, 'training_data', 'wetlands', 'to_merge')
     files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
     out_file = 'irrigated_26NOV2021.shp'
     out_ = os.path.join(gis, 'compiled_training_data', 'wgs', out_file)
-    fiona_merge_attribute(out_, files_)
+    # fiona_merge_attribute(out_, files_)
     # fiona_merge(out_, files_)
     aea = os.path.join(gis, 'compiled_training_data', 'aea', out_file)
-    to_aea(out_, aea)
-
+    # to_aea(out_, aea)
+    bounds = os.path.join(gis, 'boundaries', 'states', 'western_states_11_aea.shp')
+    get_area(aea, add_duplicate_area=True, intersect_shape=bounds)
 # ========================= EOF ====================================================================

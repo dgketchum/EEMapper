@@ -3,6 +3,9 @@ from copy import deepcopy
 import numpy as np
 from pandas import read_table, read_csv, concat
 import fiona
+import matplotlib.pyplot as plt
+
+from state_county_codes import state_fips_code
 
 DROP = ['SOURCE_DESC', 'SECTOR_DESC', 'GROUP_DESC',
         'COMMODITY_DESC', 'CLASS_DESC', 'PRODN_PRACTICE_DESC',
@@ -127,6 +130,30 @@ def merge_nass_irrmapper(nass, irrmapper, out_name):
     df.to_csv(out_name)
 
 
+def nass_statewide_summary(csv):
+    df = read_csv(csv)
+    df = df.groupby(['STATE_ANSI'])[FLOAT_COLS].sum()
+    df.index = [str(int(x)).rjust(2, '0') for x in df.index]
+    state_codes = state_fips_code()
+    state_inv = {v: k for k, v in state_codes.items()}
+    states = [state_inv[i] for i in df.index]
+    years = [int(x[-4:]) for x in FLOAT_COLS]
+    fig, ax = plt.subplots()
+    df = df.apply(lambda x: x.div(x.mean(), x.values), axis=1)
+    for i, r in df.iterrows():
+        if state_inv[i] in TARGET_STATES:
+            r.index = years
+            r.name = state_inv[i]
+            ax = r.plot(ax=ax, kind='line', x=years, y=r.values, alpha=0.6)
+
+    plt.xlim(1984, 2020)
+    plt.ylim(0.4, 1.6)
+    plt.legend(loc='lower center', ncol=5, labelspacing=0.5)
+    plt.show()
+
+    pass
+
+
 def nass_shapefile(counties, out_shp, nass_data, irr_data, states):
     with fiona.open(counties) as src:
         meta = src.meta
@@ -186,5 +213,6 @@ if __name__ == '__main__':
 
     co_shp = os.path.join(root, 'boundaries', 'counties', 'western_17_states_counties_wgs.shp')
     o_shp = os.path.join(nass_tables, 'nass_counties.shp')
-    nass_shapefile(co_shp, o_shp, merged, irr_extract, STATES)
+    # nass_shapefile(co_shp, o_shp, merged, irr_extract, STATES)
+    nass_statewide_summary(nass)
 # ========================= EOF ====================================================================

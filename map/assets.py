@@ -55,12 +55,14 @@ def set_metadata(ee_asset, property='--time_start'):
     reader = list_assets(ee_asset)
     for r in reader:
         year = os.path.basename(r)
-        if int(year) > 2017:
-            cmd = ['{}'.format(EE), 'asset', 'set',
-                   '{}'.format(property), '{}-12-31T00:00:00'.format(year), r]
-            print(' '.join(cmd))
-            check_call(cmd)
-
+        cmd = ['{}'.format(EE), 'asset', 'set',
+               '--time_start', '{}-12-31T00:00:00'.format(year), r]
+        print(' '.join(cmd))
+        check_call(cmd)
+        cmd = ['{}'.format(EE), 'asset', 'set',
+               '--time_end', '{}-12-31T00:00:00'.format(year), r]
+        print(' '.join(cmd))
+        check_call(cmd)
 
 def get_metadata(ee_asset):
     cmd = ['{}'.format(EE), 'asset', 'info', ee_asset]
@@ -264,6 +266,8 @@ def clean_gcs():
 
 if __name__ == '__main__':
     is_authorized()
-    c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-    clean_gcs()
+    c = 'users/dgketchum/ssebop/boise'
+    l = list_assets(c)
+    for i in l:
+        set_metadata(i)
 # ========================= EOF ====================================================================

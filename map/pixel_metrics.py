@@ -8,13 +8,20 @@ import ee
 import fiona
 from shapely.geometry import shape
 
-from state_county_names_codes import state_name_abbreviation, state_fips_code
+from state_county_codes import state_fips_code, county_acres, state_county_code
 
 ee.Initialize()
 BOUNDARIES = 'users/dgketchum/boundaries'
 
+TARGET_STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
+E_STATES = ['ND', 'SD', 'NE', 'KS', 'OK', 'TX']
 
-def confusion(irr_labels, unirr_labels, irr_image, unirr_image, state):
+BASIN = ['users/dgketchum/boundaries/umrb_ylstn_clip',
+         'users/dgketchum/boundaries/CMB_RB_CLIP',
+         'users/dgketchum/boundaries/CO_RB']
+
+
+def confusion(irr_labels, unirr_labels, irr_image, unirr_image, state, clip=False):
     domain = 'users/dgketchum/boundaries/{}'.format(state)
     domain = ee.FeatureCollection(domain)
     domain = domain.toList(domain.size()).get(0)
@@ -22,9 +29,17 @@ def confusion(irr_labels, unirr_labels, irr_image, unirr_image, state):
 
     true_positive = irr_image.eq(irr_labels)
     false_positive = irr_image.eq(unirr_labels)
-
     true_negative = unirr_image.eq(unirr_labels)
     false_negative = unirr_image.eq(irr_labels)
+
+    if clip:
+        basin = ee.FeatureCollection(BASIN[0]).merge(ee.FeatureCollection(BASIN[1])) \
+            .merge(ee.FeatureCollection(BASIN[2]))
+
+        true_positive = true_positive.clip(basin)
+        false_positive = false_positive.clip(basin)
+        true_negative = true_negative.clip(basin)
+        false_negative = false_negative.clip(basin)
 
     TP = true_positive.reduceRegion(
         geometry=domain.geometry(),
@@ -72,7 +87,6 @@ def create_lanid_labels(year, geo):
 
 
 def create_rf_labels(year, state_abv):
-
     rf = ee.Image('projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp/{}_{}'.format(state_abv, year))
     irrMask = rf.lt(1)
     unirrImage = ee.Image(1).byte().updateMask(irrMask.Not())
@@ -97,7 +111,7 @@ def create_irrigated_labels(all_data, year):
         fallow = ee.FeatureCollection(root + 'fallow')
         irrigated = ee.FeatureCollection(root + 'irrigated')
         fallow = fallow.filter(ee.Filter.eq('YEAR', year))
-        non_irrigated = non_irrigated.merge(fallow)
+        non_irrigated = non_irrigated.merge(fallow).map(lambda x: x.buffer(-50))
         irrigated = irrigated.filter(ee.Filter.eq('YEAR', year))
 
     irr_labels = ee.Image(1).byte().paint(irrigated, 0)
@@ -127,12 +141,15 @@ def calculate_accuracy_by_state(climate_json, csv_out):
     globe_conf = np.zeros((2, 2))
 
     for i, row in sdf.iterrows():
+        if not row['state'] in ['MT', 'ID', 'WA', 'WY']:
+            continue
         print('\n {} precip: {}'.format(row['year'], row['anomaly']))
         annual_conf = np.zeros((2, 2))
         try:
             irr_labels, unirr_labels = create_irrigated_labels(False, int(row['year']))
             irr_image, unirr_image = create_rf_labels(row['year'], state_abv=row['state'])
-            cmt = confusion(irr_labels, unirr_labels, irr_image, unirr_image, row['state'])
+            cmt = confusion(irr_labels, unirr_labels, irr_image, unirr_image, row['state'], clip=True)
+
             print('{} {}'.format(row['state'], cmt))
             for pos, ct in zip([(0, 0), (0, 1), (1, 0), (1, 1)], ['TP', 'FN', 'FP', 'TN']):
                 globe_conf[pos] += cmt[ct]['constant']
@@ -141,6 +158,10 @@ def calculate_accuracy_by_state(climate_json, csv_out):
 
             p, r = metrics(annual_conf)
             row['prec'], row['rec'] = np.round(p, decimals=3), np.round(r, decimals=3)
+
+            if np.isnan(p) or np.isnan(r):
+                continue
+
             sdf.loc[i] = row
             print('prec {:.3f}, rec {:.3f}'.format(p, r))
 
@@ -204,6 +225,35 @@ def get_training_data_climate(training_data, state_boundaries, climate, o_json):
         fp.write(json.dumps(st_clim, indent=4, sort_keys=True))
 
 
+def get_nass_landcover(nass):
+    state_codes = state_fips_code()
+    df = read_csv(nass, index_col='GEOID')
+    total, irr_area = 0, 0
+    for s, c in state_codes.items():
+        if s not in TARGET_STATES:
+            continue
+        if s not in state_county_code().keys():
+            continue
+        for k, v in state_county_code()[s].items():
+            try:
+                geoid = v['GEOID']
+                tot_acres = county_acres()[geoid]
+                water = tot_acres['water']
+                land = tot_acres['land']
+                total += land + water
+                ia = df.loc[int(geoid)]['IRR_2017']
+                if np.isnan(ia):
+                    print('{} fails'.format(geoid))
+                    continue
+                irr_area += ia
+            except KeyError:
+                print('{} fails'.format(geoid))
+                continue
+
+    print('total {:.1f}:{:.1f} irrigated'.format(total, irr_area))
+    print('{:.3f}'.format(irr_area / total))
+
+
 if __name__ == '__main__':
     root = '/media/research/IrrigationGIS'
     if not os.path.exists(root):
@@ -211,9 +261,11 @@ if __name__ == '__main__':
     irr_shp = os.path.join(root, 'compiled_training_data/wgs/irrigated_26NOV2021.shp')
     state_shp = os.path.join(root, 'boundaries/states/western_states_11_wgs.shp')
     climate_ = os.path.join(root, 'climate')
-    _json = os.path.join(climate_, 'training_climate.json')
-    _csv = os.path.join(climate_, 'pixel_metric_climate.csv')
+    _json = os.path.join(climate_, 'irrmapper', 'training_climate.json')
+    _csv = os.path.join(climate_, 'irrmapper', 'pixel_metric_climate_clip_buf_50.csv')
     # get_training_data_climate(irr_shp, state_shp, climate_, json_out)
     calculate_accuracy_by_state(_json, _csv)
+    # nass_ = os.path.join(root, 'nass_data', 'nass_irr_crop_new.csv')
+    # get_nass_landcover(nass_)
 
 # ========================= EOF ====================================================================

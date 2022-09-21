@@ -243,29 +243,31 @@ def get_ndvi_cultivation_data_polygons(table, years, region, input_props,
     task.start()
 
 
-def export_raster():
-    target_bn = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_RF'
-    image_list = list_assets('users/dgketchum/IrrMapper/version_2')
+def export_raster(roi=None):
+    fc = None
+    target_bn = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+    coll = ee.ImageCollection(target_bn)
 
-    for yr in range(1987, 2022):
-        images = [x for x in image_list if x.endswith(str(yr))]
+    if roi:
+        fc = ee.FeatureCollection(roi)
+        # fc = fc.filterMetadata('GEOID', 'equals', '30031')
 
-        coll = ee.ImageCollection(images)
+    for yr in range(1986, 2021):
 
-        _properties = {'image_id': 'IrrMapper_RF_{}'.format(yr), 'system:time_start': ee.Date.fromYMD(yr, 1, 1),
-                       'system:time_end': ee.Date.fromYMD(yr, 12, 31)}
+        img = coll.filterDate('{}-01-01'.format(yr), '{}-12-31'.format(yr)).mosaic()
+        img = img.select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0]).rename('classification')
+        if roi:
+            img = img.clip(fc.geometry())
 
-        img = coll.select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
-        img = img.updateMask(img.neq(0)).rename('classification').set(_properties)
-
-        id_ = os.path.join(target_bn, '{}'.format(yr))
-        task = ee.batch.Export.image.toAsset(
+        task = ee.batch.Export.image.toDrive(
             image=img,
-            description='IrrMapper_RF_{}'.format(yr),
-            assetId=id_,
-            pyramidingPolicy={'.default': 'mode'},
+            folder='IrrMapper_MSL',
+            description='IrrMapper_{}'.format(yr),
             scale=30,
-            maxPixels=1e13)
+            maxPixels=1e13,
+            crs='EPSG:5071',
+            region=fc.geometry())
+
         task.start()
         print(yr)
 
@@ -657,7 +659,7 @@ def request_validation_extract(roi, file_prefix='validation'):
 
 
 def request_band_extract(file_prefix, points_layer, region, years, filter_bounds=False, buffer=None,
-                         southern=False, filter_years=True, diagnose=False):
+                         southern=False, filter_years=True, diagnose=False, properties=None):
     """
     Extract raster values from a points kml file in Fusion Tables. Send annual extracts .csv to GCS wudr bucket.
     Concatenate them using map.tables.concatenate_band_extract().
@@ -707,9 +709,13 @@ def request_band_extract(file_prefix, points_layer, region, years, filter_bounds
             print(bad_)
             return None
 
+        props = ['POINT_TYPE', 'YEAR']
+        if properties:
+            props = properties
+
         plot_sample_regions = stack.sampleRegions(
             collection=filtered,
-            properties=['POINT_TYPE', 'YEAR'],
+            properties=props,
             scale=30,
             tileScale=16)
 
@@ -860,53 +866,6 @@ def stack_bands(yr, roi, southern=False):
     return input_bands
 
 
-def get_landcover_info(basin, glob='none'):
-    year = 2018
-
-    roi = ee.FeatureCollection('users/dgketchum/boundaries/{}'.format(basin))
-    bands = stack_bands(year, roi, southern=False)
-    dem = bands.select('elevation')
-
-    # 0: bare soil 1: grasses, 2: shrubs, 3: trees
-    nlcd = bands.select('nlcd')
-    bands = nlcd.addBands([dem])
-    proj = bands.select('nlcd').projection().getInfo()
-
-    clay = ee.Image('projects/openet/soil/ssurgo_Clay_WTA_0to152cm_composite').select(['b1']).rename('clay')
-    sand = ee.Image('projects/openet/soil/ssurgo_Sand_WTA_0to152cm_composite').select(['b1']).rename('sand')
-    loam = ee.Image(100).subtract(clay).subtract(sand).rename('loam')
-    ksat = ee.Image('projects/openet/soil/ssurgo_Ksat_WTA_0to152cm_composite').select(['b1']).rename('ksat')
-    awc = ee.Image('projects/openet/soil/ssurgo_AWC_WTA_0to152cm_composite').select(['b1']).rename('awc')
-
-    soil = clay.addBands([sand, loam, ksat, awc])
-
-    landfire_cov = ee.Image('LANDFIRE/Vegetation/EVC/v1_4_0/CONUS')
-    landfire_type = ee.Image('LANDFIRE/Vegetation/EVT/v1_4_0/CONUS')
-
-    # pt = ee.FeatureCollection([ee.Feature(ee.Geometry.Point([-110.64, 45.45])).set('FID', 1)])
-    # data = soil.sampleRegions(collection=pt,
-    #                           scale=30)
-    # pprint(data.getInfo())
-
-    for prop, var in zip(['soil', 'nlcd', 'elevation', 'landfire_cover', 'landfire_type'],
-                         [soil, nlcd, dem, landfire_cov, landfire_type]):
-
-        desc = '{}_{}_{}'.format(prop, basin, glob)
-        task = ee.batch.Export.image.toCloudStorage(
-            var,
-            fileNamePrefix=desc,
-            region=roi.first().geometry(),
-            description=desc,
-            fileFormat='GeoTIFF',
-            bucket='wudr',
-            scale=30,
-            maxPixels=1e13,
-            crs="EPSG:5071")
-
-        task.start()
-        print(desc)
-
-
 def export_resmaple_irr_frequency():
     bounds = 'users/dgketchum/boundaries/impacts_basins_join'
     im = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
@@ -983,15 +942,20 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    # for s in ['MT']:
-    #     in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
-    #     out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-    #     # out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
-    #     geo_ = 'users/dgketchum/boundaries/{}'.format(s)
-    #     # geo_ = 'users/dgketchum/boundaries/{}'.format(fip)
-    #     export_special(in_c, out_c, geo_, description=s)
+    for s in ['MT']:
+        in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
+        out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+        # out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
+        geo_ = 'users/dgketchum/boundaries/{}'.format(s)
+        # geo_ = 'users/dgketchum/boundaries/{}'.format(fip)
+        export_special(in_c, out_c, geo_, description=s)
 
-    get_landcover_info('upper_yellowstone', glob='21JAN2022')
+    # get_landcover_info('upper_yellowstone', glob='21JAN2022')
     # export_resmaple_irr_change()
     # export_resmaple_irr_frequency()
+
+    # export_raster('users/dgketchum/boundaries/MT')
+    # request_band_extract('ghcn_pts', points_layer='users/dgketchum/points/ghcn_pnw',
+    #                      region='users/dgketchum/boundaries/western_11_union', years=[2019],
+    #                      filter_years=False, properties=['STAID'])
 # ========================= EOF ====================================================================
