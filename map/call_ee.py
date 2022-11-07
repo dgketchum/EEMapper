@@ -10,7 +10,7 @@ from numpy import ceil, linspace
 
 sys.path.insert(0, os.path.abspath('..'))
 from map.assets import list_assets
-from map.ee_utils import get_world_climate, landsat_composites, landsat_masked, daily_landsat
+from map.ee_utils import get_world_climate, landsat_composites, landsat_masked
 from map.cdl import get_cdl
 
 sys.setrecursionlimit(2000)
@@ -109,74 +109,6 @@ def reduce_classification(asset, shapes, years=None, description=None, cdl_mask=
     print(description)
 
 
-def get_sr_series(tables, out_name, max_sample=500):
-    """This assumes 'YEAR' parameter is already in str(YEAR.js.milliseconds)"""
-
-    pt_ct = 0
-    for year in YEARS:
-        for state in TARGET_STATES:
-
-            name_prefix = '{}_{}_{}'.format(out_name, state, year)
-            local_file = os.path.join('/home/dgketchum/IrrigationGIS/EE_extracts/to_concatenate',
-                                      '{}.csv'.format(name_prefix))
-            if os.path.isfile(local_file):
-                continue
-            else:
-                print(local_file)
-
-            roi = ee.FeatureCollection(os.path.join(BOUNDARIES, state))
-
-            start = '{}-01-01'.format(year)
-            d = datetime.strptime(start, '%Y-%m-%d')
-            epoch = datetime.utcfromtimestamp(0)
-            start_millisec = str(int((d - epoch).total_seconds() * 1000))
-
-            table = ee.FeatureCollection(tables)
-            table = table.filter(ee.Filter.eq('YEAR', start_millisec))
-            table = table.filterBounds(roi)
-            table = table.randomColumn('rnd')
-            points = table.size().getInfo()
-            print('{} {} {} points'.format(state, year, points))
-
-            n_splits = int(ceil(points / float(max_sample)))
-            ranges = linspace(0, 1, n_splits + 1)
-            diff = ranges[1] - ranges[0]
-
-            for enum, slice in enumerate(ranges[:-1], start=1):
-                slice_table = table.filter(ee.Filter.And(ee.Filter.gte('rnd', slice),
-                                                         ee.Filter.lt('rnd', slice + diff)))
-                points = slice_table.size().getInfo()
-                print('{} {} {} points'.format(state, year, points))
-
-                name_prefix = '{}_{}_{}_{}'.format(out_name, state, enum, year)
-                local_file = os.path.join('/home/dgketchum/IrrigationGIS/EE_extracts/to_concatenate',
-                                          '{}.csv'.format(name_prefix))
-                if os.path.isfile(local_file):
-                    continue
-                else:
-                    print(local_file)
-
-                pt_ct += points
-                if points == 0:
-                    continue
-
-                ls_sr_masked = daily_landsat(year, roi)
-                stats = ls_sr_masked.sampleRegions(collection=table,
-                                                   properties=['POINT_TYPE', 'YEAR', 'LAT_GCS', 'Lon_GCS'],
-                                                   scale=30,
-                                                   tileScale=16)
-
-                task = ee.batch.Export.table.toCloudStorage(
-                    stats,
-                    description=name_prefix,
-                    bucket='wudr',
-                    fileNamePrefix=name_prefix,
-                    fileFormat='CSV')
-
-                task.start()
-    print('{} total points'.format(pt_ct))
-
-
 def attribute_irrigation(collection):
     """
     Extracts fraction of vector classified as irrigated. Been using this to attribute irrigation to
@@ -241,6 +173,40 @@ def get_ndvi_cultivation_data_polygons(table, years, region, input_props,
 
     print(os.path.basename(table))
     task.start()
+
+
+def wrs_analysis(irrmapper, table, desc, bucket, debug=False):
+    irr_coll = ee.ImageCollection(irrmapper)
+
+    early = irr_coll.filterDate('1987-01-01', '1991-12-31').select('classification')
+    early = early.map(lambda img: img.lt(1)).sum().gt(2).rename('early_irr')
+
+    late = irr_coll.filterDate('2017-01-01', '2021-12-31').select('classification')
+    late = late.map(lambda img: img.lt(1)).sum().gt(2).rename('late_irr')
+
+    bands = early.addBands([late])
+
+    fc = ee.FeatureCollection(table)
+    # fc = fc.filterMetadata('FID', 'equals', 'MT_18763')
+
+    data = bands.reduceRegions(collection=fc,
+                               reducer=ee.Reducer.mean(),
+                               scale=30)
+
+    if debug:
+        p = data.first().getInfo()['properties']
+        print('propeteries {}'.format(p))
+
+    select_ = ['FID', 'early_irr', 'late_irr']
+    task = ee.batch.Export.table.toCloudStorage(
+        data,
+        description=desc,
+        bucket=bucket,
+        fileNamePrefix=desc,
+        fileFormat='CSV',
+        selectors=select_)
+    task.start()
+    print(desc)
 
 
 def export_raster(roi=None):
@@ -757,7 +723,8 @@ def stack_bands(yr, roi, southern=False):
                    ('1', winter_s, spring_e),
                    ('2', late_spring_s, late_spring_e),
                    ('3', summer_s, summer_e),
-                   ('4', fall_s, fall_e),
+                   # modify to run in September
+                   # ('4', fall_s, fall_e),
 
                    ('m1', prev_s, prev_e),
                    ('3_m1', p_summer_s, p_summer_e),
@@ -769,7 +736,8 @@ def stack_bands(yr, roi, southern=False):
                    ('1', spring_s, spring_e),
                    ('2', late_spring_s, late_spring_e),
                    ('3', summer_s, summer_e),
-                   ('4', fall_s, fall_e),
+                   # modify to run in September
+                   # ('4', fall_s, fall_e),
 
                    ('m1', prev_s, prev_e),
                    ('3_m1', p_summer_s, p_summer_e),
@@ -791,7 +759,9 @@ def stack_bands(yr, roi, southern=False):
     integrated_composite_bands = []
 
     for feat in ['nd', 'gi', 'nw', 'evi']:
-        periods = [x for x in range(2, 5)]
+        # modify to run in September
+        # periods = [x for x in range(2, 5)]
+        periods = [x for x in range(2, 4)]
         c_bands = ['{}_{}'.format(feat, p) for p in periods]
         b = input_bands.select(c_bands).reduce(ee.Reducer.sum()).rename('{}_int'.format(feat))
 
@@ -942,20 +912,8 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    for s in ['MT']:
-        in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
-        out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-        # out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
-        geo_ = 'users/dgketchum/boundaries/{}'.format(s)
-        # geo_ = 'users/dgketchum/boundaries/{}'.format(fip)
-        export_special(in_c, out_c, geo_, description=s)
+    out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+    wrs_2 = 'projects/earthengine-legacy/assets/users/dgketchum/fields/dalby_wrs_flu'
+    wrs_analysis(out_c, wrs_2, desc='wrs_flu', bucket='wudr', debug=True)
 
-    # get_landcover_info('upper_yellowstone', glob='21JAN2022')
-    # export_resmaple_irr_change()
-    # export_resmaple_irr_frequency()
-
-    # export_raster('users/dgketchum/boundaries/MT')
-    # request_band_extract('ghcn_pts', points_layer='users/dgketchum/points/ghcn_pnw',
-    #                      region='users/dgketchum/boundaries/western_11_union', years=[2019],
-    #                      filter_years=False, properties=['STAID'])
 # ========================= EOF ====================================================================
