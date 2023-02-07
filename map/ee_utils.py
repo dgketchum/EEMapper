@@ -3,6 +3,8 @@ from datetime import datetime, timedelta
 import ee
 
 
+
+
 def add_doy(image):
     """ Add day-of-year image """
     mask = ee.Date(image.get('system:time_start'))
@@ -21,7 +23,7 @@ def get_world_climate(proj, months, param='prec'):
     combinations = [(m, param) for m in months]
 
     l = [ee.Image('WORLDCLIM/V1/MONTHLY/{}'.format(m)).
-             select(param).resample('bilinear').reproject(crs=proj['crs'], scale=30) for m, p in combinations]
+         select(param).resample('bilinear').reproject(crs=proj['crs'], scale=30) for m, p in combinations]
     i = ee.ImageCollection(l)
     if param == 'prec':
         i = i.sum()
@@ -30,95 +32,65 @@ def get_world_climate(proj, months, param='prec'):
     return i
 
 
-def daily_landsat(year, roi):
-    start = '{}-01-01'.format(year)
-    end_date = '{}-01-01'.format(year + 1)
-    l5_coll = ee.ImageCollection('LANDSAT/LT05/C01/T1_SR').filterBounds(
-        ee.FeatureCollection(roi).geometry()).filterDate(start, end_date).map(ls5_edge_removal).map(ls57mask)
-    l7_coll = ee.ImageCollection('LANDSAT/LE07/C01/T1_SR').filterBounds(
-        ee.FeatureCollection(roi).geometry()).filterDate(start, end_date).map(ls57mask)
-    l8_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_SR').filterBounds(
-        ee.FeatureCollection(roi).geometry()).filterDate(start, end_date).map(ls8mask)
+def landsat_c2_sr(input_img):
+    # credit: cgmorton; https://github.com/Open-ET/openet-core-beta/blob/master/openet/core/common.py
 
-    ls_sr_masked = ee.ImageCollection(l7_coll.merge(l8_coll).merge(l5_coll))
+    INPUT_BANDS = ee.Dictionary({
+        'LANDSAT_4': ['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B7',
+                      'ST_B6', 'QA_PIXEL', 'QA_RADSAT'],
+        'LANDSAT_5': ['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B7',
+                      'ST_B6', 'QA_PIXEL', 'QA_RADSAT'],
+        'LANDSAT_7': ['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B7',
+                      'ST_B6', 'QA_PIXEL', 'QA_RADSAT'],
+        'LANDSAT_8': ['SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7',
+                      'ST_B10', 'QA_PIXEL', 'QA_RADSAT'],
+        'LANDSAT_9': ['SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7',
+                      'ST_B10', 'QA_PIXEL', 'QA_RADSAT'],
+    })
+    OUTPUT_BANDS = ['B2', 'B3', 'B4', 'B5', 'B6', 'B7',
+                    'B10', 'QA_PIXEL', 'QA_RADSAT']
 
-    d1 = datetime(year, 1, 1)
-    d2 = datetime(year + 1, 1, 1)
-    d_times = [(d1 + timedelta(days=x), d1 + timedelta(days=x + 1)) for x in range((d2 - d1).days)]
-    date_tups = [(x.strftime('%Y-%m-%d'), y.strftime('%Y-%m-%d')) for x, y in d_times]
-    bands = ['B2', 'B3', 'B4', 'B5', 'B6', 'B7']
+    spacecraft_id = ee.String(input_img.get('SPACECRAFT_ID'))
 
-    l, empty = [], []
-    final = False
-    for s, e in date_tups:
-        if s == '{}-12-31'.format(year):
-            e = '{}-01-01'.format(year + 1)
-            final = True
-        dt = datetime.strptime(s, '%Y-%m-%d')
-        doy = dt.strftime('%j')
-        rename_bands = ['{}{}{}'.format(year, doy, b) for b in bands]
-        b = ls_sr_masked.filterDate(s, e).mosaic().rename(rename_bands)
+    prep_image = input_img \
+        .select(INPUT_BANDS.get(spacecraft_id), OUTPUT_BANDS) \
+        .multiply([0.0000275, 0.0000275, 0.0000275, 0.0000275,
+                   0.0000275, 0.0000275, 0.00341802, 1, 1]) \
+        .add([-0.2, -0.2, -0.2, -0.2, -0.2, -0.2, 149.0, 0, 0])
 
-        try:
-            _ = b.getInfo()['bands'][0]
-        except IndexError:
-            empty.append(s)
-            continue
+    def _cloud_mask(i):
+        qa_img = i.select(['QA_PIXEL'])
+        cloud_mask = qa_img.rightShift(3).bitwiseAnd(1).neq(0)
+        cloud_mask = cloud_mask.Or(qa_img.rightShift(2).bitwiseAnd(1).neq(0))
+        cloud_mask = cloud_mask.Or(qa_img.rightShift(1).bitwiseAnd(1).neq(0))
+        cloud_mask = cloud_mask.Or(qa_img.rightShift(4).bitwiseAnd(1).neq(0))
+        cloud_mask = cloud_mask.Or(qa_img.rightShift(5).bitwiseAnd(1).neq(0))
+        sat_mask = i.select(['QA_RADSAT']).gt(0)
+        cloud_mask = cloud_mask.Or(sat_mask)
 
-        b = b.unmask(-99)
-        l.append(b)
-        if final:
-            break
+        cloud_mask = cloud_mask.Not().rename(['cloud_mask'])
 
-    print('{} empty dates : {}'.format(len(empty), empty))
-    i = ee.Image(l)
-    return i
+        return cloud_mask
 
+    mask = _cloud_mask(input_img)
 
-def ls57mask(img):
-    sr_bands = img.select('B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7')
-    mask_sat = sr_bands.neq(20000)
-    img_nsat = sr_bands.updateMask(mask_sat)
-    mask1 = img.select('pixel_qa').bitwiseAnd(8).eq(0)
-    mask2 = img.select('pixel_qa').bitwiseAnd(32).eq(0)
-    mask_p = mask1.And(mask2)
-    img_masked = img_nsat.updateMask(mask_p)
-    mask_sel = img_masked.select(['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
-                                 ['B2', 'B3', 'B4', 'B5', 'B6', 'B10', 'B7'])
-    mask_mult = mask_sel.multiply(0.0001).copyProperties(img, ['system:time_start'])
-    return mask_mult
+    image = prep_image.updateMask(mask).copyProperties(input_img, ['system:time_start'])
 
-
-def ls8mask(img):
-    sr_bands = img.select('B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B10')
-    mask_sat = sr_bands.neq(20000)
-    img_nsat = sr_bands.updateMask(mask_sat)
-    mask1 = img.select('pixel_qa').bitwiseAnd(8).eq(0)
-    mask2 = img.select('pixel_qa').bitwiseAnd(32).eq(0)
-    mask_p = mask1.And(mask2)
-    img_masked = img_nsat.updateMask(mask_p)
-    mask_mult = img_masked.multiply(0.0001).copyProperties(img, ['system:time_start'])
-    return mask_mult
-
-
-def ls5_edge_removal(lsImage):
-    inner_buffer = lsImage.geometry().buffer(-3000)
-    buffer = lsImage.clip(inner_buffer)
-    return buffer
+    return image
 
 
 def landsat_masked(yr, roi):
     start = '{}-01-01'.format(yr)
     end_date = '{}-01-01'.format(yr + 1)
 
-    l4_coll = ee.ImageCollection('LANDSAT/LT04/C01/T1_SR').filterBounds(
-        roi).filterDate(start, end_date).map(ls5_edge_removal).map(ls57mask)
-    l5_coll = ee.ImageCollection('LANDSAT/LT05/C01/T1_SR').filterBounds(
-        roi).filterDate(start, end_date).map(ls5_edge_removal).map(ls57mask)
-    l7_coll = ee.ImageCollection('LANDSAT/LE07/C01/T1_SR').filterBounds(
-        roi).filterDate(start, end_date).map(ls57mask)
-    l8_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_SR').filterBounds(
-        roi).filterDate(start, end_date).map(ls8mask)
+    l4_coll = ee.ImageCollection('LANDSAT/LT04/C02/T1_L2').filterBounds(
+        roi).filterDate(start, end_date).map(landsat_c2_sr)
+    l5_coll = ee.ImageCollection('LANDSAT/LT05/C02/T1_L2').filterBounds(
+        roi).filterDate(start, end_date).map(landsat_c2_sr)
+    l7_coll = ee.ImageCollection('LANDSAT/LE07/C02/T1_L2').filterBounds(
+        roi).filterDate(start, end_date).map(landsat_c2_sr)
+    l8_coll = ee.ImageCollection('LANDSAT/LC08/C02/T1_L2').filterBounds(
+        roi).filterDate(start, end_date).map(landsat_c2_sr)
 
     lsSR_masked = ee.ImageCollection(l7_coll.merge(l8_coll).merge(l5_coll).merge(l4_coll))
     return lsSR_masked
@@ -158,24 +130,6 @@ def landsat_composites(year, start, end, roi, append_name, composites_only=False
 
         ndvi_mean = ee.Image(lsSR_masked.filterDate(start, end).map(
             lambda x: x.normalizedDifference(['B5', 'B4'])).mean()).rename('nd_mean_{}'.format(append_name))
-
-        # ndvi = lsSR_masked.filterDate(start, end).filter(ee.Filter.dayOfYear(121, 200)) \
-        #     .map(lambda x: x.select().addBands(x.normalizedDifference(['B5', 'B4'])))
-
-        # def add_doy(i):
-        #     doy = i.date().getRelative('day', 'year')
-        #     doyBand = ee.Image.constant(doy).uint16().rename('doy')
-        #     doyBand = doyBand.updateMask(i.select('nd').mask())
-        #     return i.addBands(doyBand)
-        #
-        # nd_doy = ndvi.map(add_doy)
-        #
-        # def add_quality_mosic(band):
-        #     _max = nd_doy.qualityMosaic(band)
-        #     doy = _max.select(['doy']).rename('doy_{}'.format(append_name))
-        #     return doy
-        #
-        # ndvi_doy = add_quality_mosic('nd')
 
         ndvi = ndvi_mx.addBands([ndvi_mean])
 

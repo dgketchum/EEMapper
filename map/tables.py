@@ -512,6 +512,36 @@ def join_tables(one, two, out_file):
     df.to_csv(out_file)
 
 
+def join_shp_csv(in_shp, csv_dir, out_shp, join_on='id', glob='.csv', drop=None):
+    gdf = read_file(in_shp)
+    gdf.index = [int(i) for i in gdf[join_on]]
+    if drop:
+        gdf.drop(columns=drop, inplace=True)
+
+    csv_l = [os.path.join(csv_dir, x) for x in os.listdir(csv_dir) if x.endswith(glob)]
+    first = True
+    for csv in csv_l:
+        y = int(csv.split('.')[0][-4:])
+        try:
+            if first:
+                df = read_csv(csv, index_col=join_on)
+                df = df.rename(columns={'mean': 'irr_{}'.format(y)})
+                print(df.shape, csv)
+                first = False
+            else:
+                c = read_csv(csv, index_col=join_on)
+                c = c.rename(columns={'mean': 'irr_{}'.format(y)})
+                df = concat([df, c['irr_{}'.format(y)]], axis=1)
+                print(c.shape, csv)
+        except errors.EmptyDataError:
+            print('{} is empty'.format(csv))
+            pass
+
+    geo = [gdf.loc[i].geometry for i in df.index]
+    df = GeoDataFrame(df, crs=gdf.crs, geometry=geo)
+    df.to_file(out_shp)
+
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     data_dir = '/media/research'
@@ -522,5 +552,13 @@ if __name__ == '__main__':
     one_ = os.path.join(d, 'bands_3DEC2020_50.csv')
     two_ = os.path.join(d, 'bands_CO_50.csv')
     out_ = os.path.join(d, 'bands_4DEC2020_mod_CO.csv')
-    join_tables(one_, two_, out_file=out_)
+    # join_tables(one_, two_, out_file=out_)
+
+    dalby = '/media/research/IrrigationGIS/Montana/dalby'
+    spatial = os.path.join(dalby, 'Dalby_WRS_mapped_by_DORFLU2019-20221209T162926Z-001/Dalby_WRS_mapped_by_DORFLU2019')
+    s = os.path.join(spatial, 'WRS_1946_71_mappedby_DORFLU2019_merge_1a.shp')
+    o = os.path.join(spatial, 'WRS_1946_71_mappedby_DORFLU2019_merge_1a_irr.shp')
+    c_source = os.path.join(dalby, 'wrs_flu_ee_extracts/wrs_flood_not_mapped')
+    join_shp_csv(s, c_source, o, join_on='OBJECTID')
+
 # ========================= EOF ====================================================================

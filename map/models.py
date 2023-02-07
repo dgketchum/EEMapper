@@ -59,7 +59,7 @@ def pca(csv):
         print(eigenvalue)
 
 
-def random_forest(csv, n_estimators=150, out_shape=None):
+def random_forest(csv, n_estimators=50, out_shape=None):
     if not isinstance(csv, DataFrame):
         print('\n', csv)
         c = read_csv(csv, engine='python').sample(frac=1.0).reset_index(drop=True)
@@ -326,10 +326,20 @@ def get_confusion_matrix(csv, spec=None):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    root = '/media/research/IrrigationGIS'
+    root = '/media/research/IrrigationGIS/EE_extracts/concatenated/state'
     if not os.path.exists(root):
-        root = '/home/dgketchum/data/IrrigationGIS'
-    c = os.path.join(root, 'EE_extracts/concatenated/state/MT_16NOV2021.csv')
-    features_ = None
-    find_rf_variable_importance(c)
+        root = '/home/dgketchum/data/IrrigationGIS/EE_extracts/concatenated/state'
+    for s in ['AZ', 'CO', 'ID', 'MT', 'NM', 'OR', 'UT']:
+        print('\n', s)
+
+        files = sorted((f for f in os.listdir(root) if f.find(s) != -1),
+                       key=lambda f: os.stat(os.path.join(root, f)).st_mtime)
+        files = [f for f in files if f.endswith('.csv')]
+        _glob = files[-2].split('_')[-1].split('.')[0]
+
+        c = os.path.join(root, '{}_{}.csv'.format(s, _glob))
+        random_forest(c)
+        c = os.path.join(root, '{}_21SEP2022.csv'.format(s))
+        random_forest(c)
+        pass
 # ========================= EOF ====================================================================

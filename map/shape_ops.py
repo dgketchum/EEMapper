@@ -23,6 +23,7 @@ import fiona
 import fiona.crs
 from geopandas import GeoDataFrame, read_file, points_from_xy, clip
 from pandas import DataFrame, read_csv, concat
+from pandas import errors
 from shapely.geometry import Polygon, Point, mapping, MultiPolygon, shape
 
 CLU_UNNEEDED = ['ca', 'nv', 'ut', 'wa', 'wy']
@@ -253,12 +254,31 @@ def subselect_points_shapefile(shp, out_shp, limit=10000):
             dst.write(f)
 
 
-def join_shp_csv(in_shp, csv, out_shp, join_on='FID'):
+def join_shp_csv(in_shp, csv_dir, out_shp, join_on='OBJECTID'):
     with fiona.open(in_shp) as src:
         meta = src.meta
         features = [f for f in src]
 
-    df = read_csv(csv, index_col=join_on)
+    csv_l = [os.path.join(csv_dir, x) for x in os.listdir(csv_dir) if x.endswith('.csv')]
+    first = True
+    for csv in csv_l:
+        y = int(csv.split('.')[0][-4:])
+        try:
+            if first:
+                df = read_csv(csv, index_col=join_on)
+                df = df.rename(columns={'mean': 'irr_{}'.format(y)})
+                print(df.shape, csv)
+                first = False
+            else:
+                c = read_csv(csv, index_col=join_on)
+                c = c.rename(columns={'mean': 'irr_{}'.format(y)})
+                df = concat([df, c['irr_{}'.format(y)]], axis=1)
+                print(c.shape, csv)
+        except errors.EmptyDataError:
+            print('{} is empty'.format(csv))
+            pass
+
+    df['mean'] = np.mean(df.values, axis=1)
     [meta['schema']['properties'].update({col: 'float:19.11'}) for col in df.columns]
     in_feat = len(features)
     ct = 0
@@ -318,14 +338,8 @@ if __name__ == '__main__':
     gis = os.path.join('/media/research', 'IrrigationGIS')
     if not os.path.exists(gis):
         gis = '/home/dgketchum/data/IrrigationGIS'
-    inspected = os.path.join(gis, 'training_data', 'irrigated', 'inspected')
-    files_ = [os.path.join(inspected, x) for x in os.listdir(inspected) if x.endswith('.shp')]
-    out_file = 'irrigated_26NOV2021.shp'
-    out_ = os.path.join(gis, 'compiled_training_data', 'wgs', out_file)
-    # fiona_merge_attribute(out_, files_)
-    # fiona_merge(out_, files_)
-    aea = os.path.join(gis, 'compiled_training_data', 'aea', out_file)
-    # to_aea(out_, aea)
-    bounds = os.path.join(gis, 'boundaries', 'states', 'western_states_11_aea.shp')
-    get_area(aea, add_duplicate_area=True, intersect_shape=bounds)
+    csv_ = '/media/research/IrrigationGIS/Montana/dalby/wrs_flu_ee_extracts/'
+    shp_ = '/media/research/IrrigationGIS/Montana/dalby/WRSfloodnotmapped_by_DORFLU2019all_slivers_removed_ADPCipq_1a/WRSfloodnotmapped_by_DORFLU2019all_slivers_removed_ADPCipq_1a.shp'
+    shp_out= '/media/research/IrrigationGIS/Montana/dalby/wrs_cleaned/dalby_wrs_irr_annual.shp'
+    join_shp_csv(shp_, csv_, out_shp=shp_out)
 # ========================= EOF ====================================================================

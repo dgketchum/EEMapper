@@ -62,7 +62,7 @@ def get_bands(pts_dir, glob, state, southern=False):
     print('get bands', state)
     pts = 'users/dgketchum/points/state/points_{}_{}'.format(state, glob)
     geo = 'users/dgketchum/boundaries/{}'.format(s)
-    file_ = 'bands_{}_{}'.format(s, glob)
+    file_ = 'bands_{}_{}'.format(s, '21SEP2022')
     request_band_extract(file_, pts, region=geo, years=years,
                          filter_bounds=True,
                          buffer=1e5, southern=southern,
@@ -124,7 +124,7 @@ def classify(out_coll, variable_dir, tables, years, glob, state, southern=False)
 
 if __name__ == '__main__':
     is_authorized()
-    # _glob = '3DEC2021'
+    _glob = '21SEP2022'
     _bucket = 'gs://wudr'
     root = '/media/research/IrrigationGIS'
     if not os.path.exists(root):
@@ -143,21 +143,22 @@ if __name__ == '__main__':
     # coll = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
     tables = 'users/dgketchum/bands/state'
 
-    for s in ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']:
+    for s in ['AZ', 'CO', 'ID', 'MT', 'NM', 'OR', 'UT']:
         if s in ['AZ', 'CA']:
             south = True
         else:
             south = False
         # to_geographic(pt_aea, pt_wgs, glob=_glob, state=s)
         # push_points_to_asset(pt_wgs, glob=_glob, state=s, bucket=_bucket)
+        # files = sorted((f for f in os.listdir(imp_json) if f.find(s) != -1),
+        #                key=lambda f: os.stat(os.path.join(imp_json, f)).st_mtime)
+        # files = [f for f in files if f.endswith('.json')]
+        # _glob = files[-1].split('_')[-1].split('.')[0]
         # get_bands(pt_aea, _glob, state=s, southern=south)
 
-        # concatenate_bands(to_concat, conctenated, glob=_glob, state=s, southern=south)
+        concatenate_bands(to_concat, conctenated, glob=_glob, state=s, southern=south)
         # variable_importance(conctenated, importance_json=imp_json, glob=_glob, state=s)
         # push_bands_to_asset(conctenated, glob=_glob, state=s, bucket=_bucket)
-        files = sorted((f for f in os.listdir(imp_json) if f.find(s) != -1),
-                       key=lambda f: os.stat(os.path.join(imp_json, f)).st_mtime)
-        files = [f for f in files if f.endswith('.json')]
-        _glob = files[-1].split('_')[-1].split('.')[0]
-        classify(coll, imp_json, tables, [x for x in range(2022, 2023)], glob=_glob, state=s, southern=south)
+
+        # classify(coll, imp_json, tables, [x for x in range(2022, 2023)], glob=_glob, state=s, southern=south)
 # ========================= EOF ====================================================================

@@ -178,35 +178,32 @@ def get_ndvi_cultivation_data_polygons(table, years, region, input_props,
 def wrs_analysis(irrmapper, table, desc, bucket, debug=False):
     irr_coll = ee.ImageCollection(irrmapper)
 
-    early = irr_coll.filterDate('1987-01-01', '1991-12-31').select('classification')
-    early = early.map(lambda img: img.lt(1)).sum().gt(2).rename('early_irr')
+    for yr in range(1987, 2022):
+        coll = irr_coll.filterDate('{}-01-01'.format(yr), '{}-12-31'.format(yr)).select('classification')
+        img = coll.map(lambda img: img.lt(1)).mosaic().rename('irr_{}'.format(yr))
 
-    late = irr_coll.filterDate('2017-01-01', '2021-12-31').select('classification')
-    late = late.map(lambda img: img.lt(1)).sum().gt(2).rename('late_irr')
+        fc = ee.FeatureCollection(table)
+        # fc = fc.filterMetadata('FID', 'equals', 'MT_18763')
 
-    bands = early.addBands([late])
+        data = img.reduceRegions(collection=fc,
+                                 reducer=ee.Reducer.mean(),
+                                 scale=30)
 
-    fc = ee.FeatureCollection(table)
-    # fc = fc.filterMetadata('FID', 'equals', 'MT_18763')
+        if debug:
+            p = data.first().getInfo()['properties']
+            print('propeteries {}'.format(p))
 
-    data = bands.reduceRegions(collection=fc,
-                               reducer=ee.Reducer.mean(),
-                               scale=30)
-
-    if debug:
-        p = data.first().getInfo()['properties']
-        print('propeteries {}'.format(p))
-
-    select_ = ['FID', 'early_irr', 'late_irr']
-    task = ee.batch.Export.table.toCloudStorage(
-        data,
-        description=desc,
-        bucket=bucket,
-        fileNamePrefix=desc,
-        fileFormat='CSV',
-        selectors=select_)
-    task.start()
-    print(desc)
+        select_ = ['OBJECTID', 'ORIG_FID', 'mean']
+        description = '{}_{}'.format(desc, yr)
+        task = ee.batch.Export.table.toCloudStorage(
+            data,
+            description=description,
+            bucket=bucket,
+            fileNamePrefix=description,
+            fileFormat='CSV',
+            selectors=select_)
+        task.start()
+        print(description)
 
 
 def export_raster(roi=None):
@@ -902,7 +899,7 @@ def export_resmaple_irr_change():
 
 def is_authorized():
     try:
-        ee.Initialize()  # investigate (use_cloud_api=True)
+        ee.Initialize()
         print('Authorized')
         return True
     except Exception as e:
@@ -913,7 +910,7 @@ def is_authorized():
 if __name__ == '__main__':
     is_authorized()
     out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-    wrs_2 = 'projects/earthengine-legacy/assets/users/dgketchum/fields/dalby_wrs_flu'
-    wrs_analysis(out_c, wrs_2, desc='wrs_flu', bucket='wudr', debug=True)
+    wrs_2 = 'projects/earthengine-legacy/assets/users/dgketchum/fields/dalby_wrs_flood_inFLU'
+    wrs_analysis(out_c, wrs_2, desc='annual_wrs_irr', bucket='wudr', debug=True)
 
 # ========================= EOF ====================================================================

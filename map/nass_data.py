@@ -213,6 +213,6 @@ if __name__ == '__main__':
 
     co_shp = os.path.join(root, 'boundaries', 'counties', 'western_17_states_counties_wgs.shp')
     o_shp = os.path.join(nass_tables, 'nass_counties.shp')
-    # nass_shapefile(co_shp, o_shp, merged, irr_extract, STATES)
-    nass_statewide_summary(nass)
+    nass_shapefile(co_shp, o_shp, merged, irr_extract, STATES)
+    # nass_statewide_summary(nass)
 # ========================= EOF ====================================================================

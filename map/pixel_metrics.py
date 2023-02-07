@@ -7,6 +7,7 @@ import numpy as np
 import ee
 import fiona
 from shapely.geometry import shape
+import mmu
 
 from state_county_codes import state_fips_code, county_acres, state_county_code
 
@@ -141,7 +142,7 @@ def calculate_accuracy_by_state(climate_json, csv_out):
     globe_conf = np.zeros((2, 2))
 
     for i, row in sdf.iterrows():
-        if not row['state'] in ['MT', 'ID', 'WA', 'WY']:
+        if not row['state'] in ['AZ', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']:
             continue
         print('\n {} precip: {}'.format(row['year'], row['anomaly']))
         annual_conf = np.zeros((2, 2))
