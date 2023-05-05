@@ -9,7 +9,7 @@ import ee
 from numpy import ceil, linspace
 
 sys.path.insert(0, os.path.abspath('..'))
-from map.assets import list_assets
+from map.assets import list_assets, copy_asset
 from map.ee_utils import get_world_climate, landsat_composites, landsat_masked
 from map.cdl import get_cdl
 
@@ -240,7 +240,7 @@ def export_special(input_coll, out_coll, roi, description):
     ned = ee.Image('USGS/NED')
     slope = ee.Terrain.products(ned).select('slope')
 
-    for year in range(2010, 2022):
+    for year in range(2022, 2023):
         start, end = '{}-03-01'.format(year), '{}-12-30'.format(year)
         ndvi = landsat_composites(year, start, end, fc, 'gs', composites_only=True).select('nd_max_gs')
 
@@ -406,7 +406,11 @@ def export_special(input_coll, out_coll, roi, description):
                                             'NDVI': expr.select('nd_max_gs'),
                                             'PIVOT': expr.select('pivot')})
         else:
-            raise NotImplementedError('No rule written for this state')
+            src = os.path.join(input_coll, '{}_{}'.format(description, year))
+            dst = os.path.join(out_coll, '{}_{}'.format(description, year))
+            print('No rule written for this state, copying')
+            copy_asset(src, dst)
+            continue
 
         props.update({'post_process': expression_})
         target.set(props)
@@ -909,8 +913,11 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-    wrs_2 = 'projects/earthengine-legacy/assets/users/dgketchum/fields/dalby_wrs_flood_inFLU'
-    wrs_analysis(out_c, wrs_2, desc='annual_wrs_irr', bucket='wudr', debug=True)
+    for s in ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']:
+        in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
+        out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+        geo_ = 'users/dgketchum/boundaries/{}'.format(s)
+        export_special(in_c, out_c, geo_, description=s)
+
 
 # ========================= EOF ====================================================================

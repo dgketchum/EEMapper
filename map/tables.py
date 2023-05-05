@@ -156,7 +156,10 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, test_corre
 
     df['POINT_TYPE'] = points
     print(df['POINT_TYPE'].value_counts())
-    points = where((df['POINT_TYPE'] == 4) & (df['nd_max_gs'] > 0.6), nines, points)
+    try:
+        points = where((df['POINT_TYPE'] == 4) & (df['nd_max_gs'] > 0.6), nines, points)
+    except KeyError:
+        points = where((df['POINT_TYPE'] == 4) & (df['nd_max_cy'] > 0.6), nines, points)
 
     df['POINT_TYPE'] = points
     df = df[df['POINT_TYPE'] != 9]

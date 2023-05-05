@@ -64,6 +64,7 @@ def set_metadata(ee_asset, property='--time_start'):
         print(' '.join(cmd))
         check_call(cmd)
 
+
 def get_metadata(ee_asset):
     cmd = ['{}'.format(EE), 'asset', 'info', ee_asset]
     meta = check_call(cmd)
@@ -266,7 +267,7 @@ def clean_gcs():
 
 if __name__ == '__main__':
     is_authorized()
-    c = 'users/dgketchum/ssebop/boise'
+    c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
     l = list_assets(c)
     for i in l:
         set_metadata(i)
