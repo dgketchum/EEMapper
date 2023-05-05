@@ -8,6 +8,7 @@ from call_ee import is_authorized, request_band_extract, export_classification
 from tables import concatenate_band_extract
 from models import find_rf_variable_importance
 from assets import list_assets
+
 #
 # ALL_STATES = TARGET_STATES + E_STATES
 
@@ -15,8 +16,8 @@ home = os.path.expanduser('~')
 conda = os.path.join(home, 'miniconda3', 'envs')
 if not os.path.exists(conda):
     conda = conda.replace('miniconda3', 'miniconda')
-EE = os.path.join(conda, 'metric', 'bin', 'earthengine')
-GS = os.path.join(conda, 'metric', 'bin', 'gsutil')
+EE = os.path.join(conda, 'irrimp', 'bin', 'earthengine')
+GS = '/home/dgketchum/google-cloud-sdk/bin/gsutil'
 
 OGR = '/usr/bin/ogr2ogr'
 
@@ -27,6 +28,16 @@ WGS = '+proj=longlat +datum=WGS84 +no_defs'
 os.environ['GDAL_DATA'] = 'miniconda3/envs/gcs/share/gdal/'
 
 DRYLAND_STATES = ['CO', 'ID', 'MT', 'OR', 'WA']
+
+TRAINING_DATA = {'AZ': 'users/dgketchum/bands/state/AZ_24NOV2021', 'CA': 'users/dgketchum/bands/state/CA_14NOV2021',
+                 'CO': 'users/dgketchum/bands/state/CO_10NOV2021', 'ID': 'users/dgketchum/bands/state/ID_10NOV2021',
+                 'KS': 'users/dgketchum/bands/state/KS_7NOV2021', 'MT': 'users/dgketchum/bands/state/MT_15NOV2021',
+                 'ND': 'users/dgketchum/bands/state/ND_7NOV2021', 'NE': 'users/dgketchum/bands/state/NE_7NOV2021',
+                 'NM': 'users/dgketchum/bands/state/NM_7NOV2021', 'NV': 'users/dgketchum/bands/state/NV_7NOV2021',
+                 'OK': 'users/dgketchum/bands/state/OK_7NOV2021', 'OR': 'users/dgketchum/bands/state/OR_22NOV2021',
+                 'SD': 'users/dgketchum/bands/state/SD_7NOV2021', 'TX': 'users/dgketchum/bands/state/TX_7NOV2021',
+                 'UT': 'users/dgketchum/bands/state/UT_10NOV2021', 'WA': 'users/dgketchum/bands/state/WA_10NOV2021',
+                 'WY': 'users/dgketchum/bands/state/WY_7NOV2021'}
 
 
 def to_geographic(in_dir, out_dir, glob, state):
@@ -55,14 +66,14 @@ def push_points_to_asset(_dir, glob, state, bucket):
     print(asset_id, bucket_files[0])
 
 
-def get_bands(pts_dir, glob, state, southern=False):
+def get_bands(pts_dir, glob, out_glob, state, southern=False):
     pts = os.path.join(pts_dir, 'points_{}_{}.shp'.format(state, glob))
     with fiona.open(pts, 'r') as src:
         years = list(set([x['properties']['YEAR'] for x in src]))
     print('get bands', state)
     pts = 'users/dgketchum/points/state/points_{}_{}'.format(state, glob)
     geo = 'users/dgketchum/boundaries/{}'.format(s)
-    file_ = 'bands_{}_{}'.format(s, '21SEP2022')
+    file_ = 'bands_{}_{}'.format(s, out_glob)
     request_band_extract(file_, pts, region=geo, years=years,
                          filter_bounds=True,
                          buffer=1e5, southern=southern,
@@ -124,11 +135,11 @@ def classify(out_coll, variable_dir, tables, years, glob, state, southern=False)
 
 if __name__ == '__main__':
     is_authorized()
-    _glob = '21SEP2022'
+    # _glob = '05MAY2023'
     _bucket = 'gs://wudr'
-    root = '/media/research/IrrigationGIS'
+    root = '/media/research/IrrigationGIS/irrmapper'
     if not os.path.exists(root):
-        root = '/home/dgketchum/data/IrrigationGIS'
+        root = '/home/dgketchum/data/IrrigationGIS/irrmapper'
 
     pt = os.path.join(root, 'EE_extracts/point_shp')
     pt_wgs = os.path.join(pt, 'state_wgs')
@@ -143,9 +154,9 @@ if __name__ == '__main__':
     # coll = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
     tables = 'users/dgketchum/bands/state'
 
-    for s in ['AZ', 'CO', 'ID', 'MT', 'NM', 'OR', 'UT']:
-        if s in ['AZ', 'CA']:
-            south = True
+    for s in ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']:
+        if s in ['AZ', 'CA', 'CO', 'ID']:
+            continue
         else:
             south = False
         # to_geographic(pt_aea, pt_wgs, glob=_glob, state=s)
@@ -154,11 +165,12 @@ if __name__ == '__main__':
         #                key=lambda f: os.stat(os.path.join(imp_json, f)).st_mtime)
         # files = [f for f in files if f.endswith('.json')]
         # _glob = files[-1].split('_')[-1].split('.')[0]
-        # get_bands(pt_aea, _glob, state=s, southern=south)
 
-        concatenate_bands(to_concat, conctenated, glob=_glob, state=s, southern=south)
+        _glob = TRAINING_DATA[s].split('_')[1]
+        get_bands(pt_aea, _glob, out_glob='05MAY2023', state=s, southern=south)
+
+        # concatenate_bands(to_concat, conctenated, glob=_glob, state=s, southern=south)
         # variable_importance(conctenated, importance_json=imp_json, glob=_glob, state=s)
         # push_bands_to_asset(conctenated, glob=_glob, state=s, bucket=_bucket)
-
         # classify(coll, imp_json, tables, [x for x in range(2022, 2023)], glob=_glob, state=s, southern=south)
 # ========================= EOF ====================================================================
