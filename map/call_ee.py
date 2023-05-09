@@ -913,7 +913,7 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    for s in ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']:
+    for s in ['AZ', 'CA', 'CO', 'ID']:
         in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
         out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
         geo_ = 'users/dgketchum/boundaries/{}'.format(s)
