@@ -3,8 +3,6 @@ from datetime import datetime, timedelta
 import ee
 
 
-
-
 def add_doy(image):
     """ Add day-of-year image """
     mask = ee.Date(image.get('system:time_start'))
@@ -91,9 +89,41 @@ def landsat_masked(yr, roi):
         roi).filterDate(start, end_date).map(landsat_c2_sr)
     l8_coll = ee.ImageCollection('LANDSAT/LC08/C02/T1_L2').filterBounds(
         roi).filterDate(start, end_date).map(landsat_c2_sr)
+    l9_coll = ee.ImageCollection('LANDSAT/LC09/C02/T1_L2').filterBounds(
+        roi).filterDate(start, end_date).map(landsat_c2_sr)
 
-    lsSR_masked = ee.ImageCollection(l7_coll.merge(l8_coll).merge(l5_coll).merge(l4_coll))
+    lsSR_masked = ee.ImageCollection(l7_coll.merge(l8_coll).merge(l9_coll).merge(l5_coll).merge(l4_coll))
+
     return lsSR_masked
+
+
+def long_term_ndvi_stats(roi):
+    start = '1987-01-01'
+    end_date = '2022-12-31'
+
+    l5_coll = ee.ImageCollection('LANDSAT/LT05/C02/T1_L2').filterBounds(
+        roi).filterDate(start, end_date).map(landsat_c2_sr)
+    l7_coll = ee.ImageCollection('LANDSAT/LE07/C02/T1_L2').filterBounds(
+        roi).filterDate(start, end_date).map(landsat_c2_sr)
+    l8_coll = ee.ImageCollection('LANDSAT/LC08/C02/T1_L2').filterBounds(
+        roi).filterDate(start, end_date).map(landsat_c2_sr)
+    l9_coll = ee.ImageCollection('LANDSAT/LC09/C02/T1_L2').filterBounds(
+        roi).filterDate(start, end_date).map(landsat_c2_sr)
+
+    landsat = ee.ImageCollection(l7_coll.merge(l8_coll).merge(l9_coll).merge(l5_coll))
+
+    nd_max = []
+    for yr in range(1987, 2023):
+        s, e = '{}-01-01'.format(yr), '{}-12-31'.format(yr)
+        ndvi_mx = ee.Image(landsat.filterDate(s, e).map(
+            lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_max'.format(yr))
+        nd_max.append(ndvi_mx)
+
+    coll = ee.ImageCollection(nd_max)
+    mean_, max_, std_ = coll.mean().rename('nd_lt_mn'), coll.max().rename('nd_lt_mx'), \
+        coll.reduce(ee.Reducer.stdDev()).rename('nd_lt_std')
+
+    return mean_, max_, std_
 
 
 def landsat_composites(year, start, end, roi, append_name, composites_only=False):

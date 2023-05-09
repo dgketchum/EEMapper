@@ -10,7 +10,7 @@ from numpy import ceil, linspace
 
 sys.path.insert(0, os.path.abspath('..'))
 from map.assets import list_assets, copy_asset
-from map.ee_utils import get_world_climate, landsat_composites, landsat_masked
+from map.ee_utils import get_world_climate, landsat_composites, landsat_masked, long_term_ndvi_stats
 from map.cdl import get_cdl
 
 sys.setrecursionlimit(2000)
@@ -752,6 +752,8 @@ def stack_bands(yr, roi, southern=False):
         bands = landsat_composites(yr, start, end, roi, name, composites_only=prev)
         if first:
             input_bands = bands
+            mean_, max_, std_ = long_term_ndvi_stats(roi)
+            input_bands = input_bands.addBands([mean_, max_, std_])
             proj = bands.select('B2_gs').projection().getInfo()
             first = False
         else:

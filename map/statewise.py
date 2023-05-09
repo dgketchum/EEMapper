@@ -7,7 +7,6 @@ import fiona
 from call_ee import is_authorized, request_band_extract, export_classification
 from tables import concatenate_band_extract
 from models import find_rf_variable_importance
-from assets import list_assets
 
 #
 # ALL_STATES = TARGET_STATES + E_STATES
@@ -135,7 +134,7 @@ def classify(out_coll, variable_dir, tables, years, glob, state, southern=False)
 
 if __name__ == '__main__':
     is_authorized()
-    _glob = '05MAY2023'
+    _glob = '09MAY2023'
     _bucket = 'gs://wudr'
     root = '/media/research/IrrigationGIS/irrmapper'
     if not os.path.exists(root):
@@ -150,8 +149,7 @@ if __name__ == '__main__':
     conctenated = os.path.join(extracts, 'concatenated/state')
     imp_json = os.path.join(extracts, 'variable_importance', 'statewise')
 
-    coll = 'users/dgketchum/IrrMapper/IrrMapper_sw'
-    # coll = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
+    coll = 'users/dgketchum/IrrMapper/IrrMapper_c2'
     tables = 'users/dgketchum/bands/state'
 
     for s in ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']:
@@ -161,7 +159,7 @@ if __name__ == '__main__':
             south = False
 
         _glob = TRAINING_DATA[s].split('_')[1]
-        # get_bands(pt_aea, _glob, out_glob='05MAY2023', state=s, southern=south)
+        get_bands(pt_aea, _glob, out_glob=_glob, state=s, southern=south)
 
         # concatenate_bands(to_concat, conctenated, glob=_glob, state=s, southern=south)
         # variable_importance(conctenated, importance_json=imp_json, glob=_glob, state=s)
