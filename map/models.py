@@ -165,7 +165,7 @@ def find_rf_variable_importance(csv):
 
     for x in range(10):
         d, _, l, _ = train_test_split(data, labels, train_size=0.67)
-        print('model iteration {}'.format(x))
+        # print('model iteration {}'.format(x))
         rf = RandomForestClassifier(n_estimators=150,
                                     n_jobs=-1,
                                     bootstrap=True)
@@ -173,7 +173,7 @@ def find_rf_variable_importance(csv):
         rf.fit(d, l)
         _list = [(f, v) for f, v in zip(names, rf.feature_importances_)]
         imp = sorted(_list, key=lambda x: x[1], reverse=True)
-        print([f[0] for f in imp[:10]])
+        # print([f[0] for f in imp[:10]])
 
         if first:
             for (k, v) in imp:

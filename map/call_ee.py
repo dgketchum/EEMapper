@@ -1,6 +1,7 @@
 import os
 import sys
 from datetime import datetime, date
+from pprint import pprint
 
 from numpy import ceil, linspace
 from pprint import pprint
@@ -176,34 +177,30 @@ def get_ndvi_cultivation_data_polygons(table, years, region, input_props,
 
 
 def wrs_analysis(irrmapper, table, desc, bucket, debug=False):
+
     irr_coll = ee.ImageCollection(irrmapper)
 
-    for yr in range(1987, 2022):
-        coll = irr_coll.filterDate('{}-01-01'.format(yr), '{}-12-31'.format(yr)).select('classification')
-        img = coll.map(lambda img: img.lt(1)).mosaic().rename('irr_{}'.format(yr))
+    irr_coll = irr_coll.map(lambda img: img.lt(1))
+    img = irr_coll.sum()
 
-        fc = ee.FeatureCollection(table)
-        # fc = fc.filterMetadata('FID', 'equals', 'MT_18763')
+    fc = ee.FeatureCollection(table)
+    # fc = fc.filterMetadata('FID', 'equals', 253)
+    data = img.reduceRegions(collection=fc,
+                             reducer=ee.Reducer.mode(),
+                             scale=30)
 
-        data = img.reduceRegions(collection=fc,
-                                 reducer=ee.Reducer.mean(),
-                                 scale=30)
+    if debug:
+        p = data.first().getInfo()['properties']
+        pprint('propeteries {}'.format(p))
 
-        if debug:
-            p = data.first().getInfo()['properties']
-            print('propeteries {}'.format(p))
-
-        select_ = ['OBJECTID', 'ORIG_FID', 'mean']
-        description = '{}_{}'.format(desc, yr)
-        task = ee.batch.Export.table.toCloudStorage(
-            data,
-            description=description,
-            bucket=bucket,
-            fileNamePrefix=description,
-            fileFormat='CSV',
-            selectors=select_)
-        task.start()
-        print(description)
+    task = ee.batch.Export.table.toCloudStorage(
+        data,
+        description=desc,
+        bucket=bucket,
+        fileNamePrefix=desc,
+        fileFormat='CSV')
+    task.start()
+    print(desc)
 
 
 def export_raster(roi=None):
@@ -846,7 +843,7 @@ def export_resmaple_irr_frequency():
         .filterDate('1991-01-01', '2020-12-31') \
         .map(lambda x: x.select('classification')
              .remap([0, 1, 2, 3], [1, 0, 0, 0]))
-    sum_ = remap.sum().rename('sum')
+    sum_ = remap.sum().rename('freq')
 
     roi = ee.FeatureCollection(os.path.join(bounds)).geometry()
     i = sum_.clip(roi).int()
@@ -857,7 +854,8 @@ def export_resmaple_irr_frequency():
         bucket='wudr',
         fileNamePrefix='{}'.format('irr_freq_1991_2020'),
         scale=30,
-        maxPixels=1e13)
+        maxPixels=1e13,
+        selectors=[])
     task.start()
     print(bounds)
 
@@ -915,11 +913,7 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    for s in ['AZ', 'CA', 'CO', 'ID']:
-        in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
-        out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-        geo_ = 'users/dgketchum/boundaries/{}'.format(s)
-        export_special(in_c, out_c, geo_, description=s)
-
-
+    out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+    fields = 'users/dgketchum/fields/missoula_flu_2019'
+    wrs_analysis(out_c, fields, desc='missoula_irrigation', bucket='wudr', debug=True)
 # ========================= EOF ====================================================================

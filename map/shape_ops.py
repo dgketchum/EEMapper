@@ -262,16 +262,17 @@ def join_shp_csv(in_shp, csv_dir, out_shp, join_on='OBJECTID'):
     csv_l = [os.path.join(csv_dir, x) for x in os.listdir(csv_dir) if x.endswith('.csv')]
     first = True
     for csv in csv_l:
-        y = int(csv.split('.')[0][-4:])
+        y = int(os.path.basename(csv).split('_')[3])
+        m = int(os.path.basename(csv).split('_')[4].replace('.csv', ''))
         try:
             if first:
                 df = read_csv(csv, index_col=join_on)
-                df = df.rename(columns={'mean': 'irr_{}'.format(y)})
+                df = df.rename(columns={'irr': 'irr_{}'.format(y)})
                 print(df.shape, csv)
                 first = False
             else:
                 c = read_csv(csv, index_col=join_on)
-                c = c.rename(columns={'mean': 'irr_{}'.format(y)})
+                c = c.rename(columns={'irr': 'irr_{}'.format(y)})
                 df = concat([df, c['irr_{}'.format(y)]], axis=1)
                 print(c.shape, csv)
         except errors.EmptyDataError:
@@ -338,8 +339,8 @@ if __name__ == '__main__':
     gis = os.path.join('/media/research', 'IrrigationGIS')
     if not os.path.exists(gis):
         gis = '/home/dgketchum/data/IrrigationGIS'
-    csv_ = '/media/research/IrrigationGIS/Montana/dalby/wrs_flu_ee_extracts/'
-    shp_ = '/media/research/IrrigationGIS/Montana/dalby/WRSfloodnotmapped_by_DORFLU2019all_slivers_removed_ADPCipq_1a/WRSfloodnotmapped_by_DORFLU2019all_slivers_removed_ADPCipq_1a.shp'
-    shp_out= '/media/research/IrrigationGIS/Montana/dalby/wrs_cleaned/dalby_wrs_irr_annual.shp'
-    join_shp_csv(shp_, csv_, out_shp=shp_out)
+    csv_ = '/home/dgketchum/Downloads/missoula_irrigation.csv'
+    shp_ = '/media/research/IrrigationGIS/Montana/geointernship/Missoula_063/flu_missoula_co_2019.shp'
+    shp_out = '/home/dgketchum/Downloads/missoula_irrigation_11MAY2023.shp'
+    join_shp_csv(shp_, csv_, out_shp=shp_out, join_on='FID')
 # ========================= EOF ====================================================================
