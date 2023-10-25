@@ -424,7 +424,7 @@ def export_special(input_coll, out_coll, roi, description):
             maxPixels=1e13)
 
         task.start()
-        print(year)
+        print(year, _id)
 
 
 def export_classification(out_name, table, asset_root, region, years,
@@ -913,7 +913,10 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-    fields = 'users/dgketchum/fields/missoula_flu_2019'
-    wrs_analysis(out_c, fields, desc='missoula_irrigation', bucket='wudr', debug=True)
+    # ['AZ', 'CA', 'CO', 'ID']
+    for s in ['MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']:
+        in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
+        out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+        geo_ = 'users/dgketchum/boundaries/{}'.format(s)
+        export_special(in_c, out_c, geo_, description=s)
 # ========================= EOF ====================================================================
