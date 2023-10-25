@@ -436,12 +436,8 @@ def join_comparison_to_shapefile(csv, shp, out_shape):
 
 
 if __name__ == '__main__':
-
-    d = os.path.join('/media', 'research', 'IrrigationGIS', 'time_series', 'exports_county')
-    no_cdl = os.path.join(d, 'counties_v2', 'noCdlMask_minYr5')
-    irr = os.path.join(no_cdl, 'nass_irrMap.csv')
-    shape = os.path.join('/media', 'research', 'IrrigationGIS', 'boundaries',
-                         'counties', 'western_11_states.shp')
-    out_shape = os.path.join(no_cdl, 'nass_irrmap_join.shp')
-    join_comparison_to_shapefile(irr, shape, out_shape=out_shape)
+    yr_files = '/media/research/IrrigationGIS/irrmapper/paper_irrmapper/paper_data/reproduction_2023/to_concatenate'
+    concat_ = '/media/research/IrrigationGIS/irrmapper/paper_irrmapper/paper_data/' \
+             'reproduction_2023/concatenated/'
+    concatenate_band_extract(yr_files, concat_, glob='IM_v1.1')
 # ========================= EOF ====================================================================

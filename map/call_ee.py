@@ -21,17 +21,20 @@
 # ===============================================================================
 
 import os
-from datetime import datetime
+from datetime import datetime, date
 
 import ee
 
 from map.assets import list_assets
-from map.ee_utils import get_world_climate, ls57mask, ls8mask, ndvi5, ndvi7, ndvi8, ls5_edge_removal, period_stat
+from map.shape_ops import irrmapper_states
+from map.ee_utils import get_world_climate, ls57mask, ls8mask, landsat_composites, ls5_edge_removal, period_stat
+from map.ee_utils import ndvi5, ndvi7, ndvi8
+from map.ee_utils import landsat_masked
 
 ROI = 'users/dgketchum/boundaries/western_11_union'
 BOUNDARIES = 'users/dgketchum/boundaries'
-ASSET_ROOT = 'users/dgketchum/IrrMapper/version_2'
-IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
+ASSET_ROOT = 'users/dgketchum/IrrMapper/version_1'
+IRRIGATION_TABLE = 'projects/ee-dgketchum/assets/bands/IrrMapper_training_data_reprod'
 
 HUC_6 = 'users/dgketchum/usgs_wbd/huc6_semiarid_clip'
 HUC_8 = 'users/dgketchum/usgs_wbd/huc8_semiarid_clip'
@@ -44,8 +47,9 @@ YEARS = [1986, 1987, 1988, 1989, 1993, 1994, 1995, 1996, 1997, 1998,
          2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
          2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
 
-TEST_YEARS = [2013]
+TEST_YEARS = [2013, 2017]
 ALL_YEARS = [x for x in range(1986, 2019)]
+FORWARD_YEARS = [x for x in range(2022, 2023)]
 
 
 def reduce_classification(tables, years=None, description=None, cdl_mask=False, min_years=0):
@@ -182,33 +186,38 @@ def export_raster(roi, description):
         print(yr)
 
 
-def export_special(roi, description):
-    fc = ee.FeatureCollection(roi)
-    roi_mask = fc.geometry().bounds().getInfo()['coordinates']
-    image_list = list_assets('users/dgketchum/IrrMapper/version_2')
+def export_special(asset_root):
 
-    # years = [str(x) for x in range(1986, 1991)]
-    # target_images = [x for x in image_list if x.endswith(years[0])]
-    # target = ee.ImageCollection(image_list)
-    # target = target.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
-    # range_images = [x for x in image_list if x.endswith(tuple(years))]
+    image_list = list_assets('users/dgketchum/IrrMapper/version_1')
 
-    coll = ee.ImageCollection(image_list)
-    sum = ee.ImageCollection(coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])).sum().toDouble()
-    sum_mask = sum.lt(3)
+    target_list = list_assets(asset_root)
+    target_bnames = [os.path.basename(i) for i in target_list]
 
-    img = sum.mask(sum_mask).toDouble()
+    for img in image_list:
 
-    task = ee.batch.Export.image.toDrive(
-        sum,
-        description='IrrMapper_V2_sum_years',
-        # folder='Irrigation',
-        region=roi_mask,
-        scale=30,
-        maxPixels=1e13,
-        # fileNamePrefix='IrrMapper_V2_{}_{}'.format(description, period)
-    )
-    task.start()
+        bname = os.path.basename(img)
+        state, yr = tuple(bname.split('_'))
+        target_name = os.path.join(asset_root, '{}_{}'.format(state, yr))
+
+        # if not (state == 'ID' and yr == '2013'):
+        #     continue
+
+        if bname in target_bnames:
+            print('{} exists, skipping'.format(bname))
+            continue
+
+        img = ee.Image(img)
+        img = img.remap([0, 1, 2, 3], [1, 0, 0, 0]).toInt().rename('classification')
+        task = ee.batch.Export.image.toAsset(
+            image=img,
+            description='{}_{}'.format(state, yr),
+            assetId=target_name,
+            pyramidingPolicy={'.default': 'mode'},
+            scale=30,
+            maxPixels=1e13)
+
+        print(state, yr)
+        task.start()
 
 
 def export_classification(out_name, asset_root, region, export='asset'):
@@ -222,15 +231,12 @@ def export_classification(out_name, asset_root, region, export='asset'):
     :param export:
     :return:
     """
-    fc = ee.FeatureCollection(None)
+    fc = ee.FeatureCollection(IRRIGATION_TABLE)
     roi = ee.FeatureCollection(region)
     mask = roi.geometry().bounds().getInfo()['coordinates']
 
-    classifier = ee.Classifier.randomForest(
-        numberOfTrees=100,
-        variablesPerSplit=0,
-        minLeafPopulation=1,
-        outOfBagMode=False).setOutputMode('CLASSIFICATION')
+    classifier = ee.Classifier.smileRandomForest(
+        numberOfTrees=250).setOutputMode('CLASSIFICATION')
 
     input_props = fc.first().propertyNames().remove('YEAR').remove('POINT_TYPE').remove('system:index')
 
@@ -240,38 +246,39 @@ def export_classification(out_name, asset_root, region, export='asset'):
 
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
-    for yr in TEST_YEARS:
+    for yr in ALL_YEARS:
         input_bands = stack_bands(yr, roi)
         annual_stack = input_bands.select(input_props)
+
+        b, p = input_bands.bandNames().getInfo(), input_props.getInfo()
+        check = [x for x in p if x not in b]
+        if check:
+            print(check)
+            revised = [f for f in p if f not in check]
+            input_props = ee.List(revised)
+
         classified_img = annual_stack.classify(trained_model).int().set({
             'system:index': ee.Date('{}-01-01'.format(yr)).format('YYYYMMdd'),
             'system:time_start': ee.Date('{}-01-01'.format(yr)).millis(),
-            'geography': out_name,
-            'class_key': '0: irrigated, 1: rainfed, 2: uncultivated, 3: wetland'})
+            'system:time_end': ee.Date('{}-12-31'.format(yr)).millis(),
+            'date_ingested': str(date.today()),
+            'image_name': out_name,
+            'training_data': IRRIGATION_TABLE,
+            'version': '1.1',
+            'class_key': '0: irrigated, 1: rainfed, 2: uncultivated, 3: wetland'}).clip(roi.geometry())
 
         if export == 'asset':
             task = ee.batch.Export.image.toAsset(
                 image=classified_img,
                 description='{}_{}'.format(out_name, yr),
                 assetId=os.path.join(asset_root, '{}_{}'.format(out_name, yr)),
-                fileNamePrefix='{}_{}'.format(yr, out_name),
                 region=mask,
+                pyramidingPolicy={'.default': 'mode'},
                 scale=30,
                 maxPixels=1e13)
-        elif export == 'cloud':
-            task = ee.batch.Export.image.toCloudStorage(
-                image=classified_img,
-                description='{}_{}'.format(out_name, yr),
-                bucket='wudr',
-                fileNamePrefix='{}_{}'.format(yr, out_name),
-                region=mask,
-                scale=30,
-                maxPixels=1e13)
-        else:
-            raise NotImplementedError('choose asset or cloud for export')
 
         task.start()
-        print(yr)
+        print(yr, out_name)
 
 
 def filter_irrigated(filter_type='filter_low'):
@@ -404,7 +411,7 @@ def request_band_extract(file_prefix, points_layer, region, filter_bounds=False)
     """
     roi = ee.FeatureCollection(region)
     plots = ee.FeatureCollection(points_layer)
-    for yr in ALL_YEARS:
+    for yr in YEARS:
         stack = stack_bands(yr, roi)
         start = '{}-01-01'.format(yr)
         d = datetime.strptime(start, '%Y-%m-%d')
@@ -414,7 +421,7 @@ def request_band_extract(file_prefix, points_layer, region, filter_bounds=False)
         if filter_bounds:
             plots = plots.filterBounds(roi)
 
-        filtered = plots.filter(ee.Filter.eq('YEAR', ee.Number(start_millisec)))
+        filtered = plots.filter(ee.Filter.eq('YEAR', yr))
 
         plot_sample_regions = stack.sampleRegions(
             collection=filtered,
@@ -489,14 +496,8 @@ def stack_bands(yr, roi):
     summer_s, summer_e = '{}-07-01'.format(yr), '{}-09-01'.format(yr)
     fall_s, fall_e = '{}-09-01'.format(yr), '{}-11-01'.format(yr)
 
-    l5_coll = ee.ImageCollection('LANDSAT/LT05/C01/T1_SR').filterBounds(
-        roi).filterDate(start, end_date).map(ls5_edge_removal).map(ls57mask)
-    l7_coll = ee.ImageCollection('LANDSAT/LE07/C01/T1_SR').filterBounds(
-        roi).filterDate(start, end_date).map(ls57mask)
-    l8_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_SR').filterBounds(
-        roi).filterDate(start, end_date).map(ls8mask)
+    lsSR_masked = landsat_masked(yr, roi)
 
-    lsSR_masked = ee.ImageCollection(l7_coll.merge(l8_coll).merge(l5_coll))
     lsSR_spr_mn = ee.Image(lsSR_masked.filterDate(spring_s, spring_e).mean())
     lsSR_lspr_mn = ee.Image(lsSR_masked.filterDate(late_spring_s, late_spring_e).mean())
     lsSR_sum_mn = ee.Image(lsSR_masked.filterDate(summer_s, fall_s).mean())
@@ -507,16 +508,10 @@ def stack_bands(yr, roi):
 
     nd_list_ = []
     for pos, year in zip(['m2', 'm1', 'cy'], range(yr - 2, yr + 1)):
-        if year <= 2011:
-            collection = ndvi5()
-        elif year == 2012:
-            collection = ndvi7()
-        else:
-            collection = ndvi8()
+        s, e = '{}-03-01'.format(yr), '{}-11-01'.format(yr)
+        nd_collection = landsat_composites(year, s, e, roi, pos)
 
-        nd_collection = period_stat(collection, spring_s.replace('{}'.format(yr), '{}'.format(year)),
-                                    fall_e.replace('{}'.format(yr), '{}'.format(year)))
-        s_nd_max = nd_collection.select('nd_max').rename('nd_max_{}'.format(pos))
+        s_nd_max = nd_collection.select('nd_max_{}'.format(pos))
         nd_list_.append(s_nd_max)
 
     input_bands = input_bands.addBands(nd_list_)
@@ -613,8 +608,17 @@ def is_authorized():
 if __name__ == '__main__':
     is_authorized()
     # export_classification(out_name='MT_v3', asset_root=ASSET_ROOT, region=BOUNDARIES)
-    # request_band_extract(file_prefix='MT_31OCT', points_layer=POINTS_MT, region=BOUNDARIES, filter_bounds=True)
     # filter_irrigated(filter_type='filter_low')
     # reduce_classification(COUNTIES, years=ALL_YEARS, description='v2_cdlMask_minYr5', cdl_mask=True, min_years=5)
-    request_validation_extract()
+    # request_validation_extract()
+    # request_band_extract(file_prefix='IM_v1.1',
+    #                      points_layer='projects/ee-dgketchum/assets/points/IrrMapper_training_data_points',
+    #                      region=ROI,
+    #                      filter_bounds=True)
+
+    # for state in irrmapper_states:
+    #     geo = os.path.join(BOUNDARIES, state)
+    #     export_classification(out_name=state, asset_root=ASSET_ROOT, region=geo, export='asset')
+
+    export_special(asset_root='users/dgketchum/IrrMapper/IrrMapper_RF')
 # ========================= EOF ====================================================================

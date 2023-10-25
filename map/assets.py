@@ -36,9 +36,9 @@ def change_permissions(ee_asset, user=None):
 
 def copy_asset(ee_asset, dst):
     reader = list_assets(ee_asset)
-    _list = [x for x in reader if x[-4:] in ['2016', '2017', '2018']]
-    for r in _list:
-        cmd = ['{}'.format(EXEC), 'cp', '{}'.format(r), '{}'.format(os.path.join(dst, os.path.basename(r)))]
+    for r in reader:
+        out = '{}'.format(os.path.join(dst, os.path.basename(r)))
+        cmd = ['{}'.format(EXEC), 'cp', '{}'.format(r), out]
         print(cmd)
         check_call(cmd)
 
@@ -121,13 +121,13 @@ def list_assets(location):
 
 
 if __name__ == '__main__':
-    loc = os.path.join('users', 'dgketchum', 'IrrMapper', 'version_2')
-    dst = os.path.join('projects', 'openet', 'irrigation', 'IrrMapper_v2')
+    loc = 'users/dgketchum/IrrMapper/IrrMapper_RF'
+    dst = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_RF'
     k = 'version'
     v = '2'
-    # copy_asset(loc, dst)
+    copy_asset(loc, dst)
     # set_metadata(loc, key=k, value=v)
-    get_metadata(dst)
+    # get_metadata(dst)
     # delete_assets(dst)
     # duplicate_asset(dst)
 # ========================= EOF ====================================================================
