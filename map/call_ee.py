@@ -240,7 +240,7 @@ def export_special(input_coll, out_coll, roi, description):
     ned = ee.Image('USGS/NED')
     slope = ee.Terrain.products(ned).select('slope')
 
-    for year in range(2022, 2023):
+    for year in range(2023, 2024):
         start, end = '{}-03-01'.format(year), '{}-12-30'.format(year)
         ndvi = landsat_composites(year, start, end, fc, 'gs', composites_only=True).select('nd_max_gs')
 
@@ -913,7 +913,7 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
-    for s in ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']:
+    for s in ['WA']:
         in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
         out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
         geo_ = 'users/dgketchum/boundaries/{}'.format(s)
