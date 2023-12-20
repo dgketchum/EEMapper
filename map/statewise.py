@@ -7,6 +7,7 @@ import fiona
 from call_ee import is_authorized, request_band_extract, export_classification
 from tables import concatenate_band_extract
 from models import find_rf_variable_importance
+from assets import list_assets
 
 #
 # ALL_STATES = TARGET_STATES + E_STATES
@@ -101,6 +102,7 @@ def push_bands_to_asset(_dir, glob, state, bucket):
         check_call(cmd)
         print(id_, s)
 
+
 def variable_importance(in_dir, glob, state, importance_json=None):
     d = {}
     print('\n{}\n'.format(s.upper()))
@@ -108,7 +110,7 @@ def variable_importance(in_dir, glob, state, importance_json=None):
     variables = find_rf_variable_importance(csv)
     variables = [x for x in variables[:50]]
     d[s] = variables
-    # pprint(variables)
+    pprint(variables)
     if importance_json:
         jsn = os.path.join(importance_json, 'variables_{}_{}.json'.format(state, glob))
         with open(jsn, 'w') as fp:
@@ -133,7 +135,7 @@ def classify(out_coll, variable_dir, tables, years, glob, state, southern=False)
 
 if __name__ == '__main__':
     is_authorized()
-
+    _glob = '05MAY2023'
     _bucket = 'gs://wudr'
     root = '/media/research/IrrigationGIS/irrmapper'
     if not os.path.exists(root):
@@ -148,20 +150,31 @@ if __name__ == '__main__':
     conctenated = os.path.join(extracts, 'concatenated/state')
     imp_json = os.path.join(extracts, 'variable_importance', 'statewise')
 
-    coll = 'users/dgketchum/IrrMapper/IrrMapper_c2'
+    coll = 'users/dgketchum/IrrMapper/IrrMapper_sw'
+    # coll = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
     tables = 'users/dgketchum/bands/state'
 
     for s in ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']:
-
         if s in ['AZ', 'CA']:
             south = True
         else:
             south = False
 
-        # get_bands(pt_aea, _glob, out_glob=_glob, state=s, southern=south)
-        _glob = '09MAY2023'
+        if s != 'WA':
+            continue
+
+        # to_geographic(pt_aea, pt_wgs, glob=_glob, state=s)
+        # push_points_to_asset(pt_wgs, glob=_glob, state=s, bucket=_bucket)
+        # files = sorted((f for f in os.listdir(imp_json) if f.find(s) != -1),
+        #                key=lambda f: os.stat(os.path.join(imp_json, f)).st_mtime)
+        # files = [f for f in files if f.endswith('.json')]
+        # _glob = files[-1].split('_')[-1].split('.')[0]
+        #
+        # _glob = TRAINING_DATA[s].split('_')[1]
+        # get_bands(pt_aea, '7NOV2021', out_glob='20DEC2023', state=s, southern=south)
+
         # concatenate_bands(to_concat, conctenated, glob=_glob, state=s, southern=south)
         # variable_importance(conctenated, importance_json=imp_json, glob=_glob, state=s)
         # push_bands_to_asset(conctenated, glob=_glob, state=s, bucket=_bucket)
-        classify(coll, imp_json, tables, [x for x in range(1987, 2022)], glob=_glob, state=s, southern=south)
+        classify(coll, imp_json, tables, [x for x in range(2023, 2024)], glob=_glob, state=s, southern=south)
 # ========================= EOF ====================================================================
