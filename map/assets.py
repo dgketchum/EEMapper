@@ -2,6 +2,7 @@ from pprint import pprint
 import csv
 import os
 import json
+from datetime import date
 import subprocess
 from subprocess import Popen, PIPE, check_call
 import json
@@ -161,6 +162,27 @@ def clip():
             print(target)
 
 
+def convert_to_boolean(in_col, out_col):
+    l = list_assets(in_col)
+
+    for a in l:
+        i = ee.Image(a)
+        info = i.getInfo()['properties']
+        info['postprocessing_date'] = date.today().strftime('%Y-%m-%d')
+        i = i.mask(i.eq(0))
+        i = i.set(info)
+        desc = '{}'.format(info['system:index'])
+        task = ee.batch.Export.image.toAsset(
+            image=i,
+            description=desc,
+            assetId=os.path.join(out_col, desc),
+            scale=30,
+            pyramidingPolicy={'.default': 'mode'},
+            maxPixels=1e13)
+        task.start()
+        print(desc)
+
+
 def mask_move(min_years=3):
     asset_root = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapper_RF2'
 
@@ -267,8 +289,8 @@ def clean_gcs():
 
 if __name__ == '__main__':
     is_authorized()
-    c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
-    l = list_assets(c)
-    for i in l:
-        set_metadata(i)
+    c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+    o = 'users/dgketchum/IrrMapper/version1_2'
+    convert_to_boolean(c, o)
+
 # ========================= EOF ====================================================================
