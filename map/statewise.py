@@ -160,9 +160,6 @@ if __name__ == '__main__':
         else:
             south = False
 
-        if s != 'WA':
-            continue
-
         # to_geographic(pt_aea, pt_wgs, glob=_glob, state=s)
         # push_points_to_asset(pt_wgs, glob=_glob, state=s, bucket=_bucket)
         # files = sorted((f for f in os.listdir(imp_json) if f.find(s) != -1),
@@ -176,5 +173,5 @@ if __name__ == '__main__':
         # concatenate_bands(to_concat, conctenated, glob=_glob, state=s, southern=south)
         # variable_importance(conctenated, importance_json=imp_json, glob=_glob, state=s)
         # push_bands_to_asset(conctenated, glob=_glob, state=s, bucket=_bucket)
-        classify(coll, imp_json, tables, [x for x in range(2023, 2024)], glob=_glob, state=s, southern=south)
+        classify(coll, imp_json, tables, [x for x in range(1985, 1986)], glob=_glob, state=s, southern=south)
 # ========================= EOF ====================================================================
