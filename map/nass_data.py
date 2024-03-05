@@ -28,7 +28,8 @@ E_STATES = ['ND', 'SD', 'NE', 'KS', 'OK', 'TX']
 STATES = TARGET_STATES + E_STATES
 
 INT_COLS = ['STATE_ANSI', 'COUNTY_CODE']
-FLOAT_COLS = ['VALUE_1987', 'VALUE_1992', 'VALUE_1997', 'VALUE_2002', 'VALUE_2007', 'VALUE_2012', 'VALUE_2017']
+FLOAT_COLS = ['VALUE_1987', 'VALUE_1992', 'VALUE_1997', 'VALUE_2002', 'VALUE_2007',
+              'VALUE_2012', 'VALUE_2017', 'VALUE_2017', 'VALUE_2022']
 
 
 def get_old_nass(_dir, out_file):
@@ -77,10 +78,12 @@ def get_nass(csv, out_file, old_nass=None):
         except AssertionError:
             df = read_csv(c)
         df.dropna(axis=0, subset=['COUNTY_CODE'], inplace=True, how='any')
+        df = df[df['STATE_ALPHA'] == 'MT']
         cty_str = df['COUNTY_CODE'].map(lambda x: str(int(x)).zfill(3))
         idx_str = df['STATE_FIPS_CODE'].map(lambda x: str(int(x))) + cty_str
         idx = idx_str.map(int)
         df.index = idx
+        df['COUNTY_NAME'] = [s.replace(' ', '_') for s in df['COUNTY_NAME']]
         df['ST_CNTY_STR'] = df['STATE_ALPHA'] + '_' + df['COUNTY_NAME']
         df = df[(df['SOURCE_DESC'] == 'CENSUS') &
                 (df['SECTOR_DESC'] == 'ECONOMICS') &
@@ -211,8 +214,13 @@ if __name__ == '__main__':
     irr_extract = os.path.join(nass_tables, 'co_sw_23NOV2021_2017.csv')
     nass = os.path.join(nass_tables, 'nass_merged.csv')
 
+    files = [os.path.join(nass_tables, 'qs.census{}.txt'.format(yr)) for yr in [2002, 2007, 2012, 2017, 2022]]
+    out_nass = os.path.join(nass_tables, 'nass_irr_area_acres_MT_2002_2022_4MAR2024.csv')
+    get_nass(files, out_file=out_nass)
+
     co_shp = os.path.join(root, 'boundaries', 'counties', 'western_17_states_counties_wgs.shp')
     o_shp = os.path.join(nass_tables, 'nass_counties.shp')
-    nass_shapefile(co_shp, o_shp, merged, irr_extract, STATES)
+
+    # nass_shapefile(co_shp, o_shp, merged, irr_extract, STATES)
     # nass_statewide_summary(nass)
 # ========================= EOF ====================================================================
