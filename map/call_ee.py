@@ -17,6 +17,7 @@ sys.setrecursionlimit(2000)
 
 BOUNDARIES = 'users/dgketchum/boundaries'
 IRRIGATION_TABLE = 'users/dgketchum/western_states_irr/NV_agpoly'
+RF_ASSET = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
 
 TARGET_STATES = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
 E_STATES = ['ND', 'SD', 'NE', 'KS', 'OK', 'TX']
@@ -176,7 +177,6 @@ def get_ndvi_cultivation_data_polygons(table, years, region, input_props,
 
 
 def wrs_analysis(irrmapper, table, desc, bucket, debug=False):
-
     irr_coll = ee.ImageCollection(irrmapper)
 
     irr_coll = irr_coll.map(lambda img: img.lt(1))
@@ -202,33 +202,53 @@ def wrs_analysis(irrmapper, table, desc, bucket, debug=False):
     print(desc)
 
 
-def export_raster(roi=None):
-    fc = None
-    target_bn = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-    coll = ee.ImageCollection(target_bn)
+def export_raster(roi=None, min_years=3, debug=False):
+    roi = ee.FeatureCollection(roi).first()
 
-    if roi:
-        fc = ee.FeatureCollection(roi)
-        # fc = fc.filterMetadata('GEOID', 'equals', '30031')
+    irr_coll = ee.ImageCollection(RF_ASSET)
 
-    for yr in range(1986, 2021):
+    coll = irr_coll.filterDate('1987-01-01', '2023-12-31').select('classification')
+    remap = coll.map(lambda img: img.lt(1))
+    irr_min_yr_mask = remap.sum().gte(min_years)
+    sum = remap.sum().mask(irr_min_yr_mask)
+    sum = sum.clip(roi.geometry()).toInt()
 
-        img = coll.filterDate('{}-01-01'.format(yr), '{}-12-31'.format(yr)).mosaic()
-        img = img.select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0]).rename('classification')
-        if roi:
-            img = img.clip(fc.geometry())
+    desc = 'irrmapper_freq_1987_2009'
+    task = ee.batch.Export.image.toCloudStorage(
+        image=sum,
+        description=desc,
+        bucket='wudr',
+        fileNamePrefix=desc,
+        region=roi.geometry(),
+        scale=30,
+        maxPixels=1e13,
+        crs='EPSG:5071',
+        fileFormat='GeoTIFF')
+    # print(desc)
+    # task.start()
 
-        task = ee.batch.Export.image.toDrive(
-            image=img,
-            folder='IrrMapper_MSL',
-            description='IrrMapper_{}'.format(yr),
-            scale=30,
-            maxPixels=1e13,
-            crs='EPSG:5071',
-            region=fc.geometry())
+    coll = irr_coll.filterDate('2009-01-01', '2009-12-31').select('classification')
+    remap = coll.map(lambda img: img.lt(1)).mosaic().mask(irr_min_yr_mask).toInt()
+    remap = remap.clip(roi.geometry())
 
-        task.start()
-        print(yr)
+    if debug:
+        pt = ee.FeatureCollection(ee.Geometry.Point([-112.6152495034253, 48.689606909150044]))
+        data = remap.sampleRegions(collection=pt, scale=30)
+        data = data.getInfo()
+
+    desc = 'irrmapper_status_2009'
+    task = ee.batch.Export.image.toCloudStorage(
+        image=remap,
+        description=desc,
+        bucket='wudr',
+        fileNamePrefix=desc,
+        region=roi.geometry(),
+        scale=30,
+        maxPixels=1e13,
+        crs='EPSG:5071',
+        fileFormat='GeoTIFF')
+    print(desc)
+    task.start()
 
 
 def export_special(input_coll, out_coll, roi, description):
@@ -236,7 +256,7 @@ def export_special(input_coll, out_coll, roi, description):
     ned = ee.Image('USGS/NED')
     slope = ee.Terrain.products(ned).select('slope')
 
-    for year in range(2023, 2024):
+    for year in range(2022, 2024):
         start, end = '{}-03-01'.format(year), '{}-12-30'.format(year)
         ndvi = landsat_composites(year, start, end, fc, 'gs', composites_only=True).select('nd_max_gs')
 
@@ -307,9 +327,10 @@ def export_special(input_coll, out_coll, roi, description):
             pivot = class_labels.paint(pivot, 1).rename('pivot')
             expr = target.addBands([sum, ndvi, slope, cropland, pivot])
 
-            threshold = 5 if year < 2011 else (2021 - year - 1)
+            threshold = 5 if year < 2011 else (2023 - year - 1)
             if threshold < 0:
                 threshold = 0
+            threshold = 5
 
             expression_ = ' (IRR == 0) && (NDVI < 0.68) && (SUM > {t}) ? 1' \
                           ': (IRR != 0) && (NDVI > 0.75) && (SUM > {t}) ? 0' \
@@ -345,7 +366,7 @@ def export_special(input_coll, out_coll, roi, description):
             pivot = class_labels.paint(pivot, 1).rename('pivot')
             expr = target.addBands([sum, ndvi, slope, cropland, pivot])
 
-            threshold = 5 if year < 2016 else (2021 - year - 1)
+            threshold = 5 if year < 2016 else (2025 - year - 1)
             if threshold < 0:
                 threshold = 0
 
@@ -369,6 +390,29 @@ def export_special(input_coll, out_coll, roi, description):
                                             'SUM': expr.select('sum'),
                                             'NDVI': expr.select('nd_max_gs'),
                                             'PIVOT': expr.select('pivot')})
+
+        elif description in ['CO', 'WY']:
+            pivot = ee.FeatureCollection('users/dgketchum/openet/western_17_pivots').filterBounds(fc)
+
+            class_labels = ee.Image(0).byte()
+            pivot = class_labels.paint(pivot, 1).rename('pivot')
+            expr = target.addBands([sum, ndvi, slope, cropland, pivot])
+
+            threshold = 5 if year < 2016 else (2025 - year - 1)
+            if threshold < 0:
+                threshold = 0
+
+            threshold = 3
+            expression_ = '(IRR == 1) && (NDVI > 0.75) && (SUM > {t}) ? 0' \
+                          ': (IRR == 0) && (SUM < {t}) ? 1' \
+                          ': (IRR == 0) && (SLOPE > 10) ? 3' \
+                          ': IRR'.format(t=threshold)
+
+            target = expr.expression(expression_,
+                                     {'IRR': expr.select('classification'),
+                                      'SUM': expr.select('sum'),
+                                      'NDVI': expr.select('nd_max_gs'),
+                                      'SLOPE': expr.select('slope')})
 
         elif description in ['CA']:
             pivot = ee.FeatureCollection('users/dgketchum/openet/western_17_pivots').filterBounds(fc)
@@ -908,12 +952,12 @@ def is_authorized():
 
 
 if __name__ == '__main__':
-    is_authorized()
-    for s in ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']:
-        in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
-        out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-        geo_ = 'users/dgketchum/boundaries/{}'.format(s)
-        export_special(in_c, out_c, geo_, description=s)
+    ee.Authenticate()
+    ee.Initialize(project='ee-dgketchum')
 
+    out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+    geo_ = 'users/dgketchum/boundaries/blackfeet_res'
+
+    export_raster(geo_, min_years=3, debug=False)
 
 # ========================= EOF ====================================================================
