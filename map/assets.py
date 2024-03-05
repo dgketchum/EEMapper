@@ -164,6 +164,7 @@ def clip():
 
 def convert_to_boolean(in_col, out_col):
     l = list_assets(in_col)
+    exist = list_assets(out_col)
 
     for a in l:
         i = ee.Image(a)
@@ -172,10 +173,16 @@ def convert_to_boolean(in_col, out_col):
         i = i.mask(i.eq(0))
         i = i.set(info)
         desc = '{}'.format(info['system:index'])
+        out_id = os.path.join(out_col, desc)
+        check_id = os.path.join('projects/earthengine-legacy/assets', out_col, desc)
+
+        if check_id in exist:
+            continue
+
         task = ee.batch.Export.image.toAsset(
             image=i,
             description=desc,
-            assetId=os.path.join(out_col, desc),
+            assetId=out_id,
             scale=30,
             pyramidingPolicy={'.default': 'mode'},
             maxPixels=1e13)
@@ -289,8 +296,12 @@ def clean_gcs():
 
 if __name__ == '__main__':
     is_authorized()
-    c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-    o = 'users/dgketchum/IrrMapper/version1_2'
-    convert_to_boolean(c, o)
+    i = 'users/dgketchum/IrrMapper/version1_2'
+    o = 'projects/ee-dgketchum/assets/IrrMapper/version1_2'
+    l = list_assets(i)
+    for a in l:
+        n = os.path.basename(a)
+        dst = os.path.join(o, n)
+        move_asset(a, dst)
 
 # ========================= EOF ====================================================================
