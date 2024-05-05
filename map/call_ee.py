@@ -213,7 +213,7 @@ def export_raster(roi=None, min_years=3, debug=False):
     sum = remap.sum().mask(irr_min_yr_mask)
     sum = sum.clip(roi.geometry()).toInt()
 
-    desc = 'irrmapper_freq_1987_2009'
+    desc = 'irrmapper_freq_1987_2009_no_mask'
     task = ee.batch.Export.image.toCloudStorage(
         image=sum,
         description=desc,
@@ -224,8 +224,8 @@ def export_raster(roi=None, min_years=3, debug=False):
         maxPixels=1e13,
         crs='EPSG:5071',
         fileFormat='GeoTIFF')
-    # print(desc)
-    # task.start()
+    print(desc)
+    task.start()
 
     coll = irr_coll.filterDate('2009-01-01', '2009-12-31').select('classification')
     remap = coll.map(lambda img: img.lt(1)).mosaic().mask(irr_min_yr_mask).toInt()
@@ -248,7 +248,7 @@ def export_raster(roi=None, min_years=3, debug=False):
         crs='EPSG:5071',
         fileFormat='GeoTIFF')
     print(desc)
-    task.start()
+    # task.start()
 
 
 def export_special(input_coll, out_coll, roi, description):
@@ -952,12 +952,13 @@ def is_authorized():
 
 
 if __name__ == '__main__':
-    ee.Authenticate()
-    ee.Initialize(project='ee-dgketchum')
+    is_authorized()
 
-    out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+    print(ee.String('Hello from the Earth Engine servers!').getInfo())
+
+    out_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
     geo_ = 'users/dgketchum/boundaries/blackfeet_res'
 
-    export_raster(geo_, min_years=3, debug=False)
+    export_raster(geo_, min_years=0, debug=False)
 
 # ========================= EOF ====================================================================
