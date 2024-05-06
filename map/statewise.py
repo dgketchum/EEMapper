@@ -122,12 +122,15 @@ def classify(out_coll, variable_dir, tables, years, glob, state, southern=False)
     with open(vars, 'r') as fp:
         d = json.load(fp)
     features = [f[0] for f in d[state]]
+    features.remove('LAT_GCS')
     var_txt = os.path.join(variable_dir, '{}_{}_vars.txt'.format(state, glob))
     with open(var_txt, 'w') as fp:
         for f in features:
             fp.write('{}\n'.format(f))
     table = os.path.join(tables, '{}_{}'.format(state, glob))
     geo = 'users/dgketchum/boundaries/{}'.format(state)
+
+    out_name_ = 'SMM'
     export_classification(out_name=state, table=table, asset_root=out_coll, region=geo,
                           years=years, input_props=features, bag_fraction=0.5, southern=southern)
     pprint(features)
@@ -141,20 +144,21 @@ if __name__ == '__main__':
     if not os.path.exists(root):
         root = '/home/dgketchum/data/IrrigationGIS/irrmapper'
 
-    pt = os.path.join(root, 'EE_extracts/point_shp')
+    pt = os.path.join('/home/dgketchum/Downloads/point_shp')
     pt_wgs = os.path.join(pt, 'state_wgs')
     pt_aea = os.path.join(pt, 'state_aea')
 
     extracts = os.path.join(root, 'EE_extracts')
     to_concat = os.path.join(extracts, 'to_concatenate/state')
     conctenated = os.path.join(extracts, 'concatenated/state')
-    imp_json = os.path.join(extracts, 'variable_importance', 'statewise')
+    # imp_json = os.path.join(extracts, 'variable_importance', 'statewise')
+    imp_json = '/home/dgketchum/Downloads'
 
     coll = 'users/dgketchum/IrrMapper/IrrMapper_sw'
     # coll = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp_'
     tables = 'users/dgketchum/bands/state'
 
-    for s in ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']:
+    for s in ['ID', 'MT', 'WA', 'WY']:
         if s in ['AZ', 'CA']:
             south = True
         else:
@@ -168,10 +172,10 @@ if __name__ == '__main__':
         # _glob = files[-1].split('_')[-1].split('.')[0]
         #
         # _glob = TRAINING_DATA[s].split('_')[1]
-        # get_bands(pt_aea, '7NOV2021', out_glob='20DEC2023', state=s, southern=south)
+        get_bands(pt_aea, '7NOV2021', out_glob='05MAY2024', state=s, southern=south)
 
         # concatenate_bands(to_concat, conctenated, glob=_glob, state=s, southern=south)
         # variable_importance(conctenated, importance_json=imp_json, glob=_glob, state=s)
         # push_bands_to_asset(conctenated, glob=_glob, state=s, bucket=_bucket)
-        classify(coll, imp_json, tables, [x for x in range(1985, 1986)], glob=_glob, state=s, southern=south)
+        # classify(coll, imp_json, tables, [x for x in range(1985, 1986)], glob=_glob, state=s, southern=south)
 # ========================= EOF ====================================================================
