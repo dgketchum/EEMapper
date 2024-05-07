@@ -5,8 +5,7 @@ from datetime import datetime
 from geopandas import GeoDataFrame, read_file
 from numpy import where, nan, std, min, max, mean, ones_like, rint
 from pandas import read_csv, concat, errors, Series, merge
-from pandas import to_datetime
-from pandas.io.json import json_normalize
+from pandas import to_datetime, json_normalize
 from shapely.geometry import Polygon
 from map.variable_importance import dec_2020_variables
 

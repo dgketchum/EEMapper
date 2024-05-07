@@ -203,17 +203,23 @@ def wrs_analysis(irrmapper, table, desc, bucket, debug=False):
 
 
 def export_raster(roi=None, min_years=3, debug=False):
+    irr_min_yr_mask = None
     roi = ee.FeatureCollection(roi).first()
 
     irr_coll = ee.ImageCollection(RF_ASSET)
 
-    coll = irr_coll.filterDate('1987-01-01', '2023-12-31').select('classification')
+    coll = irr_coll.filterDate('1987-01-01', '2009-12-31').select('classification')
     remap = coll.map(lambda img: img.lt(1))
-    irr_min_yr_mask = remap.sum().gte(min_years)
-    sum = remap.sum().mask(irr_min_yr_mask)
+
+    if min_years:
+        irr_min_yr_mask = remap.sum().gte(min_years)
+        sum = remap.sum().mask(irr_min_yr_mask)
+    else:
+        sum = remap.sum()
+
     sum = sum.clip(roi.geometry()).toInt()
 
-    desc = 'irrmapper_freq_1987_2009_no_mask'
+    desc = 'irrmapper_freq_1987_2009_no_mask_07MAY2024'
     task = ee.batch.Export.image.toCloudStorage(
         image=sum,
         description=desc,
@@ -228,7 +234,10 @@ def export_raster(roi=None, min_years=3, debug=False):
     task.start()
 
     coll = irr_coll.filterDate('2009-01-01', '2009-12-31').select('classification')
-    remap = coll.map(lambda img: img.lt(1)).mosaic().mask(irr_min_yr_mask).toInt()
+    if irr_min_yr_mask:
+        remap = coll.map(lambda img: img.lt(1)).mosaic().mask(irr_min_yr_mask).toInt()
+    else:
+        remap = coll.map(lambda img: img.lt(1)).mosaic().toInt()
     remap = remap.clip(roi.geometry())
 
     if debug:
@@ -956,6 +965,6 @@ if __name__ == '__main__':
     out_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
     geo_ = 'users/dgketchum/boundaries/blackfeet_res'
 
-    export_raster(geo_, min_years=0, debug=False)
+    export_raster(geo_, min_years=None, debug=False)
 
 # ========================= EOF ====================================================================
