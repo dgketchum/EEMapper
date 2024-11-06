@@ -202,18 +202,24 @@ def wrs_analysis(irrmapper, table, desc, bucket, debug=False):
     print(desc)
 
 
-def export_raster(roi=None, min_years=3, debug=False):
-    roi = ee.FeatureCollection(roi).first()
+def export_raster(irr_coll, roi=None, min_years=3, debug=False):
+    irr_min_yr_mask = None
+    roi = ee.FeatureCollection(roi).filterMetadata('STAID', 'equals', '12340000').first()
 
-    irr_coll = ee.ImageCollection(RF_ASSET)
+    irr_coll = ee.ImageCollection(irr_coll)
 
-    coll = irr_coll.filterDate('1987-01-01', '2023-12-31').select('classification')
+    coll = irr_coll.filterDate('1987-01-01', '2024-12-31').select('classification')
     remap = coll.map(lambda img: img.lt(1))
-    irr_min_yr_mask = remap.sum().gte(min_years)
-    sum = remap.sum().mask(irr_min_yr_mask)
+
+    if min_years:
+        irr_min_yr_mask = remap.sum().gte(min_years)
+        sum = remap.sum().mask(irr_min_yr_mask)
+    else:
+        sum = remap.sum()
+
     sum = sum.clip(roi.geometry()).toInt()
 
-    desc = 'irrmapper_freq_1987_2009_no_mask'
+    desc = 'irrmapper_freq_1987_2024_maskgt3_05NOV2024'
     task = ee.batch.Export.image.toCloudStorage(
         image=sum,
         description=desc,
@@ -227,28 +233,32 @@ def export_raster(roi=None, min_years=3, debug=False):
     print(desc)
     task.start()
 
-    coll = irr_coll.filterDate('2009-01-01', '2009-12-31').select('classification')
-    remap = coll.map(lambda img: img.lt(1)).mosaic().mask(irr_min_yr_mask).toInt()
-    remap = remap.clip(roi.geometry())
+    for year in range(1987, 2025):
+        coll = irr_coll.filterDate(f'{year}-01-01', f'{year}-12-31').select('classification')
+        if irr_min_yr_mask:
+            remap = coll.map(lambda img: img.lt(1)).mosaic().mask(irr_min_yr_mask).toInt()
+        else:
+            remap = coll.map(lambda img: img.lt(1)).mosaic().toInt()
+        remap = remap.clip(roi.geometry())
 
-    if debug:
-        pt = ee.FeatureCollection(ee.Geometry.Point([-112.6152495034253, 48.689606909150044]))
-        data = remap.sampleRegions(collection=pt, scale=30)
-        data = data.getInfo()
+        if debug:
+            pt = ee.FeatureCollection(ee.Geometry.Point([-113.395, 46.946]))
+            data = remap.sampleRegions(collection=pt, scale=30)
+            data = data.getInfo()
 
-    desc = 'irrmapper_status_2009'
-    task = ee.batch.Export.image.toCloudStorage(
-        image=remap,
-        description=desc,
-        bucket='wudr',
-        fileNamePrefix=desc,
-        region=roi.geometry(),
-        scale=30,
-        maxPixels=1e13,
-        crs='EPSG:5071',
-        fileFormat='GeoTIFF')
-    print(desc)
-    # task.start()
+        desc = 'irrmapper_{}'.format(year)
+        task = ee.batch.Export.image.toCloudStorage(
+            image=remap,
+            description=desc,
+            bucket='wudr',
+            fileNamePrefix=desc,
+            region=roi.geometry(),
+            scale=30,
+            maxPixels=1e13,
+            crs='EPSG:5071',
+            fileFormat='GeoTIFF')
+        print(desc)
+        task.start()
 
 
 def export_special(input_coll, out_coll, roi, description):
@@ -256,7 +266,7 @@ def export_special(input_coll, out_coll, roi, description):
     ned = ee.Image('USGS/NED')
     slope = ee.Terrain.products(ned).select('slope')
 
-    for year in range(2022, 2024):
+    for year in range(2024, 2025):
         start, end = '{}-03-01'.format(year), '{}-12-30'.format(year)
         ndvi = landsat_composites(year, start, end, fc, 'gs', composites_only=True).select('nd_max_gs')
 
@@ -448,7 +458,7 @@ def export_special(input_coll, out_coll, roi, description):
         else:
             src = os.path.join(input_coll, '{}_{}'.format(description, year))
             dst = os.path.join(out_coll, '{}_{}'.format(description, year))
-            print('No rule written for this state, copying')
+            print('No rule written for this {}, copying'.format(description))
             copy_asset(src, dst)
             continue
 
@@ -734,6 +744,7 @@ def request_band_extract(file_prefix, points_layer, region, years, filter_bounds
             fileFormat='CSV')
 
         task.start()
+        print('{}_{}'.format(file_prefix, yr))
 
 
 def stack_bands(yr, roi, southern=False):
@@ -778,7 +789,7 @@ def stack_bands(yr, roi, southern=False):
                    ('2', late_spring_s, late_spring_e),
                    ('3', summer_s, summer_e),
                    # modify to run in September
-                   # ('4', fall_s, fall_e),
+                   ('4', fall_s, fall_e),
 
                    ('m1', prev_s, prev_e),
                    ('3_m1', p_summer_s, p_summer_e),
@@ -813,14 +824,13 @@ def stack_bands(yr, roi, southern=False):
     for s, e, n, m in [(spring_s, late_spring_e, 'spr', (3, 8)),
                        (water_year_start, spring_e, 'wy_spr', (10, 5)),
                        (water_year_start, summer_e, 'wy_smr', (10, 9))]:
-        gridmet = ee.ImageCollection("IDAHO_EPSCOR/GRIDMET").filterBounds(
-            roi).filterDate(s, e).select('pr', 'eto', 'tmmn', 'tmmx')
+        nldas = ee.ImageCollection('NASA/NLDAS/FORA0125_H002').filterBounds(roi).filterDate(s, e)
+        nldas = nldas.select('total_precipitation', 'potential_evaporation', 'temperature')
 
-        temp = ee.Image(gridmet.select('tmmn').mean().add(gridmet.select('tmmx').mean()
-                                                          .divide(ee.Number(2))).rename('tmp_{}'.format(n)))
+        temp = ee.Image(nldas.select('temperature').mean())
         temp = temp.resample('bilinear').reproject(crs=proj['crs'], scale=30)
 
-        ai_sum = gridmet.select('pr', 'eto').reduce(ee.Reducer.sum()).rename(
+        ai_sum = nldas.select('total_precipitation', 'potential_evaporation').reduce(ee.Reducer.sum()).rename(
             'prec_tot_{}'.format(n), 'pet_tot_{}'.format(n)).resample('bilinear').reproject(crs=proj['crs'],
                                                                                             scale=30)
         wd_estimate = ai_sum.select('prec_tot_{}'.format(n)).subtract(ai_sum.select(
@@ -833,11 +843,15 @@ def stack_bands(yr, roi, southern=False):
 
         input_bands = input_bands.addBands([temp, ai_sum, wd_estimate, anom_temp, anom_prec])
 
-    coords = ee.Image.pixelLonLat().rename(['Lon_GCS', 'LAT_GCS']).resample('bilinear').reproject(crs=proj['crs'],
+    coords = ee.Image.pixelLonLat().rename(['lon', 'lat']).resample('bilinear').reproject(crs=proj['crs'],
                                                                                                   scale=30)
-    ned = ee.Image('USGS/NED')
+    ned = ee.Image('CGIAR/SRTM90_V4')
     terrain = ee.Terrain.products(ned).select('elevation', 'slope', 'aspect').reduceResolution(
         ee.Reducer.mean()).reproject(crs=proj['crs'], scale=30)
+
+    landforms = ee.Image('CSP/ERGo/1_0/Global/SRTM_landforms').rename('landforms')
+    globcover = ee.Image('ESA/GLOBCOVER_L4_200901_200912_V2_3').select('landcover').rename('globcover')
+    esacov = ee.ImageCollection('ESA/WorldCover/v100').first().rename('esacov')
 
     elev = terrain.select('elevation')
     tpi_1250 = elev.subtract(elev.focal_mean(1250, 'circle', 'meters')).add(0.5).rename('tpi_1250')
@@ -845,15 +859,11 @@ def stack_bands(yr, roi, southern=False):
     tpi_150 = elev.subtract(elev.focal_mean(150, 'circle', 'meters')).add(0.5).rename('tpi_150')
     input_bands = input_bands.addBands([coords, terrain, tpi_1250, tpi_250, tpi_150, anom_prec, anom_temp])
 
-    nlcd = ee.Image('USGS/NLCD/NLCD2011').select('landcover').reproject(crs=proj['crs'], scale=30).rename('nlcd')
-
-    cdl_cult, cdl_crop, cdl_simple = get_cdl(yr)
-
     gsw = ee.Image('JRC/GSW1_0/GlobalSurfaceWater')
     occ_pos = gsw.select('occurrence').gt(0)
     water = occ_pos.unmask(0).rename('gsw')
 
-    input_bands = input_bands.addBands([nlcd, cdl_cult, cdl_crop, cdl_simple, water])
+    input_bands = input_bands.addBands([landforms, globcover, esacov, water])
 
     input_bands = input_bands.clip(roi)
 
@@ -953,12 +963,9 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
+    out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+    geo_ = 'users/dgketchum/gages/gage_basins'
 
-    print(ee.String('Hello from the Earth Engine servers!').getInfo())
-
-    out_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
-    geo_ = 'users/dgketchum/boundaries/blackfeet_res'
-
-    export_raster(geo_, min_years=0, debug=False)
+    export_raster(out_c, geo_, min_years=3, debug=True)
 
 # ========================= EOF ====================================================================

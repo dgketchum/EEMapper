@@ -79,7 +79,10 @@ def random_forest(csv, n_estimators=50, out_shape=None):
 
     val = deepcopy(c.loc[split:, :])
     y_test = val['POINT_TYPE'].values
-    geo = val.apply(lambda x: Point(x['Lon_GCS'], x['LAT_GCS']), axis=1)
+    try:
+        geo = val.apply(lambda x: Point(x['Lon_GCS'], x['LAT_GCS']), axis=1)
+    except:
+        geo = val.apply(lambda x: Point(x['lon'], x['lat']), axis=1)
     val.drop(columns=['YEAR', 'POINT_TYPE'], inplace=True)
     val.dropna(axis=1, inplace=True)
     x_test = val.values

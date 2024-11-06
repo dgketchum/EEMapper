@@ -117,7 +117,7 @@ def variable_importance(in_dir, glob, state, importance_json=None):
             fp.write(json.dumps(d, indent=4, sort_keys=True))
 
 
-def classify(out_coll, variable_dir, tables, years, glob, state, southern=False):
+def classify(out_coll, variable_dir, tables, years, glob, state, southern=False, special_extent=None):
     vars = os.path.join(variable_dir, 'variables_{}_{}.json'.format(state, glob))
     with open(vars, 'r') as fp:
         d = json.load(fp)
@@ -127,15 +127,22 @@ def classify(out_coll, variable_dir, tables, years, glob, state, southern=False)
         for f in features:
             fp.write('{}\n'.format(f))
     table = os.path.join(tables, '{}_{}'.format(state, glob))
-    geo = 'users/dgketchum/boundaries/{}'.format(state)
-    export_classification(out_name=state, table=table, asset_root=out_coll, region=geo,
-                          years=years, input_props=features, bag_fraction=0.5, southern=southern)
+    if special_extent:
+        geo = special_extent
+        name_ = 'SMM'
+        features.remove('lat')
+        export_classification(out_name=name_, table=table, asset_root=out_coll, region=geo,
+                              years=years, input_props=features, bag_fraction=0.5, southern=southern)
+    else:
+        geo = 'users/dgketchum/boundaries/{}'.format(state)
+        export_classification(out_name=state, table=table, asset_root=out_coll, region=geo,
+                              years=years, input_props=features, bag_fraction=0.5, southern=southern)
     pprint(features)
 
 
 if __name__ == '__main__':
     is_authorized()
-    _glob = '09MAY2023'
+    _glob = '05MAY2023'
     _bucket = 'gs://wudr'
     root = '/media/research/IrrigationGIS/irrmapper'
     if not os.path.exists(root):

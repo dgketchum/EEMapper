@@ -14,8 +14,8 @@ EDIT_STATES = ['KS', 'ND', 'NE', 'OK', 'SD']
 TEST_YEARS = [1986, 1996, 2006, 2016]
 
 home = os.path.expanduser('~')
-EE = os.path.join(home, 'miniconda3', 'envs', 'gcs', 'bin', 'earthengine')
-GSUTIL = os.path.join(home, 'miniconda3', 'envs', 'gcs', 'bin', 'gsutil')
+EE = os.path.join(home, 'miniconda3', 'envs', 'irri', 'bin', 'earthengine')
+GSUTIL = os.path.join(home, 'miniconda3', 'envs', 'irri', 'bin', 'gsutil')
 
 
 def change_permissions(ee_asset, user=None):
@@ -174,7 +174,7 @@ def convert_to_boolean(in_col, out_col):
         i = i.set(info)
         desc = '{}'.format(info['system:index'])
         out_id = os.path.join(out_col, desc)
-        check_id = os.path.join('projects/earthengine-legacy/assets', out_col, desc)
+        check_id = os.path.join(out_col, desc)
 
         if check_id in exist:
             continue
@@ -296,12 +296,8 @@ def clean_gcs():
 
 if __name__ == '__main__':
     is_authorized()
-    i = 'users/dgketchum/IrrMapper/version1_2'
+    c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
     o = 'projects/ee-dgketchum/assets/IrrMapper/version1_2'
-    l = list_assets(i)
-    for a in l:
-        n = os.path.basename(a)
-        dst = os.path.join(o, n)
-        move_asset(a, dst)
+    convert_to_boolean(c, o)
 
 # ========================= EOF ====================================================================

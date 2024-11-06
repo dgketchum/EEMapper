@@ -69,7 +69,10 @@ def get_nass(csv, out_file, old_nass=None):
     first = True
     if old_nass:
         old_df = read_csv(old_nass)
-        old_df.index = old_df['FIPS']
+        old_df.dropna(axis=0, subset=['FIPS'], inplace=True)
+        old_df.index = [int(f) for f in old_df['FIPS']]
+        old_df = old_df[[c for c in old_df.columns if 'VALUE' in c]]
+        old_df = old_df.loc[~old_df.duplicated()]
     for c in csv:
         print(c)
         try:
@@ -106,7 +109,23 @@ def get_nass(csv, out_file, old_nass=None):
             new_nass['VALUE_{}'.format(df.iloc[0]['YEAR'])] = df['VALUE']
 
     new_nass.to_csv(out_file.replace('.csv', '_new.csv'))
-    df = concat([old_df, new_nass], axis=1)
+
+    if old_nass:
+        match = [i for i in old_df.index if i in new_nass.index]
+        for c in new_nass.columns:
+            if 'VALUE' in c and c not in old_df.columns:
+                old_df.loc[match, c] = new_nass.loc[match, c]
+
+        df = old_df.copy()
+    else:
+        df = new_nass.copy()
+
+    import geopandas as gpd
+    county_select = [int('{}{}'.format(c['STATEFP'], c['COUNTYFP'])) for i, c in gpd.read_file(
+        '/home/dgketchum/Downloads/west_monitoring_wells_sf/west_mt_counties_nass.shp').iterrows()]
+    mt = df.loc[county_select, [c for c in df.columns if 'VALUE' in c]].sum(axis=0)
+    mt.to_csv('/home/dgketchum/Downloads/nass_w_mt.csv')
+
     df.to_csv(out_file)
 
 
@@ -214,9 +233,10 @@ if __name__ == '__main__':
     irr_extract = os.path.join(nass_tables, 'co_sw_23NOV2021_2017.csv')
     nass = os.path.join(nass_tables, 'nass_merged.csv')
 
-    files = [os.path.join(nass_tables, 'qs.census{}.txt'.format(yr)) for yr in [2002, 2007, 2012, 2017, 2022]]
+
+    files = [os.path.join(nass_tables, 'qs.census{}.txt'.format(yr)) for yr in [2022]]
     out_nass = os.path.join(nass_tables, 'nass_irr_area_acres_MT_2002_2022_4MAR2024.csv')
-    get_nass(files, out_file=out_nass)
+    get_nass(files, out_file=out_nass, old_nass=nass)
 
     co_shp = os.path.join(root, 'boundaries', 'counties', 'western_17_states_counties_wgs.shp')
     o_shp = os.path.join(nass_tables, 'nass_counties.shp')
