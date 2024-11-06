@@ -135,7 +135,7 @@ def classify(out_coll, variable_dir, tables, years, glob, state, southern=False)
 
 if __name__ == '__main__':
     is_authorized()
-    _glob = '05MAY2023'
+    _glob = '09MAY2023'
     _bucket = 'gs://wudr'
     root = '/media/research/IrrigationGIS/irrmapper'
     if not os.path.exists(root):
@@ -173,5 +173,5 @@ if __name__ == '__main__':
         # concatenate_bands(to_concat, conctenated, glob=_glob, state=s, southern=south)
         # variable_importance(conctenated, importance_json=imp_json, glob=_glob, state=s)
         # push_bands_to_asset(conctenated, glob=_glob, state=s, bucket=_bucket)
-        classify(coll, imp_json, tables, [x for x in range(1985, 1986)], glob=_glob, state=s, southern=south)
+        classify(coll, imp_json, tables, [x for x in range(2024, 2025)], glob=_glob, state=s, southern=south)
 # ========================= EOF ====================================================================
