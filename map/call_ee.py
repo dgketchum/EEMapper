@@ -202,14 +202,18 @@ def wrs_analysis(irrmapper, table, desc, bucket, debug=False):
     print(desc)
 
 
-def export_raster(irr_coll, roi=None, min_years=3, debug=False):
+def export_raster(irr_coll, roi=None, min_years=3, debug=False, binary=True):
     irr_min_yr_mask = None
-    roi = ee.FeatureCollection(roi).filterMetadata('STAID', 'equals', '12340000').first()
+    # roi = ee.FeatureCollection(roi).filterMetadata('STAID', 'equals', '12340000').first()
+    roi = ee.FeatureCollection(roi).first()
 
     irr_coll = ee.ImageCollection(irr_coll)
 
     coll = irr_coll.filterDate('1987-01-01', '2024-12-31').select('classification')
-    remap = coll.map(lambda img: img.lt(1))
+    if binary:
+        remap = coll.map(lambda img: img.lt(1))
+    else:
+        remap = coll
 
     if min_years:
         irr_min_yr_mask = remap.sum().gte(min_years)
@@ -219,30 +223,34 @@ def export_raster(irr_coll, roi=None, min_years=3, debug=False):
 
     sum = sum.clip(roi.geometry()).toInt()
 
-    desc = 'irrmapper_freq_1987_2024_maskgt3_05NOV2024'
-    task = ee.batch.Export.image.toCloudStorage(
-        image=sum,
-        description=desc,
-        bucket='wudr',
-        fileNamePrefix=desc,
-        region=roi.geometry(),
-        scale=30,
-        maxPixels=1e13,
-        crs='EPSG:5071',
-        fileFormat='GeoTIFF')
-    print(desc)
-    task.start()
+    # desc = 'irrmapper_freq_1987_2024_maskgt3_05NOV2024'
+    # task = ee.batch.Export.image.toCloudStorage(
+    #     image=sum,
+    #     description=desc,
+    #     bucket='wudr',
+    #     fileNamePrefix=desc,
+    #     region=roi.geometry(),
+    #     scale=30,
+    #     maxPixels=1e13,
+    #     crs='EPSG:5071',
+    #     fileFormat='GeoTIFF')
+    # print(desc)
+    # task.start()
 
-    for year in range(1987, 2025):
+    for year in range(2024, 2025):
         coll = irr_coll.filterDate(f'{year}-01-01', f'{year}-12-31').select('classification')
-        if irr_min_yr_mask:
+
+        if irr_min_yr_mask and binary:
             remap = coll.map(lambda img: img.lt(1)).mosaic().mask(irr_min_yr_mask).toInt()
-        else:
+        elif binary:
             remap = coll.map(lambda img: img.lt(1)).mosaic().toInt()
+        else:
+            remap = coll.mosaic().toInt()
+
         remap = remap.clip(roi.geometry())
 
         if debug:
-            pt = ee.FeatureCollection(ee.Geometry.Point([-113.395, 46.946]))
+            pt = ee.FeatureCollection(ee.Geometry.Point([-113.06779, 46.92275]))
             data = remap.sampleRegions(collection=pt, scale=30)
             data = data.getInfo()
 
@@ -964,8 +972,10 @@ def is_authorized():
 if __name__ == '__main__':
     is_authorized()
     out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-    geo_ = 'users/dgketchum/gages/gage_basins'
+    # geo_ = 'users/dgketchum/gages/gage_basins'
+    geo_ = 'users/dgketchum/boundaries/western_11_union'
 
-    export_raster(out_c, geo_, min_years=3, debug=True)
+
+    export_raster(out_c, geo_, min_years=3, debug=True, binary=False)
 
 # ========================= EOF ====================================================================

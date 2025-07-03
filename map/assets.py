@@ -18,12 +18,12 @@ EE = os.path.join(home, 'miniconda3', 'envs', 'irri', 'bin', 'earthengine')
 GSUTIL = os.path.join(home, 'miniconda3', 'envs', 'irri', 'bin', 'gsutil')
 
 
-def change_permissions(ee_asset, user=None):
+def change_permissions(ee_asset):
     reader = list_assets(ee_asset)
-    _list = [x for x in reader if x[-4:] in ['2016', '2017', '2018']]
+    _list = [x for x in reader]
     for r in _list:
         command = 'acl'
-        cmd = ['{}'.format(EE), '{}'.format(command), 'set', 'private', '{}'.format(r)]
+        cmd = ['{}'.format(EE), '{}'.format(command), 'set', 'public', '{}'.format(r)]
         print(cmd)
         check_call(cmd)
 
@@ -110,27 +110,7 @@ def move_asset(asset, out_name):
         print('move {} failed \n {}'.format(asset, e))
 
 
-def export_to_cloud(location, bucket):
-    images = list_assets(location)
-    count = [i for i in images if 'count' in i]
-    refet = [i for i in images if 'et_reference' in i]
-    etrf = [i for i in images if 'et_actual' in i]
-    exports = count + etrf + refet
 
-    for i in exports:
-        task = ee.batch.Export.image.toCloudStorage(
-            image=ee.Image(i),
-            description=os.path.basename(i),
-            bucket=bucket,
-            scale=30,
-            maxPixels=1e13,
-            fileFormat='GeoTIFF',
-            # dimensions='41448x53138',
-            crs="EPSG:3857")
-        # task.start()
-        cmd = ['{}'.format(EE), 'rm', i]
-        check_call(cmd)
-        print('rm', i)
 
 
 def cancel_tasks():
@@ -296,8 +276,10 @@ def clean_gcs():
 
 if __name__ == '__main__':
     is_authorized()
-    c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-    o = 'projects/ee-dgketchum/assets/IrrMapper/version1_2'
-    convert_to_boolean(c, o)
+    # c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
+    # o = 'projects/ee-dgketchum/assets/IrrMapper/version1_2'
+    # convert_to_boolean(c, o)
 
+    ee_asset = 'projects/ee-dgketchum/assets/swim/gridmet_bias_correction/etr'
+    change_permissions(ee_asset)
 # ========================= EOF ====================================================================

@@ -9,9 +9,6 @@ from tables import concatenate_band_extract
 from models import find_rf_variable_importance
 from assets import list_assets
 
-#
-# ALL_STATES = TARGET_STATES + E_STATES
-
 home = os.path.expanduser('~')
 conda = os.path.join(home, 'miniconda3', 'envs')
 if not os.path.exists(conda):
