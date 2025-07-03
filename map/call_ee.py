@@ -266,7 +266,7 @@ def export_special(input_coll, out_coll, roi, description):
     ned = ee.Image('USGS/NED')
     slope = ee.Terrain.products(ned).select('slope')
 
-    for year in range(2024, 2025):
+    for year in range(2022, 2023):
         start, end = '{}-03-01'.format(year), '{}-12-30'.format(year)
         ndvi = landsat_composites(year, start, end, fc, 'gs', composites_only=True).select('nd_max_gs')
 
@@ -401,7 +401,7 @@ def export_special(input_coll, out_coll, roi, description):
                                             'NDVI': expr.select('nd_max_gs'),
                                             'PIVOT': expr.select('pivot')})
 
-        elif description in ['CO', 'WY']:
+        elif description in ['CO', 'WY', 'UT']:
             pivot = ee.FeatureCollection('users/dgketchum/openet/western_17_pivots').filterBounds(fc)
 
             class_labels = ee.Image(0).byte()
@@ -412,10 +412,9 @@ def export_special(input_coll, out_coll, roi, description):
             if threshold < 0:
                 threshold = 0
 
-            threshold = 3
             expression_ = '(IRR == 1) && (NDVI > 0.75) && (SUM > {t}) ? 0' \
                           ': (IRR == 0) && (SUM < {t}) ? 1' \
-                          ': (IRR == 0) && (SLOPE > 10) ? 3' \
+                          ': (IRR == 0) && (SLOPE > 4) ? 3' \
                           ': IRR'.format(t=threshold)
 
             target = expr.expression(expression_,
@@ -824,13 +823,14 @@ def stack_bands(yr, roi, southern=False):
     for s, e, n, m in [(spring_s, late_spring_e, 'spr', (3, 8)),
                        (water_year_start, spring_e, 'wy_spr', (10, 5)),
                        (water_year_start, summer_e, 'wy_smr', (10, 9))]:
-        nldas = ee.ImageCollection('NASA/NLDAS/FORA0125_H002').filterBounds(roi).filterDate(s, e)
-        nldas = nldas.select('total_precipitation', 'potential_evaporation', 'temperature')
+        gridmet = ee.ImageCollection("IDAHO_EPSCOR/GRIDMET").filterBounds(
+            roi).filterDate(s, e).select('pr', 'eto', 'tmmn', 'tmmx')
 
-        temp = ee.Image(nldas.select('temperature').mean())
+        temp = ee.Image(gridmet.select('tmmn').mean().add(gridmet.select('tmmx').mean()
+                                                          .divide(ee.Number(2))).rename('tmp_{}'.format(n)))
         temp = temp.resample('bilinear').reproject(crs=proj['crs'], scale=30)
 
-        ai_sum = nldas.select('total_precipitation', 'potential_evaporation').reduce(ee.Reducer.sum()).rename(
+        ai_sum = gridmet.select('pr', 'eto').reduce(ee.Reducer.sum()).rename(
             'prec_tot_{}'.format(n), 'pet_tot_{}'.format(n)).resample('bilinear').reproject(crs=proj['crs'],
                                                                                             scale=30)
         wd_estimate = ai_sum.select('prec_tot_{}'.format(n)).subtract(ai_sum.select(
@@ -843,15 +843,11 @@ def stack_bands(yr, roi, southern=False):
 
         input_bands = input_bands.addBands([temp, ai_sum, wd_estimate, anom_temp, anom_prec])
 
-    coords = ee.Image.pixelLonLat().rename(['lon', 'lat']).resample('bilinear').reproject(crs=proj['crs'],
+    coords = ee.Image.pixelLonLat().rename(['Lon_GCS', 'LAT_GCS']).resample('bilinear').reproject(crs=proj['crs'],
                                                                                                   scale=30)
-    ned = ee.Image('CGIAR/SRTM90_V4')
+    ned = ee.Image('USGS/NED')
     terrain = ee.Terrain.products(ned).select('elevation', 'slope', 'aspect').reduceResolution(
         ee.Reducer.mean()).reproject(crs=proj['crs'], scale=30)
-
-    landforms = ee.Image('CSP/ERGo/1_0/Global/SRTM_landforms').rename('landforms')
-    globcover = ee.Image('ESA/GLOBCOVER_L4_200901_200912_V2_3').select('landcover').rename('globcover')
-    esacov = ee.ImageCollection('ESA/WorldCover/v100').first().rename('esacov')
 
     elev = terrain.select('elevation')
     tpi_1250 = elev.subtract(elev.focal_mean(1250, 'circle', 'meters')).add(0.5).rename('tpi_1250')
@@ -859,11 +855,15 @@ def stack_bands(yr, roi, southern=False):
     tpi_150 = elev.subtract(elev.focal_mean(150, 'circle', 'meters')).add(0.5).rename('tpi_150')
     input_bands = input_bands.addBands([coords, terrain, tpi_1250, tpi_250, tpi_150, anom_prec, anom_temp])
 
+    nlcd = ee.Image('USGS/NLCD/NLCD2011').select('landcover').reproject(crs=proj['crs'], scale=30).rename('nlcd')
+
+    cdl_cult, cdl_crop, cdl_simple = get_cdl(yr)
+
     gsw = ee.Image('JRC/GSW1_0/GlobalSurfaceWater')
     occ_pos = gsw.select('occurrence').gt(0)
     water = occ_pos.unmask(0).rename('gsw')
 
-    input_bands = input_bands.addBands([landforms, globcover, esacov, water])
+    input_bands = input_bands.addBands([nlcd, cdl_cult, cdl_crop, cdl_simple, water])
 
     input_bands = input_bands.clip(roi)
 
@@ -963,9 +963,10 @@ def is_authorized():
 
 if __name__ == '__main__':
     is_authorized()
+    in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
     out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-    geo_ = 'users/dgketchum/gages/gage_basins'
-
-    export_raster(out_c, geo_, min_years=3, debug=True)
+    for state in ['UT']:
+        roi_ = 'users/dgketchum/boundaries/{}'.format(state)
+        export_special(in_c, out_c, roi_, state)
 
 # ========================= EOF ====================================================================
