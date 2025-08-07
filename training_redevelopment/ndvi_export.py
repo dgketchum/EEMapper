@@ -80,7 +80,7 @@ def landsat_masked(yr, roi):
 def clustered_sample_ndvi(points, bucket=None, debug=False, check_dir=None, extract_random_modern=False):
 
     if extract_random_modern:
-        points['YEAR'] = points['YEAR'].apply(lambda x: random.randint(2017, 2023))
+        points['YEAR'] = points['YEAR'].apply(lambda x: random.randint(2017, 2024))
         file_prefix = 'irrmapper_redev/ndvi_modern'
     else:
         file_prefix = 'irrmapper_redev/ndvi'
@@ -98,6 +98,10 @@ def clustered_sample_ndvi(points, bucket=None, debug=False, check_dir=None, extr
             years = state_df['YEAR'].unique()
 
             for year in years:
+
+                if year != 2024:
+                    continue
+
                 year_df = state_df[state_df['YEAR'] == year]
 
                 feature_coll = ee.FeatureCollection(year_df.__geo_interface__)
@@ -108,9 +112,8 @@ def clustered_sample_ndvi(points, bucket=None, debug=False, check_dir=None, extr
                 desc = f'ndvi_{tile}_{state}_{year}'
 
                 if check_dir:
-                    f = os.path.join(check_dir, tile, state, '{}.csv'.format(desc))
+                    f = os.path.join(check_dir, f'{desc}.csv')
                     if os.path.exists(f):
-                        print(desc, 'exists, skipping')
                         continue
 
                 coll = landsat_masked(year, feature_coll).map(lambda x: x.normalizedDifference(['B5', 'B4']))
@@ -190,10 +193,10 @@ if __name__ == '__main__':
     shp = os.path.join(pt_wgs, 'master_training_points.shp')
     df = gpd.read_file(shp)
 
-    check_d = os.path.join(d, 'EE_extracts', 'ndvi_time_series')
+    check_d = '/data/ssd2/irrmapper/ndvi/past_training/'
     # clustered_sample_ndvi(df, bucket=bucket_, check_dir=check_d)
 
-    check_d = os.path.join(d, 'EE_extracts', 'ndvi_time_series_modern')
+    check_d = '/data/ssd2/irrmapper/ndvi/modern_update/'
     clustered_sample_ndvi(df, bucket=bucket_, check_dir=check_d, extract_random_modern=True)
 
 # ========================= EOF ====================================================================

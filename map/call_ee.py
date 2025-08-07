@@ -845,7 +845,7 @@ def stack_bands(yr, roi, southern=False):
 
     coords = ee.Image.pixelLonLat().rename(['Lon_GCS', 'LAT_GCS']).resample('bilinear').reproject(crs=proj['crs'],
                                                                                                   scale=30)
-    ned = ee.Image('USGS/NED')
+    ned = ee.Image('USGS/3DEP/10m')
     terrain = ee.Terrain.products(ned).select('elevation', 'slope', 'aspect').reduceResolution(
         ee.Reducer.mean()).reproject(crs=proj['crs'], scale=30)
 
@@ -859,7 +859,7 @@ def stack_bands(yr, roi, southern=False):
 
     cdl_cult, cdl_crop, cdl_simple = get_cdl(yr)
 
-    gsw = ee.Image('JRC/GSW1_0/GlobalSurfaceWater')
+    gsw = ee.Image('JRC/GSW1_4/GlobalSurfaceWater')
     occ_pos = gsw.select('occurrence').gt(0)
     water = occ_pos.unmask(0).rename('gsw')
 
@@ -953,12 +953,12 @@ def export_resmaple_irr_change():
 
 def is_authorized():
     try:
-        ee.Initialize()
+        ee.Initialize(project='ee-dgketchum')
         print('Authorized')
-        return True
     except Exception as e:
         print('You are not authorized: {}'.format(e))
-        return False
+        exit(1)
+    return None
 
 
 if __name__ == '__main__':
