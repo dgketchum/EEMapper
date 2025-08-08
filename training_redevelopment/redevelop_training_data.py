@@ -96,9 +96,7 @@ def push_points_to_asset(_dir, shapefile, bucket):
     return asset_id
 
 
-def get_bands(shp_dir, extract_modern=False, modern_ndvi_dir=None, check_dir=None,
-              diagnose=False):
-
+def get_bands(shp_dir, extract_modern=False, check_dir=None, diagnose=False):
     shapefiles = [os.path.join(shp_dir, f) for f in os.listdir(shp_dir) if f.endswith('.shp')]
     points_dfs = [gpd.read_file(shp) for shp in shapefiles]
     points_df = pd.concat(points_dfs)
@@ -121,22 +119,27 @@ def get_bands(shp_dir, extract_modern=False, modern_ndvi_dir=None, check_dir=Non
         for tile in mgrs_tiles:
             tile_df = state_df[state_df['MGRS_TILE'] == tile]
 
-            if modern_ndvi_dir:
-                years = sorted(list(tile_df['NEW_YEAR'].unique()))
+            if extract_modern:
+                target_year_col = 'NEW_YEAR'
+                years = sorted(list(tile_df[target_year_col].unique()))
             else:
-                years = sorted(list(tile_df['YEAR'].unique()))
+                target_year_col = 'YEAR'
+                years = sorted(list(tile_df[target_year_col].unique()))
 
             for year in years:
-                year_df = tile_df[tile_df['YEAR'] == year]
+                year_df = tile_df[tile_df[target_year_col] == year]
 
                 if year_df.empty:
                     continue
 
                 desc = f'bands_{tile}_{state}_{year}'
 
-                # densest extract
-                if desc != f'bands_12TUL_UT_2009':
-                    continue
+                # densest extract test
+                # if extract_modern and not desc.startswith(f'bands_12TUL_UT_'):
+                #     continue
+                #
+                # elif not extract_modern and desc != f'bands_12TUL_UT_2009':
+                #     continue
 
                 if check_dir:
                     if os.path.exists(os.path.join(check_dir, f'{desc}.csv')):
@@ -174,7 +177,7 @@ def get_bands(shp_dir, extract_modern=False, modern_ndvi_dir=None, check_dir=Non
                     print(bad_)
                     return None
 
-                selectors = ['FID', 'POINT_TYPE', 'YEAR', 'MGRS_TILE', 'STUSPS']
+                selectors = ['FID', 'POINT_TYPE', 'YEAR', 'NEW_YEAR', 'MGRS_TILE', 'STUSPS']
 
                 plot_sample_regions = stack.sampleRegions(
                     collection=feature_coll,
@@ -270,12 +273,12 @@ if __name__ == '__main__':
     # state_shapefiles = to_geographic(pt_aea, pt_wgs, states=states, mgrs_path=mgrs)
 
     # for shp in state_shapefiles:
-        # push_points_to_asset(pt_wgs, shp, bucket)
+    # push_points_to_asset(pt_wgs, shp, bucket)
 
     chk = '/data/ssd2/irrmapper/bands/states/bands_past/'
     get_bands(pt_wgs, extract_modern=False, check_dir=chk, diagnose=False)
 
-    chk = '/data/ssd2/irrmapper/bands/states/bands_modern/'
-    get_bands(pt_wgs, extract_modern=True, check_dir=chk, diagnose=False)
+    # chk = '/data/ssd2/irrmapper/bands/states/bands_modern/'
+    # get_bands(pt_wgs, extract_modern=True, check_dir=chk, diagnose=False)
 
 # ========================= EOF ====================================================================
