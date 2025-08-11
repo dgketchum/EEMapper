@@ -2,6 +2,9 @@ import os
 import sys
 import time
 import json
+from concurrent.futures import ProcessPoolExecutor
+from datetime import datetime
+from pprint import pprint
 
 import ee
 
@@ -13,7 +16,7 @@ import random
 import geopandas as gpd
 import pandas as pd
 from tqdm import tqdm
-from map.call_ee import is_authorized, stack_bands, BOUNDARIES
+from map.call_ee import is_authorized, stack_bands
 
 sys.setrecursionlimit(5000)
 
@@ -96,7 +99,8 @@ def push_points_to_asset(_dir, shapefile, bucket):
     return asset_id
 
 
-def get_bands(shp_dir, extract_modern=False, check_dir=None, diagnose=False):
+def get_bands(shp_dir, extract_modern=False, check_dir=None, diagnose=False, select_states=None):
+    """"""
     shapefiles = [os.path.join(shp_dir, f) for f in os.listdir(shp_dir) if f.endswith('.shp')]
     points_dfs = [gpd.read_file(shp) for shp in shapefiles]
     points_df = pd.concat(points_dfs)
@@ -114,6 +118,10 @@ def get_bands(shp_dir, extract_modern=False, check_dir=None, diagnose=False):
     states = points_df['STUSPS'].unique()
 
     for state in states:
+
+        if select_states and state not in select_states:
+            continue
+
         state_df = points_df[points_df['STUSPS'] == state]
 
         for tile in mgrs_tiles:
@@ -134,13 +142,6 @@ def get_bands(shp_dir, extract_modern=False, check_dir=None, diagnose=False):
 
                 desc = f'bands_{tile}_{state}_{year}'
 
-                # densest extract test
-                # if extract_modern and not desc.startswith(f'bands_12TUL_UT_'):
-                #     continue
-                #
-                # elif not extract_modern and desc != f'bands_12TUL_UT_2009':
-                #     continue
-
                 if check_dir:
                     if os.path.exists(os.path.join(check_dir, f'{desc}.csv')):
                         print(f"Skipping {desc}, already exists.")
@@ -151,9 +152,12 @@ def get_bands(shp_dir, extract_modern=False, check_dir=None, diagnose=False):
                 roi = mgrs_ee_tiles.filterMetadata('MGRS_TILE', 'equals', tile)
                 region = ee.FeatureCollection(roi)
 
-                stack = stack_bands(year, region, southern=False)
+                try:
+                    stack = stack_bands(year, region, southern=False)
+                except ee.ee_exception.EEException as exc:
+                    print(f'{desc} error: {exc}')
+                    continue
 
-                # if tables are coming out empty, use this to find missing bands
                 if diagnose:
                     filtered = ee.FeatureCollection([feature_coll.first()])
                     bad_ = []
@@ -185,9 +189,14 @@ def get_bands(shp_dir, extract_modern=False, check_dir=None, diagnose=False):
                     scale=30,
                     tileScale=16)
 
+                if extract_modern:
+                    desc_prepend = 'modern'
+                else:
+                    desc_prepend = 'past'
+
                 task = ee.batch.Export.table.toCloudStorage(
                     plot_sample_regions,
-                    description=desc,
+                    description=f'{desc_prepend}_{desc}',
                     bucket='wudr',
                     fileNamePrefix=f'{file_prefix}/{desc}',
                     fileFormat='CSV')
@@ -202,59 +211,99 @@ def get_bands(shp_dir, extract_modern=False, check_dir=None, diagnose=False):
                 print(f'{file_prefix}/{desc}')
 
 
-def process_bands_to_parquet(in_dir, out_dir, category_counters=None, overwrite=False):
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
+def _process_band_file(params):
+    f, out_dir, category_counters, overwrite = params
+    if not f.endswith('.csv'):
+        return None, None
 
+    try:
+        df = pd.read_csv(f)
+        df.set_index('FID', inplace=True)
+    except pd.errors.EmptyDataError:
+        os.remove(f)
+        return None, None
+    except Exception as e:
+        print(f"Error reading {f}: {e}")
+        return None, None
+
+    if category_counters:
+        uniques = {c: set(df[c].unique()) for c in category_counters}
+        counts = {c: df[c].value_counts() for c in category_counters}
+    else:
+        uniques = None
+        counts = None
+
+    for fid, row in df.iterrows():
+        try:
+            year = int(row['YEAR'])
+            new_year = int(row['NEW_YEAR'])
+            pt_type = int(row['POINT_TYPE'])
+            mgrs = row['MGRS_TILE']
+            state = row['STUSPS']
+
+            out_file = os.path.join(out_dir, f'{fid}_{year}_{new_year}_{state}_{mgrs}_{pt_type}.parquet')
+            if os.path.exists(out_file) and not overwrite:
+                continue
+
+            features = row.drop(['YEAR', 'NEW_YEAR', 'POINT_TYPE', 'MGRS_TILE', 'STUSPS'])
+
+            features_df = pd.DataFrame(features).T
+            features_df = features_df.drop(columns=FEATURE_COLS_DROP)
+
+            features_df.to_parquet(out_file)
+
+        except Exception as e:
+            print(f"Error processing row {fid} in {f}: {e}")
+
+    return uniques, counts
+
+
+def process_bands_to_parquet(in_dir, out_dir, category_counters=None, categorical_json=None,
+                             overwrite=False, num_workers=1):
+    """"""
     file_list = [os.path.join(in_dir, f) for f in os.listdir(in_dir)]
+
+    if category_counters and categorical_json is None:
+        raise ValueError
 
     if category_counters:
         categories = {c: set() for c in category_counters}
+        category_counts = {c: pd.Series(dtype=int) for c in category_counters}
     else:
         categories = None
+        category_counts = None
 
-    ct = 0
-    for f in tqdm(file_list):
-        if not f.endswith('.csv'):
-            continue
+    params = [(f, out_dir, category_counters, overwrite) for f in file_list]
 
-        try:
-            df = pd.read_csv(f)
-            df.set_index('FID', inplace=True)
-        except pd.errors.EmptyDataError:
-            os.remove(f)
-            continue
-
-        if categories:
-            [categories[c].add(v) for c in categories.keys() for v in df[c].unique()]
-
-        for fid, row in df.iterrows():
-            try:
-                year = int(row['YEAR'])
-                pt_type = int(row['POINT_TYPE'])
-                mgrs = row['MGRS_TILE']
-                state = row['STUSPS']
-
-                out_file = os.path.join(out_dir, f'{fid}_{year}_{state}_{mgrs}_{pt_type}.parquet')
-                if os.path.exists(out_file) and not overwrite:
-                    continue
-
-                features = row.drop(['YEAR', 'POINT_TYPE', 'MGRS_TILE', 'STUSPS'])
-
-                features_df = pd.DataFrame(features).T
-                features_df = features_df.drop(columns=FEATURE_COLS_DROP)
-
-                features_df.to_parquet(out_file)
-
-            except Exception as e:
-                print(f"Error processing row {fid} in {f}: {e}")
+    with ProcessPoolExecutor(max_workers=num_workers) as executor:
+        results = list(tqdm(executor.map(_process_band_file, params), total=len(file_list)))
 
     if categories:
-        out_json = os.path.join(os.path.dirname(out_dir), 'categorical.json')
-        categories = {k: [int(i) for i in v] for k, v in categories.items()}
+        for res in results:
+            if res[0] and res[1]:
+                uniques, counts = res
+                for c, values in uniques.items():
+                    categories[c].update(values)
+                for c, series in counts.items():
+                    category_counts[c] = category_counts[c].add(series, fill_value=0)
+
+        datestamp = datetime.now().strftime("%Y%m%d")
+        out_json = os.path.join(os.path.dirname(categorical_json), f'categorical_{datestamp}.json')
+        categories = {k: [int(i) for i in v if pd.notna(i)] for k, v in categories.items()}
         with open(out_json, 'w') as fp:
             fp.write(json.dumps(categories, indent=4, sort_keys=True))
         print(f'Wrote {out_json}')
+
+        print("\n--- Categorical Metadata Summary ---")
+        for category, values in categories.items():
+            print(f"  - {category}: {len(values)} unique values")
+        print("------------------------------------")
+
+        print("\n--- Categorical Counts Summary ---")
+        for category, counts_series in category_counts.items():
+            print(f"\nCounts for {category}:")
+            pprint(counts_series.astype(int).to_dict())
+        print("----------------------------------")
 
 
 if __name__ == '__main__':
@@ -268,17 +317,30 @@ if __name__ == '__main__':
     mgrs = os.path.join(root, 'boundaries', 'mgrs', 'mgrs_aea.shp')
     bucket = 'gs://wudr'
 
-    states = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
+    # states = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
+    east_states = ['ND', 'SD', 'NE', 'KS', 'OK', 'TX']
 
-    # state_shapefiles = to_geographic(pt_aea, pt_wgs, states=states, mgrs_path=mgrs)
+    # state_shapefiles = to_geographic(pt_aea, pt_wgs, states=east_stats, mgrs_path=mgrs)
 
     # for shp in state_shapefiles:
-    # push_points_to_asset(pt_wgs, shp, bucket)
+        # push_points_to_asset(pt_wgs, shp, bucket)
 
-    chk = '/data/ssd2/irrmapper/bands/states/bands_past/'
-    get_bands(pt_wgs, extract_modern=False, check_dir=chk, diagnose=False)
+    past_extract = '/data/ssd2/irrmapper/states/bands/bands_past/'
+    # get_bands(pt_wgs, extract_modern=False, check_dir=past_extract, diagnose=False, select_states=east_states)
 
-    # chk = '/data/ssd2/irrmapper/bands/states/bands_modern/'
-    # get_bands(pt_wgs, extract_modern=True, check_dir=chk, diagnose=False)
+    modrern_extract = '/data/ssd2/irrmapper/states/bands/bands_modern/'
+    # get_bands(pt_wgs, extract_modern=True, check_dir=modrern_extract, diagnose=False, select_states=east_states)
+
+    past_bands_processed = '/data/ssd2/irrmapper/states/bands/past_processed/'
+    categorical_json_ = '/data/ssd2/irrmapper/states/combined_classifier/'
+    process_bands_to_parquet(past_extract, past_bands_processed,
+                             category_counters=['nlcd', 'cdl', 'crop5c', 'cropland', 'gsw'],
+                             categorical_json = categorical_json_,
+                             num_workers=24,
+                             overwrite=False)
+
+    modern_bands_processed = '/data/ssd2/irrmapper/states/bands/modern_processed/'
+    # process_bands_to_parquet(modrern_extract, modern_bands_processed, category_counters=None,
+    #                          num_workers=24, overwrite=False)
 
 # ========================= EOF ====================================================================
