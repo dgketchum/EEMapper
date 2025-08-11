@@ -1,5 +1,6 @@
 import os
 import torch
+import numpy as np
 from torch.utils.data import Dataset, DataLoader
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
@@ -12,53 +13,17 @@ from pprint import pprint
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import confusion_matrix as sk_confusion_matrix
 from datetime import datetime
+from tqdm import tqdm
+from concurrent.futures import ProcessPoolExecutor
 
-from unet import UNet1D
+from training_redevelopment.combined_dataset import load_and_preprocess_data, _load_and_preprocess_worker
+from training_redevelopment.combined_dataset import PreloadedDataset
 
 torch.set_float32_matmul_precision('medium')
 
+from unet import UNet1D
 
-class CombinedDataset(Dataset):
-
-    def __init__(self, file_list, bands_dir, ndvi_dir, all_features, categorical_mappings):
-        self.file_list = file_list
-        self.bands_dir = bands_dir
-        self.ndvi_dir = ndvi_dir
-        self.all_features = all_features
-        self.categorical_mappings = categorical_mappings
-        self.categorical_features = sorted(list(categorical_mappings.keys()))
-        self.continuous_features = [f for f in all_features if f not in categorical_mappings]
-
-    def __len__(self):
-        return len(self.file_list)
-
-    def __getitem__(self, idx):
-        band_fname, ndvi_fname = self.file_list[idx]
-
-        bands_path = os.path.join(self.bands_dir, band_fname)
-        bands_df = pd.read_parquet(bands_path)
-        bands_df.fillna(0, inplace=True)
-
-        for col in self.all_features:
-            if col not in bands_df.columns:
-                bands_df[col] = 0
-
-        for cat, mapping in self.categorical_mappings.items():
-            bands_df[cat] = bands_df[cat].map(mapping).fillna(0).astype(int)
-
-        continuous_data = torch.tensor(bands_df[self.continuous_features].values, dtype=torch.float32).squeeze()
-        categorical_data = torch.tensor(bands_df[self.categorical_features].values, dtype=torch.long).squeeze()
-
-        ndvi_path = os.path.join(self.ndvi_dir, ndvi_fname)
-        ndvi_df = pd.read_parquet(ndvi_path)
-        ndvi_df.fillna(0, inplace=True)
-        ndvi_series = torch.tensor(ndvi_df.values, dtype=torch.float32).T
-
-        label = int(band_fname.split('_')[-1].split('.')[0])
-        if label == 4:
-            label = 1
-
-        return (continuous_data, categorical_data, ndvi_series), torch.tensor(label, dtype=torch.long)
+NUMBER_WORKERS = 16
 
 
 class CombinedModel(nn.Module):
@@ -152,7 +117,7 @@ class CombinedClassifier(pl.LightningModule):
 
 
 def get_files(bands, ndvi):
-    ndvi_files = {f for f in os.listdir( ndvi) if f.endswith('.parquet')}
+    ndvi_files = {f for f in os.listdir(ndvi) if f.endswith('.parquet')}
     all_files = []
     for f in os.listdir(bands):
         if not f.endswith('.parquet'):
@@ -164,16 +129,9 @@ def get_files(bands, ndvi):
     return all_files
 
 
-def train_model(past_bands_dir, past_ndvi_dir, batch_size=64, epochs=10, checkpoint_dir=None):
-    """"""
+def train_model(past_bands_dir, past_ndvi_dir, categorical_json_path, batch_size=64, epochs=10, checkpoint_dir=None,
+                debug=False):
     all_files = get_files(past_bands_dir, past_ndvi_dir)
-
-    json_files = [f for f in os.listdir(checkpoint_dir) if f.startswith('categorical_') and f.endswith('.json')]
-    if not json_files:
-        raise FileNotFoundError(f"No categorical json file found in {checkpoint_dir}")
-    latest_json = max([os.path.join(checkpoint_dir, f) for f in json_files], key=os.path.getmtime)
-    print(f'Using latest categorical metadatafile: {latest_json}')
-    categorical_json_path = latest_json
 
     with open(categorical_json_path, 'r') as f:
         categorical_data = json.load(f)
@@ -191,22 +149,25 @@ def train_model(past_bands_dir, past_ndvi_dir, batch_size=64, epochs=10, checkpo
         categorical_mappings[cat] = mapping
         categorical_dims.append(len(unique_values))
 
-    train_val_files, _ = train_test_split(all_files, test_size=0.2, random_state=42)
-    train_files, val_files = train_test_split(train_val_files, test_size=0.2, random_state=42)
+    all_data = load_and_preprocess_data(all_files, past_bands_dir, past_ndvi_dir, all_feature_names,
+                                        categorical_mappings, num_workers=NUMBER_WORKERS, debug=debug)
 
-    train_dataset = CombinedDataset(train_files, past_bands_dir, past_ndvi_dir, all_feature_names, categorical_mappings)
-    val_dataset = CombinedDataset(val_files, past_bands_dir, past_ndvi_dir, all_feature_names, categorical_mappings)
+    train_val_data, _ = train_test_split(all_data, test_size=0.2, random_state=42)
+    train_data, val_data = train_test_split(train_val_data, test_size=0.2, random_state=42)
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=8)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, num_workers=8)
+    train_dataset = PreloadedDataset(train_data)
+    val_dataset = PreloadedDataset(val_data)
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=NUMBER_WORKERS,
+                              pin_memory=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, num_workers=NUMBER_WORKERS, pin_memory=True)
 
     model = CombinedClassifier(input_dim_continuous=continuous_feature_count, cat_dims=categorical_dims,
                                unet_out_channels=4, output_dim=4)
 
-    datestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
     callbacks = []
     if checkpoint_dir:
+        datestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         checkpoint_callback = ModelCheckpoint(
             dirpath=checkpoint_dir,
             filename=f'model_{datestamp}',
@@ -217,10 +178,6 @@ def train_model(past_bands_dir, past_ndvi_dir, batch_size=64, epochs=10, checkpo
         )
         callbacks.append(checkpoint_callback)
 
-    trainer = pl.Trainer(max_epochs=epochs, accelerator='gpu', devices=1, callbacks=callbacks)
-    trainer.fit(model, train_loader, val_loader)
-
-    if checkpoint_dir:
         metadata = {
             'input_dim_continuous': continuous_feature_count,
             'cat_dims': categorical_dims,
@@ -233,12 +190,11 @@ def train_model(past_bands_dir, past_ndvi_dir, batch_size=64, epochs=10, checkpo
         with open(metadata_path, 'w') as f:
             json.dump(metadata, f)
 
+    trainer = pl.Trainer(max_epochs=epochs, accelerator='gpu', devices=1, callbacks=callbacks)
+    trainer.fit(model, train_loader, val_loader)
 
-def evaluate_and_compare(past_bands_dir, past_ndvi_dir, checkpoint_dir, batch_size=64):
-    all_files = get_files(past_bands_dir, past_ndvi_dir)
-    train_val_files, test_files = train_test_split(all_files, test_size=0.2, random_state=42)
-    train_files, _ = train_test_split(train_val_files, test_size=0.2, random_state=42)
 
+def evaluate_and_compare(past_bands_dir, past_ndvi_dir, checkpoint_dir, batch_size=64, debug=False):
     ckpts = [f for f in os.listdir(checkpoint_dir) if f.endswith('.ckpt')]
     latest_ckpt = max([os.path.join(checkpoint_dir, f) for f in ckpts], key=os.path.getmtime)
     checkpoint_path = latest_ckpt
@@ -249,6 +205,13 @@ def evaluate_and_compare(past_bands_dir, past_ndvi_dir, checkpoint_dir, batch_si
     with open(checkpoint_metadata, 'r') as f:
         metadata = json.load(f)
 
+    all_files = get_files(past_bands_dir, past_ndvi_dir)
+    all_data = load_and_preprocess_data(all_files, past_bands_dir, past_ndvi_dir,
+                                        metadata['all_features'], metadata['categorical_mappings'], debug=debug)
+
+    train_val_data, test_data = train_test_split(all_data, test_size=0.2, random_state=42)
+    train_data, _ = train_test_split(train_val_data, test_size=0.2, random_state=42)
+
     model = CombinedClassifier.load_from_checkpoint(
         checkpoint_path,
         input_dim_continuous=metadata['input_dim_continuous'],
@@ -257,37 +220,25 @@ def evaluate_and_compare(past_bands_dir, past_ndvi_dir, checkpoint_dir, batch_si
         output_dim=metadata['output_dim']
     )
 
-    test_dataset = CombinedDataset(test_files, past_bands_dir, past_ndvi_dir, metadata['all_features'],
-                                     metadata['categorical_mappings'])
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, num_workers=16)
+    test_dataset = PreloadedDataset(test_data)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, num_workers=NUMBER_WORKERS, pin_memory=True)
 
     trainer = pl.Trainer(accelerator='gpu', devices=1)
     print("\n--- Combined Classifier Test ---")
     trainer.test(model, dataloaders=test_loader)
 
-    train_band_files = [os.path.join(past_bands_dir, f[0]) for f in train_files]
-    test_band_files = [os.path.join(past_bands_dir, f[0]) for f in test_files]
-    random_forest_comparison(train_band_files, test_band_files)
-
-
-def random_forest_comparison(train_files, test_files):
     print("\n--- RandomForest Comparison ---")
 
-    def load_data_for_sklearn(file_list):
-        data = []
-        labels = []
-        for f in file_list:
-            df = pd.read_parquet(f)
-            df.fillna(0, inplace=True)
-            data.append(df.values.squeeze())
-            label = int(os.path.basename(f).split('_')[-1].split('.')[0])
-            if label == 4:
-                label = 1
-            labels.append(label)
-        return pd.DataFrame(data), pd.Series(labels)
+    def prepare_data_for_sklearn(data):
+        X, y = [], []
+        for (continuous, categorical, _), label in data:
+            feature_vector = np.concatenate((continuous, categorical.astype(np.float32)))
+            X.append(feature_vector)
+            y.append(label)
+        return np.array(X), np.array(y)
 
-    X_train, y_train = load_data_for_sklearn(train_files)
-    X_test, y_test = load_data_for_sklearn(test_files)
+    X_train, y_train = prepare_data_for_sklearn(train_data)
+    X_test, y_test = prepare_data_for_sklearn(test_data)
 
     rf = RandomForestClassifier(n_estimators=150, n_jobs=-1, random_state=42)
     rf.fit(X_train, y_train)
@@ -306,8 +257,11 @@ if __name__ == '__main__':
     modern_ndvi_dir_ = '/data/ssd2/irrmapper/states/timeseries/modern_processed/'
 
     checkpoint_dir_ = '/data/ssd2/irrmapper/states/combined_classifier'
+    categorical_meta_ = os.path.join(checkpoint_dir_, 'categorical_20250811.json')
 
-    train_model(past_bands_dir_, past_ndvi_dir_, batch_size=128,  epochs=5, checkpoint_dir=checkpoint_dir_)
-    # evaluate_and_compare(past_bands_dir_, past_ndvi_dir_, checkpoint_dir_)
+    debug_mode = False
+    train_model(past_bands_dir_, past_ndvi_dir_, categorical_meta_,
+                batch_size=128, epochs=5, checkpoint_dir=checkpoint_dir_, debug=debug_mode)
+    # evaluate_and_compare(past_bands_dir_, past_ndvi_dir_, checkpoint_dir_, debug=debug_mode)
 
 # ========================= EOF ====================================================================
