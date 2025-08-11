@@ -78,7 +78,7 @@ def landsat_masked(yr, roi):
     return lsSR_masked
 
 
-def clustered_sample_ndvi(shp_dir, bucket=None, debug=False, check_dir=None, extract_modern=False):
+def clustered_sample_ndvi(shp_dir, bucket=None, debug=False, check_dir=None, extract_modern=False, select_states=None):
     shp_files = [os.path.join(shp_dir, f) for f in os.listdir(shp_dir) if f.endswith('.shp')]
 
     gdf_list = [gpd.read_file(shp) for shp in shp_files]
@@ -91,6 +91,10 @@ def clustered_sample_ndvi(shp_dir, bucket=None, debug=False, check_dir=None, ext
 
     states = points_df['STUSPS'].unique()
     for state in states:
+
+        if select_states and state not in select_states:
+            continue
+
         state_df = points_df[points_df['STUSPS'] == state]
         mgrs_tiles = state_df['MGRS_TILE'].unique()
 
@@ -166,9 +170,14 @@ def clustered_sample_ndvi(shp_dir, bucket=None, debug=False, check_dir=None, ext
                     print(f'{desc} raised {exc}')
                     continue
 
+                if extract_modern:
+                    desc_prepend = 'modern'
+                else:
+                    desc_prepend = 'past'
+
                 task = ee.batch.Export.table.toCloudStorage(
                     data,
-                    description=desc,
+                    description=f'{desc_prepend}_{desc}',
                     bucket=bucket,
                     fileNamePrefix=f'{file_prefix}/{desc}',
                     fileFormat='CSV',
@@ -203,12 +212,15 @@ if __name__ == '__main__':
     is_authorized()
     bucket_ = 'wudr'
 
+    # states = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
+    east_states = ['ND', 'SD', 'NE', 'KS', 'OK', 'TX']
+
     pt_wgs = os.path.join(d, 'EE_extracts/point_shp', 'state_wgs_mgrs')
 
-    # chk = '/data/ssd2/irrmapper/states/timeseries/rs_past/'
-    # clustered_sample_ndvi(pt_wgs, bucket=bucket_, check_dir=chk, extract_modern=False)
+    chk = '/data/ssd2/irrmapper/states/timeseries/ndvi_past/'
+    clustered_sample_ndvi(pt_wgs, bucket=bucket_, check_dir=chk, extract_modern=False, select_states=east_states)
 
-    chk = '/data/ssd2/irrmapper/states/timeseries/rs_modern/'
-    clustered_sample_ndvi(pt_wgs, bucket=bucket_, check_dir=chk, extract_modern=True)
+    chk = '/data/ssd2/irrmapper/states/timeseries/ndvi_modern/'
+    clustered_sample_ndvi(pt_wgs, bucket=bucket_, check_dir=chk, extract_modern=True, select_states=east_states)
 
 # ========================= EOF ====================================================================
