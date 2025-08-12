@@ -1,13 +1,11 @@
 import os
-from torch.utils.data import Dataset, DataLoader
-import pandas as pd
-import numpy as np
-import torch
-
-import torch.nn as nn
-
-from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor
+
+import numpy as np
+import pandas as pd
+import torch
+from torch.utils.data import Dataset
+from tqdm import tqdm
 
 
 class PreloadedDataset(Dataset):
@@ -45,15 +43,18 @@ def _load_and_preprocess_worker(args):
     ndvi_series = ndvi_df.values.astype(np.float32).T
 
     label = int(band_fname.split('_')[-1].split('.')[0])
-    if label == 4:
+    if label > 0:
         label = 1
 
     return (continuous_data, categorical_data, ndvi_series), label
+
 
 def load_and_preprocess_data(file_list, bands_dir, ndvi_dir, all_features, categorical_mappings, num_workers=8,
                              debug=False):
     args_list = [(band_fname, ndvi_fname, bands_dir, ndvi_dir, all_features, categorical_mappings)
                  for band_fname, ndvi_fname in file_list]
+
+    args_list.sort()
 
     if debug:
         print("Running pre-loading in debug (sequential) mode.")
@@ -63,7 +64,7 @@ def load_and_preprocess_data(file_list, bands_dir, ndvi_dir, all_features, categ
     else:
         with ProcessPoolExecutor(max_workers=num_workers) as executor:
             results = list(tqdm(executor.map(_load_and_preprocess_worker, args_list), total=len(args_list),
-                                  desc="Loading and preprocessing data"))
+                                desc="Loading and preprocessing data"))
 
     processed_data = []
     for (continuous, categorical, ndvi), label in results:
@@ -75,6 +76,7 @@ def load_and_preprocess_data(file_list, bands_dir, ndvi_dir, all_features, categ
             processed_data.append(((continuous_t, categorical_t, ndvi_t), label_t))
 
     return processed_data
+
 
 if __name__ == '__main__':
     pass
