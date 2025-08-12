@@ -340,7 +340,7 @@ if __name__ == '__main__':
                              overwrite=False)
 
     modern_bands_processed = '/data/ssd2/irrmapper/states/bands/modern_processed/'
-    # process_bands_to_parquet(modrern_extract, modern_bands_processed, category_counters=None,
-    #                          num_workers=24, overwrite=False)
+    process_bands_to_parquet(modrern_extract, modern_bands_processed, category_counters=None,
+                             num_workers=24, overwrite=False)
 
 # ========================= EOF ====================================================================

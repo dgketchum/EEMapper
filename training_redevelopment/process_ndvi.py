@@ -69,10 +69,10 @@ if __name__ == '__main__':
 
     in_dir_past = '/data/ssd2/irrmapper/states/timeseries/ndvi_past/'
     out_dir_past = '/data/ssd2/irrmapper/states/timeseries/past_processed/'
-    process_ndvi_time_series(in_dir_past, out_dir_past, num_workers=12)
+    process_ndvi_time_series(in_dir_past, out_dir_past, num_workers=24)
 
     in_dir_modern = '/data/ssd2/irrmapper/states/timeseries/ndvi_modern/'
     out_dir_modern = '/data/ssd2/irrmapper/states/timeseries/modern_processed/'
-    process_ndvi_time_series(in_dir_modern, out_dir_modern, modern_update=True, num_workers=12)
+    process_ndvi_time_series(in_dir_modern, out_dir_modern, modern_update=True, num_workers=24)
 
 # ========================= EOF ====================================================================
