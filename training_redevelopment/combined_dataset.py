@@ -7,6 +7,8 @@ import torch
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
+from training_redevelopment import NUMBER_CLASSES
+
 
 class PreloadedDataset(Dataset):
     def __init__(self, data):
@@ -43,7 +45,9 @@ def _load_and_preprocess_worker(args):
     ndvi_series = ndvi_df.values.astype(np.float32).T
 
     label = int(band_fname.split('_')[-1].split('.')[0])
-    if label > 0:
+    if NUMBER_CLASSES == 2 and label > 0:
+        label = 1
+    elif NUMBER_CLASSES == 4 and label > 3:
         label = 1
 
     return (continuous_data, categorical_data, ndvi_series), label

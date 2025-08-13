@@ -26,8 +26,6 @@ torch.set_float32_matmul_precision('medium')
 from unet import UNet1D
 
 
-
-
 class CombinedModel(nn.Module):
     def __init__(self, input_dim_continuous, cat_dims, unet_out_channels, output_dim):
         super(CombinedModel, self).__init__()
@@ -66,6 +64,7 @@ class CombinedModel(nn.Module):
         output = self.fusion_head(combined_features)
 
         return output
+
 
 class CombinedClassifier(pl.LightningModule):
     def __init__(self, input_dim_continuous, cat_dims, unet_out_channels, output_dim):
@@ -206,7 +205,7 @@ def evaluate_and_compare(past_bands_dir, past_ndvi_dir, checkpoint_dir, checkpoi
                          batch_size=64, sample=None, debug=False):
     """"""
     pl.seed_everything(RANDOM_SEED, workers=True)
-    
+
     if not checkpoint_filename:
         ckpts = [f for f in os.listdir(checkpoint_dir) if f.endswith('.ckpt')]
         latest_ckpt = max([os.path.join(checkpoint_dir, f) for f in ckpts], key=os.path.getmtime)
@@ -286,13 +285,10 @@ if __name__ == '__main__':
     # current /data/ssd2/irrmapper/states/combined_classifier/model_20250811_124746.ckpt
 
     # train_model(past_bands_dir_, past_ndvi_dir_, categorical_meta_, sample=sample_size,
-    #            batch_size=batch_sz, epochs=2, checkpoint_dir=checkpoint_dir_, debug=debug_mode)
-
-    # western 11 states
-    # checkpoint_ = 'model_20250811_124746.ckpt'
+    #            batch_size=batch_sz, epochs=100, checkpoint_dir=checkpoint_dir_, debug=debug_mode)
 
     # all points
-    checkpoint_ = 'model_20250811_181538.ckpt'
+    checkpoint_ = 'model_20250812_100850.ckpt'
 
     evaluate_and_compare(past_bands_dir_, past_ndvi_dir_, checkpoint_dir_, checkpoint_filename=None,
                          batch_size=batch_sz, sample=sample_size, debug=debug_mode)

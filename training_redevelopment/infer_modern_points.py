@@ -76,9 +76,11 @@ def infer_data(model, metadata, bands_dir, ndvi_dir, all_points_gdf, out_dir, sa
 
     if NUMBER_CLASSES == 2:
         merged_gdf.loc[merged_gdf['POINT_TYPE'] > 0, 'POINT_TYPE'] = 1
+        merged_gdf['static'] = np.where(((merged_gdf['POINT_TYPE'] == 0) & (merged_gdf['NEW_CLASS'] == 0)) |
+                                        ((merged_gdf['POINT_TYPE'] > 0) & (merged_gdf['NEW_CLASS'] == 1)), 1, 0)
 
-    merged_gdf['static'] = np.where(((merged_gdf['POINT_TYPE'] == 0) & (merged_gdf['NEW_CLASS'] == 0)) |
-                                    ((merged_gdf['POINT_TYPE'] > 0) & (merged_gdf['NEW_CLASS'] == 1)), 1, 0)
+    if NUMBER_CLASSES == 4:
+        merged_gdf['static'] = np.where((merged_gdf['POINT_TYPE'] == merged_gdf['NEW_CLASS']), 1, 0)
 
     if data_type == 'modern':
         uncertain_points = merged_gdf.loc[merged_gdf['static'] == 0].copy()
@@ -87,17 +89,15 @@ def infer_data(model, metadata, bands_dir, ndvi_dir, all_points_gdf, out_dir, sa
     if filter_points:
         merged_gdf = merged_gdf.loc[merged_gdf['static'] == 1]
 
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-
     for state in merged_gdf['STUSPS'].unique():
 
         if states is not None and state not in states:
             continue
 
         state_gdf = merged_gdf[merged_gdf['STUSPS'] == state]
-        state_gdf = state_gdf[['FID', 'POINT_TYPE', 'NEW_CLASS', 'YEAR', 'NEW_YEAR', 'static', 'geometry']]
-        out_shp = os.path.join(out_dir, f'{state}_inferred_{data_type}_points.shp')
+        state_gdf = state_gdf[['FID', 'STUSPS', 'POINT_TYPE', 'NEW_CLASS', 'YEAR', 'NEW_YEAR', 'MGRS_TILE',
+                               'static', 'geometry']]
+        out_shp = os.path.join(out_dir, f'{state}_{data_type}.shp')
         state_gdf.to_file(out_shp)
         print(out_shp)
 
@@ -109,7 +109,7 @@ def infer_past_data(checkpoint_dir, past_bands_dir, past_ndvi_dir, all_points_gd
 
 def infer_future_data(checkpoint_dir, modern_bands_dir, modern_ndvi_dir, all_points_gdf, out_dir, **kwargs):
     model, metadata = load_model_and_metadata(checkpoint_dir, kwargs.pop('checkpoint_filename'))
-    infer_data(model, metadata, modern_bands_dir, modern_ndvi_dir, all_points_gdf, out_dir, data_type='future',
+    infer_data(model, metadata, modern_bands_dir, modern_ndvi_dir, all_points_gdf, out_dir, data_type='modern',
                **kwargs)
 
 
@@ -128,31 +128,41 @@ if __name__ == '__main__':
 
     extracts_ = os.path.join(root_, 'irrmapper', 'EE_extracts', 'point_shp')
     points_shp_dir_ = os.path.join(extracts_, 'state_wgs_mgrs')
-    out_dir_ = os.path.join(extracts_, 'state_wgs_inferred')
+
 
     shp_files_ = [os.path.join(points_shp_dir_, f) for f in os.listdir(points_shp_dir_) if f.endswith('.shp')]
     all_points_gdf_ = pd.concat([gpd.read_file(shp) for shp in shp_files_], ignore_index=True)
 
-    # states_ = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
-    states_ = ['KS', 'ND', 'NE', 'OK', 'SD', 'TX']
+    states_ = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
+    states_ += ['KS', 'ND', 'NE', 'OK', 'SD', 'TX']
 
     kwargs_ = {
 
         # western 17 states
-        'checkpoint_filename': 'model_20250811_181538.ckpt',
+        'checkpoint_filename': 'model_20250812_100850.ckpt',
 
         # western 11 states
         # 'checkpoint_filename': 'model_20250811_124746.ckpt',
 
-        'states': states_,
+        'states': None,
         'sample': None,
         'debug': False,
         'batch_size': 128,
     }
 
+    class_mode = None
+
+    if NUMBER_CLASSES == 2:
+        class_mode = 'binary'
+    if NUMBER_CLASSES == 4:
+        class_mode = '4c'
+
+
+    # out_dir_ = os.path.join(extracts_, f'state_wgs_inferred_past_{class_mode}')
     # infer_past_data(checkpoint_dir_, past_bands_dir_, past_ndvi_dir_,
     #                 all_points_gdf_, out_dir_, **kwargs_)
 
+    out_dir_ = os.path.join(extracts_, f'state_wgs_inferred_modern_{class_mode}')
     infer_future_data(checkpoint_dir_, modern_bands_dir_, modern_ndvi_dir_,
                       all_points_gdf_, out_dir_, **kwargs_)
 

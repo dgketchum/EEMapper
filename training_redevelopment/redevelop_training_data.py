@@ -16,7 +16,7 @@ import random
 import geopandas as gpd
 import pandas as pd
 from tqdm import tqdm
-from map.call_ee import is_authorized, stack_bands
+from map.call_ee import is_authorized, stack_bands, get_alpha_earth_bands, export_classification
 
 sys.setrecursionlimit(5000)
 
@@ -76,10 +76,11 @@ def to_geographic(in_dir, out_dir, states, mgrs_path, n_samples=None):
     return out_shapefiles
 
 
-def push_points_to_asset(_dir, shapefile, bucket):
+def push_points_to_asset(_dir, shapefile, bucket, asset_root):
     """Uploads a single state's shapefile to a unique Earth Engine asset."""
     shp_name = os.path.basename(shapefile).replace('.shp', '')
-    asset_id = f"users/dgketchum/points/state_mgrs/{shp_name}"
+
+    asset_id = f"{asset_root}/{shp_name}"
 
     print(f"Uploading {shp_name} to GCS...")
     gcs_path = os.path.join(bucket, 'redevelopment_points', os.path.basename(shapefile))
@@ -99,13 +100,20 @@ def push_points_to_asset(_dir, shapefile, bucket):
     return asset_id
 
 
-def get_bands(shp_dir, extract_modern=False, check_dir=None, diagnose=False, select_states=None):
+def get_bands(shp_dir, extract_modern=False, check_dir=None, diagnose=False, select_states=None,
+              extract_alpha_earth=False, states=None):
     """"""
     shapefiles = [os.path.join(shp_dir, f) for f in os.listdir(shp_dir) if f.endswith('.shp')]
+    if states:
+        shapefiles = [f for f in shapefiles if os.path.basename(f)[:2] in states]
+
     points_dfs = [gpd.read_file(shp) for shp in shapefiles]
     points_df = pd.concat(points_dfs)
 
-    if extract_modern:
+    if extract_modern and extract_alpha_earth:
+        file_prefix = 'irrmapper_redev/bands_ae'
+
+    elif extract_modern:
         file_prefix = 'irrmapper_redev/bands_modern'
 
     else:
@@ -153,7 +161,11 @@ def get_bands(shp_dir, extract_modern=False, check_dir=None, diagnose=False, sel
                 region = ee.FeatureCollection(roi)
 
                 try:
-                    stack = stack_bands(year, region, southern=False)
+                    if extract_alpha_earth:
+                        stack = get_alpha_earth_bands(year, region)
+                    else:
+                        stack = stack_bands(year, region, southern=False)
+
                 except ee.ee_exception.EEException as exc:
                     print(f'{desc} error: {exc}')
                     continue
@@ -173,11 +185,13 @@ def get_bands(shp_dir, extract_modern=False, check_dir=None, diagnose=False, sel
                             return fc.flatten()
 
                         data = sample_regions(stack_, filtered)
+
                         try:
                             print(b, data.getInfo()['features'][0]['properties'][b])
                         except Exception as e:
                             print(b, 'not there', e)
                             bad_.append(b)
+
                     print(bad_)
                     return None
 
@@ -189,7 +203,9 @@ def get_bands(shp_dir, extract_modern=False, check_dir=None, diagnose=False, sel
                     scale=30,
                     tileScale=16)
 
-                if extract_modern:
+                if extract_modern and extract_alpha_earth:
+                    desc_prepend = 'ae'
+                elif extract_modern:
                     desc_prepend = 'modern'
                 else:
                     desc_prepend = 'past'
@@ -306,6 +322,51 @@ def process_bands_to_parquet(in_dir, out_dir, category_counters=None, categorica
         print("----------------------------------")
 
 
+def concatenate_band_extract(in_dir, out_dir):
+    states = set([f.split('_')[2] for f in os.listdir(in_dir) if f.endswith('.csv')])
+    states_files = {s: [] for s in states}
+    [states_files[f.split('_')[2]].append(os.path.join(in_dir, f)) for f in os.listdir(in_dir) if f.endswith('.csv')]
+
+    for state, files in states_files.items():
+        dfs = [pd.read_csv(f) for f in files]
+        df = pd.concat(dfs, axis=0)
+        df['YEAR'] = df['NEW_YEAR']
+        df = df.drop(columns=['FID', 'MGRS_TILE', '.geo', 'system:index', 'STUSPS', 'NEW_YEAR'])
+        outfile = os.path.join(out_dir, f'{state}_bands_ae.csv')
+        df.to_csv(outfile, index=False)
+
+
+def push_bands_to_asset(_dir, states, bucket, bands_root):
+    shapes = []
+
+    for state in states:
+
+        state_file = f'{state}_bands_ae.csv'
+        local_f = os.path.join(_dir, state_file)
+
+        bucket = os.path.join(bucket, 'state_ae_bands')
+        _file = os.path.join(bucket, state_file)
+
+        cmd = [GS, 'cp', local_f, _file]
+        check_call(cmd)
+        shapes.append(_file)
+
+        asset_ids = [os.path.basename(shp).split('.')[0] for shp in shapes]
+
+        for s, id_ in zip(shapes, asset_ids):
+            cmd = [EE, 'upload', 'table', '-f', '--asset_id={}{}'.format(bands_root, id_), s]
+            check_call(cmd)
+            print(id_, s)
+
+
+def classify_alpha_earth(states, tables, glob, years, out_coll):
+    """"""
+    for state in states:
+        table = os.path.join(tables, '{}_{}'.format(state, glob))
+        geo = 'users/dgketchum/boundaries/{}'.format(state)
+        export_classification(out_name=state, table=table, asset_root=out_coll, region=geo,
+                              years=years, bag_fraction=0.8, southern=False, alpha_earth=True)
+
 if __name__ == '__main__':
     is_authorized()
     root = '/media/research/IrrigationGIS'
@@ -314,33 +375,36 @@ if __name__ == '__main__':
 
     pt_aea = os.path.join(root, 'irrmapper', 'EE_extracts', 'point_shp', 'state_aea')
     pt_wgs = os.path.join(root, 'irrmapper', 'EE_extracts', 'point_shp', 'state_wgs_mgrs')
-    mgrs = os.path.join(root, 'boundaries', 'mgrs', 'mgrs_aea.shp')
-    bucket = 'gs://wudr'
+    inferred_pt_wgs = os.path.join(root, 'irrmapper', 'EE_extracts', 'point_shp', 'state_wgs_inferred_modern_4c')
+    mgrs_aea = os.path.join(root, 'boundaries', 'mgrs', 'mgrs_aea.shp')
+    bucket_ = 'gs://wudr'
 
-    # states = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
+    states = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
     east_states = ['ND', 'SD', 'NE', 'KS', 'OK', 'TX']
 
-    # state_shapefiles = to_geographic(pt_aea, pt_wgs, states=east_stats, mgrs_path=mgrs)
+    states += east_states
+
+    # state_shapefiles = to_geographic(pt_aea, pt_wgs, states=states, mgrs_path=mgrs)
+
+    eglb = '_modern.shp'
+
+    state_shapefiles = [os.path.join(inferred_pt_wgs, f) for f in os.listdir(inferred_pt_wgs) if f.endswith(eglb)]
+    asset_rt_ = 'users/dgketchum/points/state_inferred'
 
     # for shp in state_shapefiles:
-        # push_points_to_asset(pt_wgs, shp, bucket)
+    #     push_points_to_asset(pt_wgs, shp, bucket, asset_rt_)
 
-    past_extract = '/data/ssd2/irrmapper/states/bands/bands_past/'
-    # get_bands(pt_wgs, extract_modern=False, check_dir=past_extract, diagnose=False, select_states=east_states)
+    ae_extract = '/data/ssd2/irrmapper/states/bands/bands_ae/'
+    # get_bands(inferred_pt_wgs, extract_modern=True, check_dir=ae_extract, diagnose=False,
+    #           extract_alpha_earth=True, states=['WA'])
 
-    modrern_extract = '/data/ssd2/irrmapper/states/bands/bands_modern/'
-    # get_bands(pt_wgs, extract_modern=True, check_dir=modrern_extract, diagnose=False, select_states=east_states)
+    ae_concatenated = os.path.join(root, 'irrmapper', 'EE_extracts', 'concatenated', 'state_ae')
+    # concatenate_band_extract(ae_extract, ae_concatenated)
 
-    past_bands_processed = '/data/ssd2/irrmapper/states/bands/past_processed/'
-    categorical_json_ = '/data/ssd2/irrmapper/states/combined_classifier/'
-    process_bands_to_parquet(past_extract, past_bands_processed,
-                             category_counters=['nlcd', 'cdl', 'crop5c', 'cropland', 'gsw'],
-                             categorical_json = categorical_json_,
-                             num_workers=24,
-                             overwrite=False)
+    ee_root = 'users/dgketchum/bands/state_ae/'
 
-    modern_bands_processed = '/data/ssd2/irrmapper/states/bands/modern_processed/'
-    process_bands_to_parquet(modrern_extract, modern_bands_processed, category_counters=None,
-                             num_workers=24, overwrite=False)
+    # push_bands_to_asset(ae_concatenated, states=['WA'], bucket=bucket_, bands_root=ee_root)
 
+    collection = 'users/dgketchum/IrrMapper/IrrMapper_AE'
+    classify_alpha_earth(states=['WA'], tables=ee_root, glob='bands_ae', out_coll=collection, years=[2017])
 # ========================= EOF ====================================================================
