@@ -5,6 +5,7 @@ import random
 
 import ee
 import geopandas as gpd
+import pandas as pd
 
 sys.path.insert(0, os.path.abspath('../..'))
 sys.setrecursionlimit(5000)
@@ -77,40 +78,60 @@ def landsat_masked(yr, roi):
     return lsSR_masked
 
 
-def clustered_sample_ndvi(points, bucket=None, debug=False, check_dir=None, extract_random_modern=False):
+def clustered_sample_ndvi(shp_dir, bucket=None, debug=False, check_dir=None, extract_modern=False, select_states=None):
+    shp_files = [os.path.join(shp_dir, f) for f in os.listdir(shp_dir) if f.endswith('.shp')]
 
-    if extract_random_modern:
-        points['YEAR'] = points['YEAR'].apply(lambda x: random.randint(2017, 2023))
+    gdf_list = [gpd.read_file(shp) for shp in shp_files]
+    points_df = pd.concat(gdf_list, ignore_index=True)
+
+    if extract_modern:
         file_prefix = 'irrmapper_redev/ndvi_modern'
     else:
         file_prefix = 'irrmapper_redev/ndvi'
 
-    mgrs_tiles = points['MGRS_TILE'].unique()
+    states = points_df['STUSPS'].unique()
+    for state in states:
 
-    for tile in mgrs_tiles:
+        if select_states and state not in select_states:
+            continue
 
-        tile_df = points[points['MGRS_TILE'] == tile]
-        states = tile_df['STUSPS'].unique()
+        state_df = points_df[points_df['STUSPS'] == state]
+        mgrs_tiles = state_df['MGRS_TILE'].unique()
 
-        for state in states:
+        for tile in mgrs_tiles:
+            tile_df = state_df[state_df['MGRS_TILE'] == tile]
 
-            state_df = tile_df[tile_df['STUSPS'] == state]
-            years = state_df['YEAR'].unique()
+            if extract_modern:
+                target_year_col = 'NEW_YEAR'
+                years = sorted(list(tile_df[target_year_col].unique()))
+            else:
+                target_year_col = 'YEAR'
+                years = sorted(list(tile_df[target_year_col].unique()))
 
             for year in years:
-                year_df = state_df[state_df['YEAR'] == year]
+                year_df = tile_df[tile_df[target_year_col] == year]
+
+                if year_df.empty:
+                    continue
+
+                desc = f'ndvi_{tile}_{state}_{year}'
+
+                # densest extract test
+                # if extract_modern and not desc.startswith(f'ndvi_12TUL_UT_'):
+                #     continue
+                #
+                # elif not extract_modern and desc != f'ndvi_12TUL_UT_2009':
+                #     continue
 
                 feature_coll = ee.FeatureCollection(year_df.__geo_interface__)
 
                 first, bands = True, None
-                selectors = ['FID', 'POINT_TYPE', 'YEAR', 'MGRS_TILE', 'STUSPS']
-
-                desc = f'ndvi_{tile}_{state}_{year}'
+                selectors = ['FID', 'POINT_TYPE', 'YEAR', 'NEW_YEAR', 'MGRS_TILE', 'STUSPS']
 
                 if check_dir:
-                    f = os.path.join(check_dir, tile, state, '{}.csv'.format(desc))
+                    f = os.path.join(check_dir, f'{desc}.csv')
                     if os.path.exists(f):
-                        print(desc, 'exists, skipping')
+                        print(f"Skipping {desc}, already exists.")
                         continue
 
                 coll = landsat_masked(year, feature_coll).map(lambda x: x.normalizedDifference(['B5', 'B4']))
@@ -120,7 +141,7 @@ def clustered_sample_ndvi(points, bucket=None, debug=False, check_dir=None, extr
                 for img_id in ndvi_scenes:
 
                     splt = img_id.split('_')
-                    _name = '_ '.join(splt[-3:])
+                    _name = '_'.join(splt[-3:])
 
                     selectors.append(_name)
 
@@ -149,9 +170,14 @@ def clustered_sample_ndvi(points, bucket=None, debug=False, check_dir=None, extr
                     print(f'{desc} raised {exc}')
                     continue
 
+                if extract_modern:
+                    desc_prepend = 'modern'
+                else:
+                    desc_prepend = 'past'
+
                 task = ee.batch.Export.table.toCloudStorage(
                     data,
-                    description=desc,
+                    description=f'{desc_prepend}_{desc}',
                     bucket=bucket,
                     fileNamePrefix=f'{file_prefix}/{desc}',
                     fileFormat='CSV',
@@ -186,14 +212,15 @@ if __name__ == '__main__':
     is_authorized()
     bucket_ = 'wudr'
 
+    # states = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
+    east_states = ['ND', 'SD', 'NE', 'KS', 'OK', 'TX']
+
     pt_wgs = os.path.join(d, 'EE_extracts/point_shp', 'state_wgs_mgrs')
-    shp = os.path.join(pt_wgs, 'master_training_points.shp')
-    df = gpd.read_file(shp)
 
-    check_d = os.path.join(d, 'EE_extracts', 'ndvi_time_series')
-    # clustered_sample_ndvi(df, bucket=bucket_, check_dir=check_d)
+    chk = '/data/ssd2/irrmapper/states/timeseries/ndvi_past/'
+    clustered_sample_ndvi(pt_wgs, bucket=bucket_, check_dir=chk, extract_modern=False, select_states=east_states)
 
-    check_d = os.path.join(d, 'EE_extracts', 'ndvi_time_series_modern')
-    clustered_sample_ndvi(df, bucket=bucket_, check_dir=check_d, extract_random_modern=True)
+    chk = '/data/ssd2/irrmapper/states/timeseries/ndvi_modern/'
+    clustered_sample_ndvi(pt_wgs, bucket=bucket_, check_dir=chk, extract_modern=True, select_states=east_states)
 
 # ========================= EOF ====================================================================

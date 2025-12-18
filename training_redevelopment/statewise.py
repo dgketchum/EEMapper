@@ -94,6 +94,20 @@ def push_points_to_asset(_dir, shapefile, bucket):
     check_call(cmd)
     print(asset_id, bucket_files[0])
 
+
+def get_bands(pts_dir, glob, out_glob, state, southern=False):
+    pts = os.path.join(pts_dir, 'points_{}_{}.shp'.format(state, glob))
+    with fiona.open(pts, 'r') as src:
+        years = list(set([x['properties']['YEAR'] for x in src]))
+    print('get bands', state)
+    pts = 'users/dgketchum/points/state/points_{}_{}'.format(state, glob)
+    geo = 'users/dgketchum/boundaries/{}'.format(s)
+    file_ = 'bands_{}_{}'.format(s, out_glob)
+    request_band_extract(file_, pts, region=geo, years=years,
+                         filter_bounds=True,
+                         buffer=1e5, southern=southern,
+                         diagnose=False)
+
 if __name__ == '__main__':
     is_authorized()
     _bucket = 'gs://wudr'

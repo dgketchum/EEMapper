@@ -479,7 +479,7 @@ def export_special(input_coll, out_coll, roi, description):
         print(year, _id)
 
 
-def export_classification(out_name, table, asset_root, region, years,
+def export_classification(out_name, table, asset_root, region, years, alpha_earth=False,
                           export='asset', bag_fraction=0.5, input_props=None, southern=False):
     """
     Trains a Random Forest classifier using a training table input, creates a stack of raster images of the same
@@ -508,7 +508,11 @@ def export_classification(out_name, table, asset_root, region, years,
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
     for yr in years:
-        input_bands = stack_bands(yr, roi, southern)
+
+        if alpha_earth:
+            input_bands = get_alpha_earth_bands(yr, roi)
+        else:
+            input_bands = stack_bands(yr, roi, southern)
 
         b, p = input_bands.bandNames().getInfo(), input_props.getInfo()
         check = [x for x in p if x not in b]
@@ -745,6 +749,12 @@ def request_band_extract(file_prefix, points_layer, region, years, filter_bounds
         task.start()
         print('{}_{}'.format(file_prefix, yr))
 
+def get_alpha_earth_bands(yr, roi):
+    dataset = (ee.ImageCollection('GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL')
+               .filterDate(f'{yr}-01-01', f'{yr}-12-31').filterBounds(roi).mosaic())
+    dataset = dataset.clip(roi)
+    return dataset
+
 
 def stack_bands(yr, roi, southern=False):
     """
@@ -845,7 +855,7 @@ def stack_bands(yr, roi, southern=False):
 
     coords = ee.Image.pixelLonLat().rename(['Lon_GCS', 'LAT_GCS']).resample('bilinear').reproject(crs=proj['crs'],
                                                                                                   scale=30)
-    ned = ee.Image('USGS/NED')
+    ned = ee.Image('USGS/3DEP/10m')
     terrain = ee.Terrain.products(ned).select('elevation', 'slope', 'aspect').reduceResolution(
         ee.Reducer.mean()).reproject(crs=proj['crs'], scale=30)
 
@@ -859,7 +869,7 @@ def stack_bands(yr, roi, southern=False):
 
     cdl_cult, cdl_crop, cdl_simple = get_cdl(yr)
 
-    gsw = ee.Image('JRC/GSW1_0/GlobalSurfaceWater')
+    gsw = ee.Image('JRC/GSW1_4/GlobalSurfaceWater')
     occ_pos = gsw.select('occurrence').gt(0)
     water = occ_pos.unmask(0).rename('gsw')
 
@@ -953,12 +963,12 @@ def export_resmaple_irr_change():
 
 def is_authorized():
     try:
-        ee.Initialize()
+        ee.Initialize(project='ee-dgketchum')
         print('Authorized')
-        return True
     except Exception as e:
         print('You are not authorized: {}'.format(e))
-        return False
+        exit(1)
+    return None
 
 
 if __name__ == '__main__':
