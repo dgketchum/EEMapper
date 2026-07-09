@@ -8,7 +8,7 @@ from pprint import pprint
 
 import ee
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import os
 from subprocess import check_call
 import random
@@ -16,34 +16,51 @@ import random
 import geopandas as gpd
 import pandas as pd
 from tqdm import tqdm
-from map.call_ee import is_authorized, stack_bands, get_alpha_earth_bands, export_classification
+from map.call_ee import (
+    is_authorized,
+    stack_bands,
+    get_alpha_earth_bands,
+    export_classification,
+)
 
 sys.setrecursionlimit(5000)
 
-home = os.path.expanduser('~')
-conda = os.path.join(home, 'miniconda3', 'envs')
+home = os.path.expanduser("~")
+conda = os.path.join(home, "miniconda3", "envs")
 if not os.path.exists(conda):
-    conda = conda.replace('miniconda3', 'miniconda')
-EE = '/home/dgketchum/miniconda/envs/irmp/bin/earthengine'
-GS = '/home/dgketchum/miniconda/envs/irmp/bin/gsutil'
+    conda = conda.replace("miniconda3", "miniconda")
+EE = "/home/dgketchum/miniconda/envs/irmp/bin/earthengine"
+GS = "/home/dgketchum/miniconda/envs/irmp/bin/gsutil"
 
-OGR = '/usr/bin/ogr2ogr'
+OGR = "/usr/bin/ogr2ogr"
 
-AEA = '+proj=aea +lat_0=40 +lon_0=-96 +lat_1=20 +lat_2=60 +x_0=0 +y_0=0 +ellps=GRS80 ' \
-      '+towgs84=0,0,0,0,0,0,0 +units=m +no_defs'
-WGS = '+proj=longlat +datum=WGS84 +no_defs'
+AEA = (
+    "+proj=aea +lat_0=40 +lon_0=-96 +lat_1=20 +lat_2=60 +x_0=0 +y_0=0 +ellps=GRS80 "
+    "+towgs84=0,0,0,0,0,0,0 +units=m +no_defs"
+)
+WGS = "+proj=longlat +datum=WGS84 +no_defs"
 
-FEATURE_COLS_DROP = ['system:index', '.geo']
+FEATURE_COLS_DROP = ["system:index", ".geo"]
 
-TRAINING_DATA = {'AZ': 'AZ_24NOV2021', 'CA': 'CA_14NOV2021',
-                 'CO': 'CO_10NOV2021', 'ID': 'ID_10NOV2021',
-                 'KS': 'KS_7NOV2021', 'MT': 'MT_15NOV2021',
-                 'ND': 'ND_7NOV2021', 'NE': 'NE_7NOV2021',
-                 'NM': 'NM_7NOV2021', 'NV': 'NV_7NOV2021',
-                 'OK': 'OK_7NOV2021', 'OR': 'OR_22NOV2021',
-                 'SD': 'SD_7NOV2021', 'TX': 'TX_7NOV2021',
-                 'UT': 'UT_10NOV2021', 'WA': 'WA_10NOV2021',
-                 'WY': 'WY_7NOV2021'}
+TRAINING_DATA = {
+    "AZ": "AZ_24NOV2021",
+    "CA": "CA_14NOV2021",
+    "CO": "CO_10NOV2021",
+    "ID": "ID_10NOV2021",
+    "KS": "KS_7NOV2021",
+    "MT": "MT_15NOV2021",
+    "ND": "ND_7NOV2021",
+    "NE": "NE_7NOV2021",
+    "NM": "NM_7NOV2021",
+    "NV": "NV_7NOV2021",
+    "OK": "OK_7NOV2021",
+    "OR": "OR_22NOV2021",
+    "SD": "SD_7NOV2021",
+    "TX": "TX_7NOV2021",
+    "UT": "UT_10NOV2021",
+    "WA": "WA_10NOV2021",
+    "WY": "WY_7NOV2021",
+}
 
 
 def to_geographic(in_dir, out_dir, states, mgrs_path, n_samples=None):
@@ -51,24 +68,29 @@ def to_geographic(in_dir, out_dir, states, mgrs_path, n_samples=None):
     out_shapefiles = []
     for state in states:
         print(f"Processing points for {state}...")
-        in_shp = [os.path.join(in_dir, x) for x in os.listdir(in_dir) if
-                  x.endswith('.shp') and TRAINING_DATA[state] in x][0]
+        in_shp = [
+            os.path.join(in_dir, x)
+            for x in os.listdir(in_dir)
+            if x.endswith(".shp") and TRAINING_DATA[state] in x
+        ][0]
         mgrs = gpd.read_file(mgrs_path)
 
         points = gpd.read_file(in_shp)
         points = points.sjoin(mgrs, how="inner")
         points = points.to_crs(epsg=4326)
-        points.drop(columns=['index_right'], inplace=True)
-        points['STUSPS'] = state
-        points['NEW_YEAR'] = [random.randint(2017, 2024) for _ in range(len(points))]
+        points.drop(columns=["index_right"], inplace=True)
+        points["STUSPS"] = state
+        points["NEW_YEAR"] = [random.randint(2017, 2024) for _ in range(len(points))]
 
         if n_samples:
-            points = points.groupby('POINT_TYPE', group_keys=False).apply(lambda x: x.sample(n=n_samples))
+            points = points.groupby("POINT_TYPE", group_keys=False).apply(
+                lambda x: x.sample(n=n_samples)
+            )
 
         points.index = range(len(points))
-        points['FID'] = [f'{row['STUSPS']}_{i:06d}' for i, row in points.iterrows()]
+        points["FID"] = [f"{row['STUSPS']}_{i:06d}" for i, row in points.iterrows()]
 
-        out_shp = os.path.join(out_dir, f'{TRAINING_DATA[state]}.shp')
+        out_shp = os.path.join(out_dir, f"{TRAINING_DATA[state]}.shp")
         points.to_file(out_shp)
         out_shapefiles.append(out_shp)
         print(f"Wrote {out_shp}")
@@ -78,32 +100,41 @@ def to_geographic(in_dir, out_dir, states, mgrs_path, n_samples=None):
 
 def push_points_to_asset(_dir, shapefile, bucket, asset_root):
     """Uploads a single state's shapefile to a unique Earth Engine asset."""
-    shp_name = os.path.basename(shapefile).replace('.shp', '')
+    shp_name = os.path.basename(shapefile).replace(".shp", "")
 
     asset_id = f"{asset_root}/{shp_name}"
 
     print(f"Uploading {shp_name} to GCS...")
-    gcs_path = os.path.join(bucket, 'redevelopment_points', os.path.basename(shapefile))
-    cmd = [GS, 'cp', shapefile, gcs_path]
+    gcs_path = os.path.join(bucket, "redevelopment_points", os.path.basename(shapefile))
+    cmd = [GS, "cp", shapefile, gcs_path]
     check_call(cmd)
 
-    for ext in ['prj', 'shx', 'dbf', 'cpg']:
-        sidecar_file = shapefile.replace('.shp', f'.{ext}')
+    for ext in ["prj", "shx", "dbf", "cpg"]:
+        sidecar_file = shapefile.replace(".shp", f".{ext}")
         if os.path.exists(sidecar_file):
-            cmd = [GS, 'cp', sidecar_file, os.path.join(bucket, 'redevelopment_points')]
+            cmd = [GS, "cp", sidecar_file, os.path.join(bucket, "redevelopment_points")]
             check_call(cmd)
 
     print(f"Uploading {gcs_path} to Earth Engine asset {asset_id}")
-    cmd = [EE, 'upload', 'table', '-f', f'--asset_id={asset_id}', gcs_path]
+    cmd = [EE, "upload", "table", "-f", f"--asset_id={asset_id}", gcs_path]
     check_call(cmd)
     print(f"Upload complete for {asset_id}")
     return asset_id
 
 
-def get_bands(shp_dir, extract_modern=False, check_dir=None, diagnose=False, select_states=None,
-              extract_alpha_earth=False, states=None):
+def get_bands(
+    shp_dir,
+    extract_modern=False,
+    check_dir=None,
+    diagnose=False,
+    select_states=None,
+    extract_alpha_earth=False,
+    states=None,
+):
     """"""
-    shapefiles = [os.path.join(shp_dir, f) for f in os.listdir(shp_dir) if f.endswith('.shp')]
+    shapefiles = [
+        os.path.join(shp_dir, f) for f in os.listdir(shp_dir) if f.endswith(".shp")
+    ]
     if states:
         shapefiles = [f for f in shapefiles if os.path.basename(f)[:2] in states]
 
@@ -111,35 +142,34 @@ def get_bands(shp_dir, extract_modern=False, check_dir=None, diagnose=False, sel
     points_df = pd.concat(points_dfs)
 
     if extract_modern and extract_alpha_earth:
-        file_prefix = 'irrmapper_redev/bands_ae'
+        file_prefix = "irrmapper_redev/bands_ae"
 
     elif extract_modern:
-        file_prefix = 'irrmapper_redev/bands_modern'
+        file_prefix = "irrmapper_redev/bands_modern"
 
     else:
-        file_prefix = 'irrmapper_redev/bands'
+        file_prefix = "irrmapper_redev/bands"
 
-    mgrs_ee_tiles = ee.FeatureCollection('users/dgketchum/boundaries/MGRS_TILE')
+    mgrs_ee_tiles = ee.FeatureCollection("users/dgketchum/boundaries/MGRS_TILE")
 
-    mgrs_tiles = points_df['MGRS_TILE'].unique()
+    mgrs_tiles = points_df["MGRS_TILE"].unique()
 
-    states = points_df['STUSPS'].unique()
+    states = points_df["STUSPS"].unique()
 
     for state in states:
-
         if select_states and state not in select_states:
             continue
 
-        state_df = points_df[points_df['STUSPS'] == state]
+        state_df = points_df[points_df["STUSPS"] == state]
 
         for tile in mgrs_tiles:
-            tile_df = state_df[state_df['MGRS_TILE'] == tile]
+            tile_df = state_df[state_df["MGRS_TILE"] == tile]
 
             if extract_modern:
-                target_year_col = 'NEW_YEAR'
+                target_year_col = "NEW_YEAR"
                 years = sorted(list(tile_df[target_year_col].unique()))
             else:
-                target_year_col = 'YEAR'
+                target_year_col = "YEAR"
                 years = sorted(list(tile_df[target_year_col].unique()))
 
             for year in years:
@@ -148,16 +178,16 @@ def get_bands(shp_dir, extract_modern=False, check_dir=None, diagnose=False, sel
                 if year_df.empty:
                     continue
 
-                desc = f'bands_{tile}_{state}_{year}'
+                desc = f"bands_{tile}_{state}_{year}"
 
                 if check_dir:
-                    if os.path.exists(os.path.join(check_dir, f'{desc}.csv')):
+                    if os.path.exists(os.path.join(check_dir, f"{desc}.csv")):
                         print(f"Skipping {desc}, already exists.")
                         continue
 
                 feature_coll = ee.FeatureCollection(year_df.__geo_interface__)
 
-                roi = mgrs_ee_tiles.filterMetadata('MGRS_TILE', 'equals', tile)
+                roi = mgrs_ee_tiles.filterMetadata("MGRS_TILE", "equals", tile)
                 region = ee.FeatureCollection(roi)
 
                 try:
@@ -167,7 +197,7 @@ def get_bands(shp_dir, extract_modern=False, check_dir=None, diagnose=False, sel
                         stack = stack_bands(year, region, southern=False)
 
                 except ee.ee_exception.EEException as exc:
-                    print(f'{desc} error: {exc}')
+                    print(f"{desc} error: {exc}")
                     continue
 
                 if diagnose:
@@ -179,62 +209,76 @@ def get_bands(shp_dir, extract_modern=False, check_dir=None, diagnose=False, sel
 
                         def sample_regions(i, points):
                             red = ee.Reducer.toCollection(i.bandNames())
-                            reduced = i.reduceRegions(points, red, 30, stack_.select(b).projection())
-                            fc = reduced.map(lambda f: ee.FeatureCollection(f.get('features'))
-                                             .map(lambda q: q.copyProperties(f, None, ['features'])))
+                            reduced = i.reduceRegions(
+                                points, red, 30, stack_.select(b).projection()
+                            )
+                            fc = reduced.map(
+                                lambda f: ee.FeatureCollection(f.get("features")).map(
+                                    lambda q: q.copyProperties(f, None, ["features"])
+                                )
+                            )
                             return fc.flatten()
 
                         data = sample_regions(stack_, filtered)
 
                         try:
-                            print(b, data.getInfo()['features'][0]['properties'][b])
+                            print(b, data.getInfo()["features"][0]["properties"][b])
                         except Exception as e:
-                            print(b, 'not there', e)
+                            print(b, "not there", e)
                             bad_.append(b)
 
                     print(bad_)
                     return None
 
-                selectors = ['FID', 'POINT_TYPE', 'YEAR', 'NEW_YEAR', 'MGRS_TILE', 'STUSPS']
+                selectors = [
+                    "FID",
+                    "POINT_TYPE",
+                    "YEAR",
+                    "NEW_YEAR",
+                    "MGRS_TILE",
+                    "STUSPS",
+                ]
 
                 plot_sample_regions = stack.sampleRegions(
                     collection=feature_coll,
                     properties=selectors,
                     scale=30,
-                    tileScale=16)
+                    tileScale=16,
+                )
 
                 if extract_modern and extract_alpha_earth:
-                    desc_prepend = 'ae'
+                    desc_prepend = "ae"
                 elif extract_modern:
-                    desc_prepend = 'modern'
+                    desc_prepend = "modern"
                 else:
-                    desc_prepend = 'past'
+                    desc_prepend = "past"
 
                 task = ee.batch.Export.table.toCloudStorage(
                     plot_sample_regions,
-                    description=f'{desc_prepend}_{desc}',
-                    bucket='wudr',
-                    fileNamePrefix=f'{file_prefix}/{desc}',
-                    fileFormat='CSV')
+                    description=f"{desc_prepend}_{desc}",
+                    bucket="wudr",
+                    fileNamePrefix=f"{file_prefix}/{desc}",
+                    fileFormat="CSV",
+                )
 
                 try:
                     task.start()
                 except ee.ee_exception.EEException as e:
-                    print('{}, waiting on '.format(e), desc, '......')
+                    print("{}, waiting on ".format(e), desc, "......")
                     time.sleep(600)
                     task.start()
 
-                print(f'{file_prefix}/{desc}')
+                print(f"{file_prefix}/{desc}")
 
 
 def _process_band_file(params):
     f, out_dir, category_counters, overwrite = params
-    if not f.endswith('.csv'):
+    if not f.endswith(".csv"):
         return None, None
 
     try:
         df = pd.read_csv(f)
-        df.set_index('FID', inplace=True)
+        df.set_index("FID", inplace=True)
     except pd.errors.EmptyDataError:
         os.remove(f)
         return None, None
@@ -251,17 +295,21 @@ def _process_band_file(params):
 
     for fid, row in df.iterrows():
         try:
-            year = int(row['YEAR'])
-            new_year = int(row['NEW_YEAR'])
-            pt_type = int(row['POINT_TYPE'])
-            mgrs = row['MGRS_TILE']
-            state = row['STUSPS']
+            year = int(row["YEAR"])
+            new_year = int(row["NEW_YEAR"])
+            pt_type = int(row["POINT_TYPE"])
+            mgrs = row["MGRS_TILE"]
+            state = row["STUSPS"]
 
-            out_file = os.path.join(out_dir, f'{fid}_{year}_{new_year}_{state}_{mgrs}_{pt_type}.parquet')
+            out_file = os.path.join(
+                out_dir, f"{fid}_{year}_{new_year}_{state}_{mgrs}_{pt_type}.parquet"
+            )
             if os.path.exists(out_file) and not overwrite:
                 continue
 
-            features = row.drop(['YEAR', 'NEW_YEAR', 'POINT_TYPE', 'MGRS_TILE', 'STUSPS'])
+            features = row.drop(
+                ["YEAR", "NEW_YEAR", "POINT_TYPE", "MGRS_TILE", "STUSPS"]
+            )
 
             features_df = pd.DataFrame(features).T
             features_df = features_df.drop(columns=FEATURE_COLS_DROP)
@@ -274,8 +322,14 @@ def _process_band_file(params):
     return uniques, counts
 
 
-def process_bands_to_parquet(in_dir, out_dir, category_counters=None, categorical_json=None,
-                             overwrite=False, num_workers=1):
+def process_bands_to_parquet(
+    in_dir,
+    out_dir,
+    category_counters=None,
+    categorical_json=None,
+    overwrite=False,
+    num_workers=1,
+):
     """"""
     file_list = [os.path.join(in_dir, f) for f in os.listdir(in_dir)]
 
@@ -292,7 +346,9 @@ def process_bands_to_parquet(in_dir, out_dir, category_counters=None, categorica
     params = [(f, out_dir, category_counters, overwrite) for f in file_list]
 
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
-        results = list(tqdm(executor.map(_process_band_file, params), total=len(file_list)))
+        results = list(
+            tqdm(executor.map(_process_band_file, params), total=len(file_list))
+        )
 
     if categories:
         for res in results:
@@ -304,11 +360,15 @@ def process_bands_to_parquet(in_dir, out_dir, category_counters=None, categorica
                     category_counts[c] = category_counts[c].add(series, fill_value=0)
 
         datestamp = datetime.now().strftime("%Y%m%d")
-        out_json = os.path.join(os.path.dirname(categorical_json), f'categorical_{datestamp}.json')
-        categories = {k: [int(i) for i in v if pd.notna(i)] for k, v in categories.items()}
-        with open(out_json, 'w') as fp:
+        out_json = os.path.join(
+            os.path.dirname(categorical_json), f"categorical_{datestamp}.json"
+        )
+        categories = {
+            k: [int(i) for i in v if pd.notna(i)] for k, v in categories.items()
+        }
+        with open(out_json, "w") as fp:
             fp.write(json.dumps(categories, indent=4, sort_keys=True))
-        print(f'Wrote {out_json}')
+        print(f"Wrote {out_json}")
 
         print("\n--- Categorical Metadata Summary ---")
         for category, values in categories.items():
@@ -323,16 +383,22 @@ def process_bands_to_parquet(in_dir, out_dir, category_counters=None, categorica
 
 
 def concatenate_band_extract(in_dir, out_dir):
-    states = set([f.split('_')[2] for f in os.listdir(in_dir) if f.endswith('.csv')])
+    states = set([f.split("_")[2] for f in os.listdir(in_dir) if f.endswith(".csv")])
     states_files = {s: [] for s in states}
-    [states_files[f.split('_')[2]].append(os.path.join(in_dir, f)) for f in os.listdir(in_dir) if f.endswith('.csv')]
+    [
+        states_files[f.split("_")[2]].append(os.path.join(in_dir, f))
+        for f in os.listdir(in_dir)
+        if f.endswith(".csv")
+    ]
 
     for state, files in states_files.items():
         dfs = [pd.read_csv(f) for f in files]
         df = pd.concat(dfs, axis=0)
-        df['YEAR'] = df['NEW_YEAR']
-        df = df.drop(columns=['FID', 'MGRS_TILE', '.geo', 'system:index', 'STUSPS', 'NEW_YEAR'])
-        outfile = os.path.join(out_dir, f'{state}_bands_ae.csv')
+        df["YEAR"] = df["NEW_YEAR"]
+        df = df.drop(
+            columns=["FID", "MGRS_TILE", ".geo", "system:index", "STUSPS", "NEW_YEAR"]
+        )
+        outfile = os.path.join(out_dir, f"{state}_bands_ae.csv")
         df.to_csv(outfile, index=False)
 
 
@@ -340,21 +406,27 @@ def push_bands_to_asset(_dir, states, bucket, bands_root):
     shapes = []
 
     for state in states:
-
-        state_file = f'{state}_bands_ae.csv'
+        state_file = f"{state}_bands_ae.csv"
         local_f = os.path.join(_dir, state_file)
 
-        bucket = os.path.join(bucket, 'state_ae_bands')
+        bucket = os.path.join(bucket, "state_ae_bands")
         _file = os.path.join(bucket, state_file)
 
-        cmd = [GS, 'cp', local_f, _file]
+        cmd = [GS, "cp", local_f, _file]
         check_call(cmd)
         shapes.append(_file)
 
-        asset_ids = [os.path.basename(shp).split('.')[0] for shp in shapes]
+        asset_ids = [os.path.basename(shp).split(".")[0] for shp in shapes]
 
         for s, id_ in zip(shapes, asset_ids):
-            cmd = [EE, 'upload', 'table', '-f', '--asset_id={}{}'.format(bands_root, id_), s]
+            cmd = [
+                EE,
+                "upload",
+                "table",
+                "-f",
+                "--asset_id={}{}".format(bands_root, id_),
+                s,
+            ]
             check_call(cmd)
             print(id_, s)
 
@@ -362,49 +434,74 @@ def push_bands_to_asset(_dir, states, bucket, bands_root):
 def classify_alpha_earth(states, tables, glob, years, out_coll):
     """"""
     for state in states:
-        table = os.path.join(tables, '{}_{}'.format(state, glob))
-        geo = 'users/dgketchum/boundaries/{}'.format(state)
-        export_classification(out_name=state, table=table, asset_root=out_coll, region=geo,
-                              years=years, bag_fraction=0.8, southern=False, alpha_earth=True)
+        table = os.path.join(tables, "{}_{}".format(state, glob))
+        geo = "users/dgketchum/boundaries/{}".format(state)
+        export_classification(
+            out_name=state,
+            table=table,
+            asset_root=out_coll,
+            region=geo,
+            years=years,
+            bag_fraction=0.8,
+            southern=False,
+            alpha_earth=True,
+        )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     is_authorized()
-    root = '/media/research/IrrigationGIS'
+    root = "/media/research/IrrigationGIS"
     if not os.path.exists(root):
-        root = '/home/dgketchum/data/IrrigationGIS'
+        root = "/home/dgketchum/data/IrrigationGIS"
 
-    pt_aea = os.path.join(root, 'irrmapper', 'EE_extracts', 'point_shp', 'state_aea')
-    pt_wgs = os.path.join(root, 'irrmapper', 'EE_extracts', 'point_shp', 'state_wgs_mgrs')
-    inferred_pt_wgs = os.path.join(root, 'irrmapper', 'EE_extracts', 'point_shp', 'state_wgs_inferred_modern_4c')
-    mgrs_aea = os.path.join(root, 'boundaries', 'mgrs', 'mgrs_aea.shp')
-    bucket_ = 'gs://wudr'
+    pt_aea = os.path.join(root, "irrmapper", "EE_extracts", "point_shp", "state_aea")
+    pt_wgs = os.path.join(
+        root, "irrmapper", "EE_extracts", "point_shp", "state_wgs_mgrs"
+    )
+    inferred_pt_wgs = os.path.join(
+        root, "irrmapper", "EE_extracts", "point_shp", "state_wgs_inferred_modern_4c"
+    )
+    mgrs_aea = os.path.join(root, "boundaries", "mgrs", "mgrs_aea.shp")
+    bucket_ = "gs://wudr"
 
-    states = ['AZ', 'CA', 'CO', 'ID', 'MT', 'NM', 'NV', 'OR', 'UT', 'WA', 'WY']
-    east_states = ['ND', 'SD', 'NE', 'KS', 'OK', 'TX']
+    states = ["AZ", "CA", "CO", "ID", "MT", "NM", "NV", "OR", "UT", "WA", "WY"]
+    east_states = ["ND", "SD", "NE", "KS", "OK", "TX"]
 
     states += east_states
 
     # state_shapefiles = to_geographic(pt_aea, pt_wgs, states=states, mgrs_path=mgrs)
 
-    eglb = '_modern.shp'
+    eglb = "_modern.shp"
 
-    state_shapefiles = [os.path.join(inferred_pt_wgs, f) for f in os.listdir(inferred_pt_wgs) if f.endswith(eglb)]
-    asset_rt_ = 'users/dgketchum/points/state_inferred'
+    state_shapefiles = [
+        os.path.join(inferred_pt_wgs, f)
+        for f in os.listdir(inferred_pt_wgs)
+        if f.endswith(eglb)
+    ]
+    asset_rt_ = "users/dgketchum/points/state_inferred"
 
     # for shp in state_shapefiles:
     #     push_points_to_asset(pt_wgs, shp, bucket, asset_rt_)
 
-    ae_extract = '/data/ssd2/irrmapper/states/bands/bands_ae/'
+    ae_extract = "/data/ssd2/irrmapper/states/bands/bands_ae/"
     # get_bands(inferred_pt_wgs, extract_modern=True, check_dir=ae_extract, diagnose=False,
     #           extract_alpha_earth=True, states=['WA'])
 
-    ae_concatenated = os.path.join(root, 'irrmapper', 'EE_extracts', 'concatenated', 'state_ae')
+    ae_concatenated = os.path.join(
+        root, "irrmapper", "EE_extracts", "concatenated", "state_ae"
+    )
     # concatenate_band_extract(ae_extract, ae_concatenated)
 
-    ee_root = 'users/dgketchum/bands/state_ae/'
+    ee_root = "users/dgketchum/bands/state_ae/"
 
     # push_bands_to_asset(ae_concatenated, states=['WA'], bucket=bucket_, bands_root=ee_root)
 
-    collection = 'users/dgketchum/IrrMapper/IrrMapper_AE'
-    classify_alpha_earth(states=['WA'], tables=ee_root, glob='bands_ae', out_coll=collection, years=[2017])
+    collection = "users/dgketchum/IrrMapper/IrrMapper_AE"
+    classify_alpha_earth(
+        states=["WA"],
+        tables=ee_root,
+        glob="bands_ae",
+        out_coll=collection,
+        years=[2017],
+    )
 # ========================= EOF ====================================================================
