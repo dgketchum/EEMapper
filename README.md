@@ -9,23 +9,30 @@ Oregon, Utah, Washington, Wyoming.
 
 ## Data access
 
-The published product is an Earth Engine image collection, one image per
-state-year (e.g. `MT_2024`):
+The current product version is **1.2**, published in the
+[Earth Engine public data catalog](https://developers.google.com/earth-engine/datasets/catalog/UMT_Climate_IrrMapper_RF_v1_2):
 
 ```python
 import ee
 ee.Initialize()
 
-# boolean irrigated-only product
-irr = ee.Image('projects/ee-dgketchum/assets/IrrMapper/version1_2/MT_2024')
+# public catalog collection: irrigated pixels = 1, others masked
+irr = ee.ImageCollection('UMT/Climate/IrrMapper_RF/v1_2')
 ```
 
-Two product levels:
+The working collections carry one image per state-year (e.g. `MT_2024`):
 
 | Collection | Classes |
 |---|---|
+| `UMT/Climate/IrrMapper_RF/v1_2` (public catalog) | irrigated = 1, others masked |
 | `projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp` | 0 irrigated, 1 rainfed, 2 uncultivated, 3 wetland |
 | `projects/ee-dgketchum/assets/IrrMapper/version1_2` | irrigated only (class 0, masked) |
+
+Version 1.1 (deprecated, still served as `UMT/Climate/IrrMapper_RF/v1_1`;
+1986–2018) is the original 2020 *Remote Sensing* training data re-run on
+Landsat Collection 2. Version 1.2 expanded the training data, moved to
+per-state Random Forest models, and added the validation and uncertainty
+analysis published with the 2023 *Communications Earth & Environment* paper.
 
 Training data (labeled polygons: irrigated with year annotation, dryland,
 fallow, uncultivated, wetland) are published at
@@ -46,11 +53,17 @@ fallow, uncultivated, wetland) are published at
    center-pivot evidence) before export to the published collections
    (`map/call_ee.py::export_special`, `map/assets.py`).
 
-Metadata manifests for every published asset are in `provenance/`.
+Metadata manifests for every published asset are in `provenance/`. The
+product's full history and reproduction chain are documented in
+[docs/provenance.md](docs/provenance.md) and
+[docs/reproducibility.md](docs/reproducibility.md).
 
 ## Repository layout
 
 - `map/` — production pipeline (Earth Engine + scikit-learn)
+- `configs/` — canonical run configurations (TOML); `irrmapper_v1_2.toml`
+  reproduces the current production flow
+- `docs/` — product provenance and reproducibility documentation
 - `training_redevelopment/` — experimental ML (MLP/U-Net, embedding-based
   classification) toward IrrMapper v2
 - `provenance/` — asset metadata manifests and archived per-run feature lists
