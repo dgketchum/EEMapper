@@ -11,7 +11,9 @@ dependencies = [
     "geopandas",
     "matplotlib",
     "numpy",
-    "pandas",
+    # pandas 3.0 Copy-on-Write silently breaks the chained-assignment class
+    # remaps in tables.py; stay on 2.x until those paths are rewritten (Phase 2)
+    "pandas>=2,<3",
     "rasterstats",
     "scikit-learn",
     "scipy",
@@ -24,6 +26,18 @@ ml = [
     "pytorch-lightning",
     "torchmetrics",
     "tqdm",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "ruff",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "ee: requires authenticated Earth Engine credentials (skipped in CI)",
 ]
 
 [tool.hatch.build.targets.wheel]
