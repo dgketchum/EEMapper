@@ -1,0 +1,146 @@
+# Canonical IrrMapper v1.2 run configuration.
+#
+# Reproduces the current production flow (v1.2, 2025 vintage) exactly; the
+# golden-fixture tests assert that post-processing expressions built from
+# this file are byte-identical to what map/call_ee.py::export_special
+# hardcodes. Expression templates are verbatim from that function — quirks
+# included (ID's leading spaces; variables bound but unused by a template).
+#
+# Version lineage (see earthengine-catalog UMT_Climate_IrrMapper_RF_*.jsonnet):
+# v1.0 = 2020 Remote Sensing paper product (Landsat C1), assets lost, catalog
+# entry removed 2023; v1.1 = original training data re-run on Landsat C2
+# (1986-2018, deprecated); v1.2 = expanded training data, per-state RF models,
+# 2023 Comms Earth & Environ validation. Pre-1.2 pipelines predate this
+# config system and are not reproducible here.
+
+[product]
+name = "IrrMapper"
+version = "1.2"
+public_collection = "UMT/Climate/IrrMapper_RF/v1_2"
+
+[project]
+ee_project = "ee-dgketchum"
+user_root = "users/dgketchum"
+gcs_bucket = "wudr"
+
+[paths]
+data_root = "/nas/irrmapper"
+boundaries = "users/dgketchum/boundaries"
+points = "users/dgketchum/points/state"
+training_tables = "users/dgketchum/bands/state"
+raw_collection = "users/dgketchum/IrrMapper/IrrMapper_sw"
+comp_collection = "projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp"
+boolean_collection = "projects/ee-dgketchum/assets/IrrMapper/version1_2"
+
+[run]
+states = ["AZ", "CA", "CO", "ID", "MT", "NM", "NV", "OR", "UT", "WA", "WY"]
+years = [2025]
+vintage_glob = "09MAY2023"
+southern_states = ["AZ", "CA", "NM"]
+
+[model]
+kind = "smileRandomForest"
+number_of_trees = 150
+min_leaf_population = 1
+bag_fraction = 0.5
+
+[export]
+scale = 30
+max_pixels = 1e13
+
+# --------------------------------------------------------------------------
+# Post-processing rules (call_ee.py::export_special, lines 290-469).
+# threshold 'ramp': t = before if year < switch_year else
+#                   max(horizon - year - 1, 0)
+# steps run sequentially; a step with min_year is skipped for earlier years.
+# IRR binds to the running classification; other variables bind to the
+# original stacked image.
+# --------------------------------------------------------------------------
+
+[postproc.MT]
+threshold = { type = "fixed", value = 6 }
+pivot_assets = [
+    { before = 2010, asset = "users/dgketchum/openet/pivots/mt_pivot_2009" },
+    { before = 2012, asset = "users/dgketchum/openet/pivots/mt_pivot_2011" },
+    { before = 2014, asset = "users/dgketchum/openet/pivots/mt_pivot_2013" },
+    { before = 2019, asset = "users/dgketchum/openet/pivots/mt_pivot_2015" },
+    { asset = "users/dgketchum/openet/pivots/mt_pivot_2019" },
+]
+steps = [
+    { expression = "(IRR == 1) && (NDVI > 0.75) && (SUM > {t}) ? 0: (IRR == 0) && (SUM < {t}) ? 1: (IRR == 0) && (SLOPE > 10) ? 3: IRR", variables = ["IRR", "SUM", "NDVI", "SLOPE"] },
+    { expression = "(IRR != 0) && (NDVI > 0.68) && (PIVOT == 1) ? 0: IRR", variables = ["IRR", "SUM", "NDVI", "PIVOT"], min_year = 2008 },
+]
+
+[postproc.ID]
+# source computes a year-conditional ramp then unconditionally overrides to 5
+threshold = { type = "fixed", value = 5 }
+pivot_assets = [{ asset = "users/dgketchum/openet/western_17_pivots" }]
+steps = [
+    { expression = " (IRR == 0) && (NDVI < 0.68) && (SUM > {t}) ? 1: (IRR != 0) && (NDVI > 0.75) && (SUM > {t}) ? 0: (IRR == 0) && (SUM < {t}) ? 1: IRR", variables = ["IRR", "SUM", "NDVI"] },
+    { expression = " (IRR == 0) && (SLOPE > 6) ? 3: IRR", variables = ["IRR", "SLOPE"] },
+    { expression = "(IRR != 0) && (NDVI > 0.68) && (PIVOT == 1) && (SUM > {t}) ? 0: IRR", variables = ["IRR", "SUM", "NDVI", "PIVOT"], min_year = 2011 },
+]
+
+[postproc.WA]
+threshold = { type = "ramp", before = 5, switch_year = 2016, horizon = 2025 }
+pivot_assets = [{ asset = "users/dgketchum/openet/western_17_pivots" }]
+steps = [
+    { expression = "(IRR == 1) && (NDVI > 0.75) && (SUM > {t}) ? 0: (IRR == 0) && (SUM < {t}) ? 1: (IRR == 0) && (SLOPE > 10) ? 3: IRR", variables = ["IRR", "SUM", "NDVI", "SLOPE"] },
+    { expression = "(IRR != 0) && (NDVI > 0.68) && (PIVOT == 1) && (SUM > {t}) ? 0: IRR", variables = ["IRR", "SUM", "NDVI", "PIVOT"], min_year = 2012 },
+]
+
+[postproc.OR]
+threshold = { type = "ramp", before = 5, switch_year = 2016, horizon = 2025 }
+pivot_assets = [{ asset = "users/dgketchum/openet/western_17_pivots" }]
+steps = [
+    { expression = "(IRR == 1) && (NDVI > 0.75) && (SUM > {t}) ? 0: (IRR == 0) && (SUM < {t}) ? 1: (IRR == 0) && (SLOPE > 10) ? 3: IRR", variables = ["IRR", "SUM", "NDVI", "SLOPE"] },
+    { expression = "(IRR != 0) && (NDVI > 0.68) && (PIVOT == 1) && (SUM > {t}) ? 0: IRR", variables = ["IRR", "SUM", "NDVI", "PIVOT"], min_year = 2012 },
+]
+
+[postproc.NM]
+threshold = { type = "ramp", before = 5, switch_year = 2016, horizon = 2025 }
+pivot_assets = [{ asset = "users/dgketchum/openet/western_17_pivots" }]
+steps = [
+    { expression = "(IRR == 1) && (NDVI > 0.75) && (SUM > {t}) ? 0: (IRR == 0) && (SUM < {t}) ? 1: (IRR == 0) && (SLOPE > 10) ? 3: IRR", variables = ["IRR", "SUM", "NDVI", "SLOPE"] },
+    { expression = "(IRR != 0) && (NDVI > 0.68) && (PIVOT == 1) && (SUM > {t}) ? 0: IRR", variables = ["IRR", "SUM", "NDVI", "PIVOT"], min_year = 2012 },
+]
+
+[postproc.NV]
+threshold = { type = "ramp", before = 5, switch_year = 2016, horizon = 2025 }
+pivot_assets = [{ asset = "users/dgketchum/openet/western_17_pivots" }]
+steps = [
+    { expression = "(IRR == 1) && (NDVI > 0.75) && (SUM > {t}) ? 0: (IRR == 0) && (SUM < {t}) ? 1: (IRR == 0) && (SLOPE > 10) ? 3: IRR", variables = ["IRR", "SUM", "NDVI", "SLOPE"] },
+    { expression = "(IRR != 0) && (NDVI > 0.68) && (PIVOT == 1) && (SUM > {t}) ? 0: IRR", variables = ["IRR", "SUM", "NDVI", "PIVOT"], min_year = 2012 },
+]
+
+[postproc.CO]
+threshold = { type = "ramp", before = 5, switch_year = 2016, horizon = 2025 }
+pivot_assets = [{ asset = "users/dgketchum/openet/western_17_pivots" }]
+steps = [
+    { expression = "(IRR == 1) && (NDVI > 0.75) && (SUM > {t}) ? 0: (IRR == 0) && (SUM < {t}) ? 1: (IRR == 0) && (SLOPE > 4) ? 3: IRR", variables = ["IRR", "SUM", "NDVI", "SLOPE"] },
+]
+
+[postproc.WY]
+threshold = { type = "ramp", before = 5, switch_year = 2016, horizon = 2025 }
+pivot_assets = [{ asset = "users/dgketchum/openet/western_17_pivots" }]
+steps = [
+    { expression = "(IRR == 1) && (NDVI > 0.75) && (SUM > {t}) ? 0: (IRR == 0) && (SUM < {t}) ? 1: (IRR == 0) && (SLOPE > 4) ? 3: IRR", variables = ["IRR", "SUM", "NDVI", "SLOPE"] },
+]
+
+[postproc.UT]
+threshold = { type = "ramp", before = 5, switch_year = 2016, horizon = 2025 }
+pivot_assets = [{ asset = "users/dgketchum/openet/western_17_pivots" }]
+steps = [
+    { expression = "(IRR == 1) && (NDVI > 0.75) && (SUM > {t}) ? 0: (IRR == 0) && (SUM < {t}) ? 1: (IRR == 0) && (SLOPE > 4) ? 3: IRR", variables = ["IRR", "SUM", "NDVI", "SLOPE"] },
+]
+
+[postproc.CA]
+threshold = { type = "ramp", before = 5, switch_year = 2016, horizon = 2021 }
+pivot_assets = [{ asset = "users/dgketchum/openet/western_17_pivots" }]
+steps = [
+    { expression = "(IRR == 1) && (NDVI > 0.75) && (SUM > {t}) ? 0: (IRR == 0) && (SUM < {t}) ? 1: (IRR == 0) && (SLOPE > 10) ? 3: IRR", variables = ["IRR", "SUM", "NDVI", "SLOPE"] },
+    { expression = "(IRR != 0) && (NDVI > 0.68) && (PIVOT == 1) && (SUM > {t}) ? 0: IRR", variables = ["IRR", "SUM", "NDVI", "PIVOT"], min_year = 2012 },
+]
+
+[postproc.AZ]
+copy_only = true
