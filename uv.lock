@@ -1218,6 +1218,7 @@ dependencies = [
     { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "scipy", version = "1.17.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "shapely" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
 ]
 
 [package.optional-dependencies]
@@ -1247,6 +1248,7 @@ requires-dist = [
     { name = "scikit-learn" },
     { name = "scipy" },
     { name = "shapely" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "torch", marker = "extra == 'ml'" },
     { name = "torchmetrics", marker = "extra == 'ml'" },
     { name = "tqdm", marker = "extra == 'ml'" },

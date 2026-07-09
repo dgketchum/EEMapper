@@ -18,6 +18,7 @@ dependencies = [
     "scikit-learn",
     "scipy",
     "shapely",
+    "tomli; python_version < '3.11'",
 ]
 
 [project.optional-dependencies]
