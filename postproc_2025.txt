@@ -1,0 +1,19 @@
+/home/dgketchum/miniconda/envs/irmp/lib/python3.12/site-packages/ee/deprecation.py:204: DeprecationWarning: 
+
+Attention required for USGS/NED! You are using a deprecated asset.
+To ensure continued functionality, please update it.
+Learn more: https://developers.google.com/earth-engine/datasets/catalog/USGS_NED
+
+  warnings.warn(warning, category=DeprecationWarning)
+Authorized
+No rule written for this AZ, copying
+2025 projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp/CA_2025
+2025 projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp/CO_2025
+2025 projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp/ID_2025
+2025 projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp/MT_2025
+2025 projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp/NM_2025
+2025 projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp/NV_2025
+2025 projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp/OR_2025
+2025 projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp/UT_2025
+2025 projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp/WA_2025
+2025 projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp/WY_2025
