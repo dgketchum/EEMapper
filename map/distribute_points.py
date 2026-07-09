@@ -4,7 +4,7 @@ import fiona
 import fiona.crs
 from numpy import linspace, max
 from numpy.random import shuffle, choice
-from pandas import DataFrame
+from pandas import DataFrame, concat
 from shapely.geometry import shape, Point, mapping
 from shapely.errors import TopologicalError
 
@@ -164,12 +164,15 @@ class PointsRunspec(object):
 
     def _add_entry(self, coord, val=0):
 
-        self.extracted_points = self.extracted_points.append({'FID': int(self.object_id),
-                                                              'X': coord[0],
-                                                              'Y': coord[1],
-                                                              'POINT_TYPE': val,
-                                                              'YEAR': int(self.year)},
-                                                             ignore_index=True)
+        entry = DataFrame([{'FID': int(self.object_id),
+                            'X': coord[0],
+                            'Y': coord[1],
+                            'POINT_TYPE': val,
+                            'YEAR': int(self.year)}])
+        if self.extracted_points.empty:
+            self.extracted_points = entry
+        else:
+            self.extracted_points = concat([self.extracted_points, entry], ignore_index=True)
         self.object_id += 1
 
     def save_sample_points(self, path):
