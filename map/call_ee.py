@@ -469,7 +469,7 @@ def export_special(input_coll, out_coll, roi, description):
             continue
 
         props.update({'post_process': expression_})
-        target.set(props)
+        target = target.set(props)
         target = target.rename('classification')
 
         desc = '{}_{}'.format(description, year)
