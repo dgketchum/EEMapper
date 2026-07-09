@@ -4,11 +4,10 @@ from copy import deepcopy
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
-from mpl_toolkits.axes_grid1.inset_locator import InsetPosition
 from numpy import logical_not, isnan, array, where, abs, max, min, vstack, hstack
 from pandas import read_csv, Series, DataFrame
-# from sklearn import linear_model
-# from sklearn.metrics import r2_score
+from sklearn import linear_model
+from sklearn.metrics import r2_score
 
 from map.variable_importance import variable_importance
 
@@ -31,7 +30,7 @@ def state_sum(csv):
     s.loc[0], s.loc[df_state.shape[0]] = 1e6, 1e7
     s.interpolate(axis=0, inplace=True)
     s.index = s.values
-    ax2 = fig.add_axes([0, 0, 1, 1])
+    ax2 = ax.inset_axes([0.07, 0.67, 0.3, 0.3])
     ax2.xaxis.label.set_visible(False)
     ax2.yaxis.label.set_visible(False)
     ax.text(0.26, 0.62, 'States', transform=ax.transAxes, ha="right")
@@ -43,8 +42,6 @@ def state_sum(csv):
     df_state.plot(x='NASS_{}_ac'.format(2012), y='IM{}_ac'.format(2012), kind='scatter', s=4,
                   xlim=(1e6, 1e7), ylim=(1e6, 1e7), ax=ax2, loglog=True, color='r')
     s.plot(x=s.values, kind='line', lw=1, loglog=True, color='k', style='--', alpha=0.5, label='_nolegend_')
-    ip = InsetPosition(ax, [0.07, 0.67, 0.3, 0.3])
-    ax2.set_axes_locator(ip)
     plt.show()
 
     return plt
@@ -113,8 +110,8 @@ def compare_nass_irrmapper_scatter(csv, fig_name=None):
     # plt.subplots_adjust(wspace=0.1, hspace=0.1)
     plt.tight_layout(pad=1.0, w_pad=1.0, h_pad=1.0)
 
-    x_txt = 'NASS ($\mathregular{km^2}$)'
-    y_txt = 'IrrMapper ($\mathregular{km^2}$)'
+    x_txt = r'NASS ($\mathregular{km^2}$)'
+    y_txt = r'IrrMapper ($\mathregular{km^2}$)'
 
     # fig.subplots_adjust(bottom=0.2, left=-0.5)
     fig.text(0.5, 0.0, x_txt, ha='center', fontsize=10)
@@ -208,7 +205,7 @@ def irr_time_series_totals(irr, nass, fig_name=None):
     # plt.title('Total Irrigated Area, Western 11 States \n 1986 - 2018')
     plt.xlim(1985, 2019)
     # plt.ylim(20, 30)
-    plt.ylabel('Thousand $\mathregular{km^2}$')
+    plt.ylabel(r'Thousand $\mathregular{km^2}$')
     plt.xlabel('Year')
     plt.tight_layout()
     plt.legend()
@@ -391,7 +388,7 @@ def state_bar_plots(csv, save_fig=None):
             ax.spines['top'].set_color('none')
 
     fig.delaxes(axes[5, 1])
-    fig.text(0.37, 0.5, 'Annual Irrigated Area, $\mathregular{km^2}$', va='center', rotation='vertical')
+    fig.text(0.37, 0.5, r'Annual Irrigated Area, $\mathregular{km^2}$', va='center', rotation='vertical')
     plt.subplots_adjust(left=0.44, bottom=None, right=None,
                         top=None, wspace=None, hspace=None)
     if save_fig:
