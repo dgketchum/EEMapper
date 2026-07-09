@@ -1,0 +1,42 @@
+{
+  "AZ_2022": [],
+  "AZ_copy_asset_called": true,
+  "CA_2022": [
+    "(IRR == 1) && (NDVI > 0.75) && (SUM > 0) ? 0: (IRR == 0) && (SUM < 0) ? 1: (IRR == 0) && (SLOPE > 10) ? 3: IRR",
+    "(IRR != 0) && (NDVI > 0.68) && (PIVOT == 1) && (SUM > 0) ? 0: IRR"
+  ],
+  "CO_2022": [
+    "(IRR == 1) && (NDVI > 0.75) && (SUM > 2) ? 0: (IRR == 0) && (SUM < 2) ? 1: (IRR == 0) && (SLOPE > 4) ? 3: IRR"
+  ],
+  "ID_2022": [
+    " (IRR == 0) && (NDVI < 0.68) && (SUM > 5) ? 1: (IRR != 0) && (NDVI > 0.75) && (SUM > 5) ? 0: (IRR == 0) && (SUM < 5) ? 1: IRR",
+    " (IRR == 0) && (SLOPE > 6) ? 3: IRR",
+    "(IRR != 0) && (NDVI > 0.68) && (PIVOT == 1) && (SUM > 5) ? 0: IRR"
+  ],
+  "MT_2022": [
+    "(IRR == 1) && (NDVI > 0.75) && (SUM > 6) ? 0: (IRR == 0) && (SUM < 6) ? 1: (IRR == 0) && (SLOPE > 10) ? 3: IRR",
+    "(IRR != 0) && (NDVI > 0.68) && (PIVOT == 1) ? 0: IRR"
+  ],
+  "NM_2022": [
+    "(IRR == 1) && (NDVI > 0.75) && (SUM > 2) ? 0: (IRR == 0) && (SUM < 2) ? 1: (IRR == 0) && (SLOPE > 10) ? 3: IRR",
+    "(IRR != 0) && (NDVI > 0.68) && (PIVOT == 1) && (SUM > 2) ? 0: IRR"
+  ],
+  "NV_2022": [
+    "(IRR == 1) && (NDVI > 0.75) && (SUM > 2) ? 0: (IRR == 0) && (SUM < 2) ? 1: (IRR == 0) && (SLOPE > 10) ? 3: IRR",
+    "(IRR != 0) && (NDVI > 0.68) && (PIVOT == 1) && (SUM > 2) ? 0: IRR"
+  ],
+  "OR_2022": [
+    "(IRR == 1) && (NDVI > 0.75) && (SUM > 2) ? 0: (IRR == 0) && (SUM < 2) ? 1: (IRR == 0) && (SLOPE > 10) ? 3: IRR",
+    "(IRR != 0) && (NDVI > 0.68) && (PIVOT == 1) && (SUM > 2) ? 0: IRR"
+  ],
+  "UT_2022": [
+    "(IRR == 1) && (NDVI > 0.75) && (SUM > 2) ? 0: (IRR == 0) && (SUM < 2) ? 1: (IRR == 0) && (SLOPE > 4) ? 3: IRR"
+  ],
+  "WA_2022": [
+    "(IRR == 1) && (NDVI > 0.75) && (SUM > 2) ? 0: (IRR == 0) && (SUM < 2) ? 1: (IRR == 0) && (SLOPE > 10) ? 3: IRR",
+    "(IRR != 0) && (NDVI > 0.68) && (PIVOT == 1) && (SUM > 2) ? 0: IRR"
+  ],
+  "WY_2022": [
+    "(IRR == 1) && (NDVI > 0.75) && (SUM > 2) ? 0: (IRR == 0) && (SUM < 2) ? 1: (IRR == 0) && (SLOPE > 4) ? 3: IRR"
+  ]
+}
