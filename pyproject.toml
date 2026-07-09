@@ -1,0 +1,26 @@
+[project]
+name = "eemapper"
+version = "0.1.0"
+description = "Irrigated lands mapping with Earth Engine and Random Forest classification"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+
+dependencies = [
+    "earthengine-api",
+    "fiona",
+    "geopandas",
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "rasterstats",
+    "scikit-learn",
+    "scipy",
+    "shapely",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["map"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
