@@ -1,0 +1,28 @@
+name: ci
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Lint (syntax-level, repo-wide)
+        run: uv run ruff check --select E9,F63,F7,F82 .
+
+      - name: Lint (full, tests)
+        run: uv run ruff check tests/
+
+      - name: Test (Earth Engine tests skipped, no credentials)
+        run: uv run pytest -m "not ee" -v
