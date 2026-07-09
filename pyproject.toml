@@ -18,6 +18,14 @@ dependencies = [
     "shapely",
 ]
 
+[project.optional-dependencies]
+ml = [
+    "torch",
+    "pytorch-lightning",
+    "torchmetrics",
+    "tqdm",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["map"]
 
