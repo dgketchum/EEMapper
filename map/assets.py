@@ -14,8 +14,8 @@ EDIT_STATES = ['KS', 'ND', 'NE', 'OK', 'SD']
 TEST_YEARS = [1986, 1996, 2006, 2016]
 
 home = os.path.expanduser('~')
-EE = os.path.join(home, 'miniconda3', 'envs', 'irri', 'bin', 'earthengine')
-GSUTIL = os.path.join(home, 'miniconda3', 'envs', 'irri', 'bin', 'gsutil')
+EE = os.path.join(home, 'miniconda', 'envs', 'irmp', 'bin', 'earthengine')
+GSUTIL = os.path.join(home, 'miniconda', 'envs', 'irmp', 'bin', 'gsutil')
 
 
 def change_permissions(ee_asset, user=None):
@@ -162,7 +162,7 @@ def clip():
             print(target)
 
 
-def convert_to_boolean(in_col, out_col):
+def convert_to_boolean_and_export(in_col, out_col):
     l = list_assets(in_col)
     exist = list_assets(out_col)
 
@@ -298,6 +298,6 @@ if __name__ == '__main__':
     is_authorized()
     c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
     o = 'projects/ee-dgketchum/assets/IrrMapper/version1_2'
-    convert_to_boolean(c, o)
+    convert_to_boolean_and_export(c, o)
 
 # ========================= EOF ====================================================================

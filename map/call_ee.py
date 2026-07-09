@@ -202,57 +202,64 @@ def wrs_analysis(irrmapper, table, desc, bucket, debug=False):
     print(desc)
 
 
-def export_raster(irr_coll, roi=None, min_years=3, debug=False):
+def export_raster(irr_coll, roi=None, years=None, min_years=3, debug=False, state='WA',
+                  export_freq=True):
     irr_min_yr_mask = None
-    roi = ee.FeatureCollection(roi).filterMetadata('STAID', 'equals', '12340000').first()
+    roi = ee.FeatureCollection(roi)
+    geo = roi.geometry()
 
     irr_coll = ee.ImageCollection(irr_coll)
 
-    coll = irr_coll.filterDate('1987-01-01', '2024-12-31').select('classification')
+    start_yr, end_yr = years[0], years[-1]
+    coll = irr_coll.filterDate(f'{start_yr}-01-01', f'{end_yr}-12-31').select('classification')
     remap = coll.map(lambda img: img.lt(1))
 
     if min_years:
         irr_min_yr_mask = remap.sum().gte(min_years)
-        sum = remap.sum().mask(irr_min_yr_mask)
-    else:
-        sum = remap.sum()
 
-    sum = sum.clip(roi.geometry()).toInt()
+    if export_freq:
+        if irr_min_yr_mask is not None:
+            sum = remap.sum().mask(irr_min_yr_mask)
+        else:
+            sum = remap.sum()
 
-    desc = 'irrmapper_freq_1987_2024_maskgt3_05NOV2024'
-    task = ee.batch.Export.image.toCloudStorage(
-        image=sum,
-        description=desc,
-        bucket='wudr',
-        fileNamePrefix=desc,
-        region=roi.geometry(),
-        scale=30,
-        maxPixels=1e13,
-        crs='EPSG:5071',
-        fileFormat='GeoTIFF')
-    print(desc)
-    task.start()
+        sum = sum.clip(geo).toInt()
 
-    for year in range(1987, 2025):
+        desc = 'irrmapper_{}_freq_{}_{}_{}'.format(state, start_yr, end_yr,
+                                                   datetime.now().strftime('%d%b%Y').upper())
+        task = ee.batch.Export.image.toCloudStorage(
+            image=sum,
+            description=desc,
+            bucket='wudr',
+            fileNamePrefix='irrmapper_{}/{}'.format(state, desc),
+            region=geo,
+            scale=30,
+            maxPixels=1e13,
+            crs='EPSG:5071',
+            fileFormat='GeoTIFF')
+        print(desc)
+        task.start()
+
+    for year in years:
         coll = irr_coll.filterDate(f'{year}-01-01', f'{year}-12-31').select('classification')
         if irr_min_yr_mask:
             remap = coll.map(lambda img: img.lt(1)).mosaic().mask(irr_min_yr_mask).toInt()
         else:
             remap = coll.map(lambda img: img.lt(1)).mosaic().toInt()
-        remap = remap.clip(roi.geometry())
+        remap = remap.clip(geo)
 
         if debug:
-            pt = ee.FeatureCollection(ee.Geometry.Point([-113.395, 46.946]))
+            pt = ee.FeatureCollection(ee.Geometry.Point([-120.5, 47.0]))
             data = remap.sampleRegions(collection=pt, scale=30)
             data = data.getInfo()
 
-        desc = 'irrmapper_{}'.format(year)
+        desc = 'irrmapper_{}_{}'.format(state, year)
         task = ee.batch.Export.image.toCloudStorage(
             image=remap,
             description=desc,
             bucket='wudr',
-            fileNamePrefix=desc,
-            region=roi.geometry(),
+            fileNamePrefix='irrmapper_{}/{}'.format(state, desc),
+            region=geo,
             scale=30,
             maxPixels=1e13,
             crs='EPSG:5071',
@@ -951,9 +958,9 @@ def export_resmaple_irr_change():
     task.start()
 
 
-def is_authorized():
+def is_authorized(project='ee-dgketchum'):
     try:
-        ee.Initialize()
+        ee.Initialize(project=project)
         print('Authorized')
         return True
     except Exception as e:
@@ -962,11 +969,12 @@ def is_authorized():
 
 
 if __name__ == '__main__':
-    is_authorized()
-    in_c = 'users/dgketchum/IrrMapper/IrrMapper_sw'
+    is_authorized(project='ee-dgketchum')
     out_c = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
-    for state in ['UT']:
-        roi_ = 'users/dgketchum/boundaries/{}'.format(state)
-        export_special(in_c, out_c, roi_, state)
+    years_ = list(range(2020, 2026))
+
+    geo_ = 'users/dgketchum/boundaries/ID'
+    export_raster(out_c, geo_, years=years_, min_years=3, debug=False, state='ID',
+                  export_freq=False)
 
 # ========================= EOF ====================================================================
