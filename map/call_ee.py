@@ -486,7 +486,7 @@ def export_special(input_coll, out_coll, roi, description):
         print(year, _id)
 
 
-def export_classification(out_name, table, asset_root, region, years,
+def export_classification(out_name, table, asset_root, region, years, alpha_earth=False,
                           export='asset', bag_fraction=0.5, input_props=None, southern=False):
     """
     Trains a Random Forest classifier using a training table input, creates a stack of raster images of the same
@@ -515,7 +515,11 @@ def export_classification(out_name, table, asset_root, region, years,
     trained_model = classifier.train(fc, 'POINT_TYPE', input_props)
 
     for yr in years:
-        input_bands = stack_bands(yr, roi, southern)
+
+        if alpha_earth:
+            input_bands = get_alpha_earth_bands(yr, roi)
+        else:
+            input_bands = stack_bands(yr, roi, southern)
 
         b, p = input_bands.bandNames().getInfo(), input_props.getInfo()
         check = [x for x in p if x not in b]
@@ -751,6 +755,12 @@ def request_band_extract(file_prefix, points_layer, region, years, filter_bounds
 
         task.start()
         print('{}_{}'.format(file_prefix, yr))
+
+def get_alpha_earth_bands(yr, roi):
+    dataset = (ee.ImageCollection('GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL')
+               .filterDate(f'{yr}-01-01', f'{yr}-12-31').filterBounds(roi).mosaic())
+    dataset = dataset.clip(roi)
+    return dataset
 
 
 def stack_bands(yr, roi, southern=False):
