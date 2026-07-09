@@ -111,3 +111,9 @@ spatial_data/MT
 tests/data
 gee_training.py
 model_data/
+
+# local working files, untracked by convention
+CLAUDE.md
+notes/
+commits.sh
+commands.sh

@@ -1,5 +1,5 @@
 [project]
-name = "eemapper"
+name = "irrmapper"
 version = "0.1.0"
 description = "Irrigated lands mapping with Earth Engine and Random Forest classification"
 license = "Apache-2.0"
