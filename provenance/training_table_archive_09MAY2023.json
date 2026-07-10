@@ -1,0 +1,142 @@
+{
+  "archive_dir": "/nas/irrmapper/training_table_archive/09MAY2023",
+  "created": "2026-07-10T04:25:18.753908+00:00",
+  "earthengine_api_version": "1.7.13",
+  "git_sha": "e399393c3dd070e4e6fa1f24d4a4a1e6022bb1bd",
+  "source_root": "users/dgketchum/bands/state",
+  "tables": {
+    "AZ_09MAY2023": {
+      "asset_id": "users/dgketchum/bands/state/AZ_09MAY2023",
+      "files": [
+        {
+          "file": "AZ_09MAY2023.csv",
+          "n_rows": 21679,
+          "sha256": "0cca32f09cc0f2b8ee32eac3a478c2ab58b8af22b652610f95eb788d579cea45",
+          "size_bytes": 24946161
+        }
+      ],
+      "gcs_uri": "gs://wudr/training_table_archive/AZ_09MAY2023.csv"
+    },
+    "CA_09MAY2023": {
+      "asset_id": "users/dgketchum/bands/state/CA_09MAY2023",
+      "files": [
+        {
+          "file": "CA_09MAY2023.csv",
+          "n_rows": 17869,
+          "sha256": "11655b0a208d927cac414db9dd7bac2e20fee7cc757f0d103f750cef82ac32d3",
+          "size_bytes": 20546733
+        }
+      ],
+      "gcs_uri": "gs://wudr/training_table_archive/CA_09MAY2023.csv"
+    },
+    "CO_09MAY2023": {
+      "asset_id": "users/dgketchum/bands/state/CO_09MAY2023",
+      "files": [
+        {
+          "file": "CO_09MAY2023.csv",
+          "n_rows": 20900,
+          "sha256": "d2c6805f0d91a3b8a01c4db5f3004ea74a7a99789f1000cefb81543e4d3ae2e1",
+          "size_bytes": 25271346
+        }
+      ],
+      "gcs_uri": "gs://wudr/training_table_archive/CO_09MAY2023.csv"
+    },
+    "ID_09MAY2023": {
+      "asset_id": "users/dgketchum/bands/state/ID_09MAY2023",
+      "files": [
+        {
+          "file": "ID_09MAY2023.csv",
+          "n_rows": 18334,
+          "sha256": "4ac00fa382a498eb78dd180f8a201cf0b90ca9a3227f7b72ea9ce7d7c2add80b",
+          "size_bytes": 22231761
+        }
+      ],
+      "gcs_uri": "gs://wudr/training_table_archive/ID_09MAY2023.csv"
+    },
+    "MT_09MAY2023": {
+      "asset_id": "users/dgketchum/bands/state/MT_09MAY2023",
+      "files": [
+        {
+          "file": "MT_09MAY2023.csv",
+          "n_rows": 30783,
+          "sha256": "2af5d81cb905aef0986653dd60f4b564fe0eeee56db30322094dcb80ad78dafe",
+          "size_bytes": 37315128
+        }
+      ],
+      "gcs_uri": "gs://wudr/training_table_archive/MT_09MAY2023.csv"
+    },
+    "NM_09MAY2023": {
+      "asset_id": "users/dgketchum/bands/state/NM_09MAY2023",
+      "files": [
+        {
+          "file": "NM_09MAY2023.csv",
+          "n_rows": 20889,
+          "sha256": "ebe1071fd2ca94e5f925234590f29a160230080f41f99d65309ce2e853143cb4",
+          "size_bytes": 25260686
+        }
+      ],
+      "gcs_uri": "gs://wudr/training_table_archive/NM_09MAY2023.csv"
+    },
+    "NV_09MAY2023": {
+      "asset_id": "users/dgketchum/bands/state/NV_09MAY2023",
+      "files": [
+        {
+          "file": "NV_09MAY2023.csv",
+          "n_rows": 17653,
+          "sha256": "087d0215f672f1a832c986857794ef7ce76419001a464fa773b8fd1e129f53e2",
+          "size_bytes": 21367145
+        }
+      ],
+      "gcs_uri": "gs://wudr/training_table_archive/NV_09MAY2023.csv"
+    },
+    "OR_09MAY2023": {
+      "asset_id": "users/dgketchum/bands/state/OR_09MAY2023",
+      "files": [
+        {
+          "file": "OR_09MAY2023.csv",
+          "n_rows": 24907,
+          "sha256": "d303f5ff4da501bae4a9abad109616fa2fec51a7d5fb8990c0767e27d884c389",
+          "size_bytes": 30303841
+        }
+      ],
+      "gcs_uri": "gs://wudr/training_table_archive/OR_09MAY2023.csv"
+    },
+    "UT_09MAY2023": {
+      "asset_id": "users/dgketchum/bands/state/UT_09MAY2023",
+      "files": [
+        {
+          "file": "UT_09MAY2023.csv",
+          "n_rows": 20345,
+          "sha256": "71495f52d0baf78761b0bcdeb3eb4d01df345dbe4244659c535c1ca8217d1319",
+          "size_bytes": 24593110
+        }
+      ],
+      "gcs_uri": "gs://wudr/training_table_archive/UT_09MAY2023.csv"
+    },
+    "WA_09MAY2023": {
+      "asset_id": "users/dgketchum/bands/state/WA_09MAY2023",
+      "files": [
+        {
+          "file": "WA_09MAY2023.csv",
+          "n_rows": 20337,
+          "sha256": "5618ac69ed5faa9798c05421875c717b969c31cf4e66d87413ee63b9c22989ab",
+          "size_bytes": 24739285
+        }
+      ],
+      "gcs_uri": "gs://wudr/training_table_archive/WA_09MAY2023.csv"
+    },
+    "WY_09MAY2023": {
+      "asset_id": "users/dgketchum/bands/state/WY_09MAY2023",
+      "files": [
+        {
+          "file": "WY_09MAY2023.csv",
+          "n_rows": 17686,
+          "sha256": "ea6669b93072f94afb1611a0de89147b392f46e434751b20085edfd5a9dddbe1",
+          "size_bytes": 21421247
+        }
+      ],
+      "gcs_uri": "gs://wudr/training_table_archive/WY_09MAY2023.csv"
+    }
+  },
+  "vintage": "09MAY2023"
+}
