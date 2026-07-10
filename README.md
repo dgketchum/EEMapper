@@ -40,18 +40,20 @@ fallow, uncultivated, wetland) are published at
 
 ## How it works
 
-1. Points are sampled from labeled polygons (`map/distribute_points.py`).
+1. Points are sampled from labeled polygons (`irrmapper/sampling/points.py`).
 2. A multi-season Landsat feature stack — surface reflectance composites,
    vegetation indices, GRIDMET climate, terrain, and ancillary layers — is
-   sampled at the points in Earth Engine (`map/call_ee.py`).
+   sampled at the points in Earth Engine (`irrmapper/features/stack.py`,
+   `irrmapper/sampling/extracts.py`).
 3. Per-state training tables are assembled and the most important ~50 features
-   selected (`map/tables.py`, `map/models.py`); the feature lists used by every
-   production run are archived in `provenance/variable_importance/`.
+   selected (`irrmapper/sampling/tables.py`, `irrmapper/models/rf_sklearn.py`);
+   the feature lists used by every production run are archived in
+   `provenance/variable_importance/`.
 4. A Random Forest (150 trees) is trained per state and applied per year
-   (`map/call_ee.py::export_classification`).
+   (`irrmapper/models/rf_ee.py::export_classification`).
 5. State-specific rules clean the raw classifications (frequency, NDVI, slope,
    center-pivot evidence) before export to the published collections
-   (`map/call_ee.py::export_special`, `map/assets.py`).
+   (`irrmapper/postproc/`, `irrmapper/assets/`).
 
 Metadata manifests for every published asset are in `provenance/`. The
 product's full history and reproduction chain are documented in
@@ -60,9 +62,15 @@ product's full history and reproduction chain are documented in
 
 ## Repository layout
 
-- `map/` — production pipeline (Earth Engine + scikit-learn)
+- `irrmapper/` — production pipeline package (Earth Engine + scikit-learn):
+  `ingest/` (Landsat, CDL, WorldClim), `features/` (the classifier's feature
+  stack), `sampling/` (points, extracts, training tables), `models/` (EE and
+  scikit-learn Random Forests), `postproc/` (cleanup rules, raster exports),
+  `validation/`, `assets/`, and the `cli.py` runner
 - `configs/` — canonical run configurations (TOML); `irrmapper_v1_2.toml`
   reproduces the current production flow
+- `legacy/` — quarantined v1.2-era and dissertation scripts, kept runnable
+  against the package but outside it
 - `docs/` — product provenance and reproducibility documentation
 - `training_redevelopment/` — experimental ML (MLP/U-Net, embedding-based
   classification) toward IrrMapper v2
@@ -75,9 +83,9 @@ Managed with [uv](https://docs.astral.sh/uv/):
 ```bash
 uv sync --all-extras
 # dry run: print the planned Earth Engine tasks for a stage
-uv run python -m map.runner configs/irrmapper_v1_2.toml classify
+uv run irrmapper configs/irrmapper_v1_2.toml classify
 # start the tasks (writes a resolved-run manifest to provenance/runs/)
-uv run python -m map.runner configs/irrmapper_v1_2.toml classify --execute
+uv run irrmapper configs/irrmapper_v1_2.toml classify --execute
 ```
 
 ## Status

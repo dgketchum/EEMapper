@@ -12,14 +12,14 @@ done). Phases 2/4 of the internal refactor plan build the machinery referenced h
 | # | Stage | Code | Status |
 |---|---|---|---|
 | 1 | Labels | Zenodo record v3 (public) | ✅ published, but no manifest maps which shapefiles fed which points run |
-| 2 | Point sampling | `distribute_points.PointsRunspec` | ⚠️ scripted; sampling parameters per vintage not recorded (pandas-2.x compat fixed 2026-07-09) |
-| 3 | Point upload to EE | `statewise.push_points_to_asset` | ⚠️ private assets; hand-run |
-| 4 | Band extract at points | `call_ee.request_band_extract` | ⚠️ hand-edited years/glob; CSVs in private GCS `wudr` |
-| 5 | Training-table build | `tables.concatenate_band_extract` | ⚠️ hardcoded local paths; the fallow(4)→irrigated(1) chained-assignment remaps were rewritten with `.loc` and the pandas pin lifted (pandas 3 supported, 2026-07-09) |
+| 2 | Point sampling | `irrmapper.sampling.points.PointsRunspec` | ⚠️ scripted; sampling parameters per vintage not recorded (pandas-2.x compat fixed 2026-07-09) |
+| 3 | Point upload to EE | `legacy/statewise.py::push_points_to_asset` | ⚠️ private assets; hand-run |
+| 4 | Band extract at points | `irrmapper.sampling.extracts.request_band_extract` | ⚠️ hand-edited years/glob; CSVs in private GCS `wudr` |
+| 5 | Training-table build | `irrmapper.sampling.tables.concatenate_band_extract` | ⚠️ hardcoded local paths; the fallow(4)→irrigated(1) chained-assignment remaps were rewritten with `.loc` and the pandas pin lifted (pandas 3 supported, 2026-07-09) |
 | 6 | Table upload | → `users/dgketchum/bands/state/{ST}_{vintage}` | ⚠️ the production `{ST}_09MAY2023` tables (231,382 points) are archived with SHA-256 checksums (`provenance/archive_training_tables.py` → `/nas` + `provenance/training_table_archive_09MAY2023.json`, 2026-07-09); Zenodo staging pending; earlier NOV2021 vintages still EE-only |
-| 7 | Feature selection | `models.find_rf_variable_importance` → `variables_{ST}_{glob}.json` | ✅ archived in `provenance/variable_importance/`; `map/runner.py` reads them from there |
-| 8 | Classification | `call_ee.export_classification` via `map/runner.py classify` | ✅ config-driven from `configs/irrmapper_v1_2.toml`; dry-run default; provenance-stamped (2026-07-09) |
-| 9 | Post-processing | `map/postproc.py::export_special` via `map/runner.py postprocess` | ✅ config-driven; graph parity with legacy verified live (see §3); `SUM` still depends on collection state at run time |
+| 7 | Feature selection | `irrmapper.models.rf_sklearn.find_rf_variable_importance` → `variables_{ST}_{glob}.json` | ✅ archived in `provenance/variable_importance/`; `irrmapper/cli.py` reads them from there |
+| 8 | Classification | `irrmapper.models.rf_ee.export_classification` via `irrmapper classify` | ✅ config-driven from `configs/irrmapper_v1_2.toml`; dry-run default; provenance-stamped (2026-07-09) |
+| 9 | Post-processing | `irrmapper.postproc.exports.export_special` via `irrmapper postprocess` | ✅ config-driven; graph parity with legacy verified live (see §3); `SUM` still depends on collection state at run time |
 | 10 | Environment | `pyproject.toml` + `uv.lock` | ⚠️ exist but untracked (commit in Phase 0) |
 
 Legend: ✅ reproducible now · ⚠️ scripted but requires undocumented hand-edits ·
@@ -54,17 +54,17 @@ asset + vintage, feature list, upstream EE dataset IDs (NED/NLCD/GRIDMET version
 Stamp the same into exported asset metadata.
 
 **Done 2026-07-09** for the classification/post-processing stages:
-`map/runner.py` drives extract, classify, postprocess, and rasters from the
-TOML (dry-run by default; `--execute` starts tasks). Every executed run writes
-a fully-resolved manifest to `provenance/runs/` and stamps
-`product_version`, `run_config_sha256`, `code_git_sha`,
-`earthengine_api_version`, and `run_created` onto each exported asset
-(`map/config.py::asset_properties`).
+`irrmapper/cli.py` (the `irrmapper` console script) drives extract, classify,
+postprocess, and rasters from the TOML (dry-run by default; `--execute` starts
+tasks). Every executed run writes a fully-resolved manifest to
+`provenance/runs/` and stamps `product_version`, `run_config_sha256`,
+`code_git_sha`, `earthengine_api_version`, and `run_created` onto each
+exported asset (`irrmapper/config.py::asset_properties`).
 
 ### C. Public access
 
 - Make `IrrMapperComp` and `version1_2` world-readable if they aren't already
-  (`assets.change_permissions` exists; currently used to set private).
+  (`legacy/assets_cli.py::change_permissions` exists; currently used to set private).
 - README documents: catalog asset IDs, GCS raster layout, Zenodo DOI, and the
   class key.
 
@@ -96,9 +96,11 @@ Three gates guard "the refactor didn't change the product":
 2. **Gate 2 — live graph parity + determinism baseline**:
    - `tests/test_gate2_graph_parity.py` (marked `ee`) captures the image each
      implementation hands to `Export.image.toAsset` and compares full
-     serialized-graph SHA-256, legacy `call_ee.export_special` vs config-driven
-     `map/postproc.py`, per state at 2022. **Passed for all 11 states
-     2026-07-09** — identical graphs guarantee identical pixels, no export
+     serialized-graph SHA-256, the frozen legacy function (now
+     `irrmapper/postproc/legacy.py`) vs config-driven
+     `irrmapper/postproc/exports.py`, per state at 2022. **Passed for all 11
+     states 2026-07-09**, and re-passed after the Phase 3 package restructure
+     (2026-07-10) — identical graphs guarantee identical pixels, no export
      needed. AZ's copy-only path verified identical.
    - `tests/fixtures/gate2_determinism.py` submits the production MT
      classification twice over a small Greenfields Bench ROI (2020), exports
