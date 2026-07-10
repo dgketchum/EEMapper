@@ -11,9 +11,7 @@ dependencies = [
     "geopandas",
     "matplotlib",
     "numpy",
-    # pandas 3.0 Copy-on-Write silently breaks the chained-assignment class
-    # remaps in tables.py; stay on 2.x until those paths are rewritten (Phase 2)
-    "pandas>=2,<3",
+    "pandas>=2",
     "rasterstats",
     "scikit-learn",
     "scipy",

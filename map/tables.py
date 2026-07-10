@@ -50,7 +50,7 @@ SELECT = dec_2020_variables()
 def concatenate_county_data(folder, out_file, glob='counties', acres=False):
     df = None
     base_names = [x for x in os.listdir(folder)]
-    _files = [os.path.join(folder, x) for x in base_names if x.startswith(glob) and not 'total_area' in x]
+    _files = [os.path.join(folder, x) for x in base_names if x.startswith(glob) and 'total_area' not in x]
     totals_file = [os.path.join(folder, x) for x in base_names if 'total_area' in x][0]
     first = True
 
@@ -163,7 +163,7 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, test_corre
     df['POINT_TYPE'] = points
     df = df[df['POINT_TYPE'] != 9]
 
-    df['POINT_TYPE'][df['POINT_TYPE'] == 4] = 1
+    df.loc[df['POINT_TYPE'] == 4, 'POINT_TYPE'] = 1
 
     print(df['POINT_TYPE'].value_counts())
 
@@ -186,9 +186,9 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, test_corre
 
     for c in df.columns:
         if c in INT_COLS:
-            df[c] = df[c].astype(int, copy=True)
+            df[c] = df[c].astype(int)
         else:
-            df[c] = df[c].astype(float, copy=True)
+            df[c] = df[c].astype(float)
     if sample:
         df = df.sample(frac=sample).reset_index(drop=True)
 
@@ -216,7 +216,7 @@ def concatenate_band_extract(root, out_dir, glob='None', sample=None, test_corre
     print('size: {}'.format(df.shape))
     print('file: {}'.format(out_file))
     if binary:
-        df['POINT_TYPE'][df['POINT_TYPE'] > 0] = 1
+        df.loc[df['POINT_TYPE'] > 0, 'POINT_TYPE'] = 1
         out_file = out_file.replace('.csv', '_binary.csv')
     print(df['POINT_TYPE'].value_counts())
     df.to_csv(out_file, index=False)
@@ -237,7 +237,7 @@ def balance_band_extract(csv_in, csv_out, binary=False):
             print('not enough {} class to sample {}'.format(i, x))
     df = sub_df
     if binary:
-        df['POINT_TYPE'][df['POINT_TYPE'] > 0] = 1
+        df.loc[df['POINT_TYPE'] > 0, 'POINT_TYPE'] = 1
     print(df['POINT_TYPE'].value_counts())
     df.to_csv(csv_out, index=False)
 
@@ -323,7 +323,7 @@ def concatenate_attrs_huc(_dir, out_csv_filename, out_shp_filename, template_geo
             df.drop(columns=['.geo', 'mean'], inplace=True)
             _count_csv = [f for f in yr_files if 'count' in f][0]
             count_arr = read_csv(_count_csv, index_col=0)['count'].values
-            df['TotalPix'.format(year)] = count_arr
+            df['TotalPix'] = count_arr
             df['Ct_{}'.format(year)] = mean_arr * count_arr
             first = False
 
@@ -441,7 +441,7 @@ def concatenate_attrs_county(_dir, out_csv_filename, out_shp_filename, template_
             df['Ct_{}'.format(year)] = mean_arr
             df.drop(columns=['.geo', 'sum'], inplace=True)
             count_arr = read_csv(total)['sum'].values
-            df['total_area'.format(year)] = count_arr
+            df['total_area'] = count_arr
             first = False
 
         else:
