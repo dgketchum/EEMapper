@@ -2,11 +2,9 @@ import os
 import sys
 from datetime import datetime, date
 
-from numpy import ceil, linspace
 from pprint import pprint
 
 import ee
-from numpy import ceil, linspace
 
 sys.path.insert(0, os.path.abspath('..'))
 from map.assets import list_assets, copy_asset
@@ -329,7 +327,7 @@ def export_special(input_coll, out_coll, roi, description):
                                           'SLOPE': expr.select('slope')})
 
                 expression_ = '(IRR != 0) && (NDVI > 0.68) && (PIVOT == 1) ? 0' \
-                              ': IRR'.format(t=threshold)
+                              ': IRR'.format()
 
                 target = target.expression(expression_,
                                            {'IRR': target.select('classification'),
@@ -360,7 +358,7 @@ def export_special(input_coll, out_coll, roi, description):
                                       'NDVI': expr.select('nd_max_gs')})
 
             expression_ = ' (IRR == 0) && (SLOPE > 6) ? 3' \
-                          ': IRR'.format(t=threshold)
+                          ': IRR'.format()
 
             target = target.expression(expression_,
                                        {'IRR': target.select('classification'),
@@ -487,7 +485,8 @@ def export_special(input_coll, out_coll, roi, description):
 
 
 def export_classification(out_name, table, asset_root, region, years, alpha_earth=False,
-                          export='asset', bag_fraction=0.5, input_props=None, southern=False):
+                          export='asset', bag_fraction=0.5, input_props=None, southern=False,
+                          extra_props=None):
     """
     Trains a Random Forest classifier using a training table input, creates a stack of raster images of the same
     features, and classifies it.  I run this over a for-loop iterating state by state.
@@ -497,6 +496,7 @@ def export_classification(out_name, table, asset_root, region, years, alpha_eart
     :param asset:
     :param export:
     :param bag_fraction:
+    :param extra_props: dict of additional properties set on the exported image (run provenance)
     :return:
     """
     fc = ee.FeatureCollection(table)
@@ -540,6 +540,9 @@ def export_classification(out_name, table, asset_root, region, years, alpha_eart
             'bag_fraction': bag_fraction,
             'class_key': '0: irrigated, 1: rainfed, 2: uncultivated, 3: wetland'})
 
+        if extra_props:
+            classified_img = classified_img.set(extra_props)
+
         classified_img = classified_img.clip(roi.geometry())
 
         if export == 'asset':
@@ -552,13 +555,14 @@ def export_classification(out_name, table, asset_root, region, years, alpha_eart
                 maxPixels=1e13)
 
         elif export == 'cloud':
+            # pyramidingPolicy applies only to asset exports; the current
+            # earthengine-api rejects it for GeoTIFF export
             task = ee.batch.Export.image.toCloudStorage(
                 image=classified_img,
                 description='{}_{}'.format(out_name, yr),
                 bucket='wudr',
                 fileNamePrefix='{}_{}'.format(yr, out_name),
                 scale=30,
-                pyramidingPolicy={'.default': 'mode'},
                 maxPixels=1e13)
         else:
             raise NotImplementedError('choose asset or cloud for export')

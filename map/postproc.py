@@ -17,11 +17,14 @@ from map.cdl import get_cdl
 from map.ee_utils import landsat_composites
 
 
-def export_special(cfg, input_coll, out_coll, roi, state, years, start_tasks=True):
+def export_special(cfg, input_coll, out_coll, roi, state, years, start_tasks=True,
+                   extra_props=None):
     """Post-process raw RF classifications for one state over the given years.
 
     Rules come from cfg.postproc[state]. With start_tasks=False the export
-    tasks are built but not started (dry-run).
+    tasks are built but not started (dry-run). extra_props are merged into
+    the exported image's properties (run provenance); copy_only states copy
+    the source asset verbatim and cannot be stamped.
     """
     rules = cfg.postproc[state]
     fc = ee.FeatureCollection(roi)
@@ -83,6 +86,8 @@ def export_special(cfg, input_coll, out_coll, roi, state, years, start_tasks=Tru
             first = False
 
         props.update({"post_process": expression_})
+        if extra_props:
+            props.update(extra_props)
         target = target.set(props)
         target = target.rename("classification")
 
