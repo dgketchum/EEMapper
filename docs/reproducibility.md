@@ -15,8 +15,8 @@ done). Phases 2/4 of the internal refactor plan build the machinery referenced h
 | 2 | Point sampling | `distribute_points.PointsRunspec` | ⚠️ scripted; sampling parameters per vintage not recorded (pandas-2.x compat fixed 2026-07-09) |
 | 3 | Point upload to EE | `statewise.push_points_to_asset` | ⚠️ private assets; hand-run |
 | 4 | Band extract at points | `call_ee.request_band_extract` | ⚠️ hand-edited years/glob; CSVs in private GCS `wudr` |
-| 5 | Training-table build | `tables.concatenate_band_extract` | ⚠️ hardcoded local paths; pandas pinned `>=2,<3` (2026-07-09) because the fallow(4)→irrigated(1) remap at tables.py:166/219/240 is a chained assignment that pandas 3.0 CoW silently no-ops — rewrite with `.loc` in Phase 2, then lift the pin |
-| 6 | Table upload | → `users/dgketchum/bands/state/{ST}_{vintage}` | ❌ private; the NOV2021 tables ARE the training data and exist nowhere else |
+| 5 | Training-table build | `tables.concatenate_band_extract` | ⚠️ hardcoded local paths; the fallow(4)→irrigated(1) chained-assignment remaps were rewritten with `.loc` and the pandas pin lifted (pandas 3 supported, 2026-07-09) |
+| 6 | Table upload | → `users/dgketchum/bands/state/{ST}_{vintage}` | ⚠️ the production `{ST}_09MAY2023` tables (231,382 points) are archived with SHA-256 checksums (`provenance/archive_training_tables.py` → `/nas` + `provenance/training_table_archive_09MAY2023.json`, 2026-07-09); Zenodo staging pending; earlier NOV2021 vintages still EE-only |
 | 7 | Feature selection | `models.find_rf_variable_importance` → `variables_{ST}_{glob}.json` | ✅ archived in `provenance/variable_importance/`; `map/runner.py` reads them from there |
 | 8 | Classification | `call_ee.export_classification` via `map/runner.py classify` | ✅ config-driven from `configs/irrmapper_v1_2.toml`; dry-run default; provenance-stamped (2026-07-09) |
 | 9 | Post-processing | `map/postproc.py::export_special` via `map/runner.py postprocess` | ✅ config-driven; graph parity with legacy verified live (see §3); `SUM` still depends on collection state at run time |
@@ -29,10 +29,14 @@ Legend: ✅ reproducible now · ⚠️ scripted but requires undocumented hand-e
 
 ### A. Archive derived artifacts as-is (short-term, no refactor needed)
 
-1. Export the production EE training tables (`{ST}_*NOV2021`, `{ST}_09MAY2023`
-   extracts) to GCS and archive them — either a new versioned Zenodo record or a
-   `data/` release attached to a GitHub release.
-2. Commit the `variables_{ST}_{glob}.json` feature lists to the repo.
+1. Export the production EE training tables to GCS and archive them — either a
+   new versioned Zenodo record or a `data/` release attached to a GitHub
+   release. **09MAY2023 done Jul 2026** (`provenance/archive_training_tables.py`:
+   gs://wudr/training_table_archive/ → `/nas/irrmapper/training_table_archive/`,
+   manifest with SHA-256 + row counts committed). The `{ST}_*NOV2021` vintages
+   and the Zenodo record itself remain.
+2. ~~Commit the `variables_{ST}_{glob}.json` feature lists to the repo~~
+   **Done** (`provenance/variable_importance/`).
 3. ~~Harvest asset-metadata manifest~~ **Done Jul 2026**
    (`provenance/harvest_asset_metadata.py` + per-collection CSVs). Result: the
    `post_process` property was never stamped (discarded-`set()` bug, since fixed),
