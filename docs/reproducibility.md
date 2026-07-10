@@ -17,9 +17,9 @@ done). Phases 2/4 of the internal refactor plan build the machinery referenced h
 | 4 | Band extract at points | `call_ee.request_band_extract` | ⚠️ hand-edited years/glob; CSVs in private GCS `wudr` |
 | 5 | Training-table build | `tables.concatenate_band_extract` | ⚠️ hardcoded local paths; pandas pinned `>=2,<3` (2026-07-09) because the fallow(4)→irrigated(1) remap at tables.py:166/219/240 is a chained assignment that pandas 3.0 CoW silently no-ops — rewrite with `.loc` in Phase 2, then lift the pin |
 | 6 | Table upload | → `users/dgketchum/bands/state/{ST}_{vintage}` | ❌ private; the NOV2021 tables ARE the training data and exist nowhere else |
-| 7 | Feature selection | `models.find_rf_variable_importance` → `variables_{ST}_{glob}.json` | ❌ local-disk only, unarchived |
-| 8 | Classification | `call_ee.export_classification` | ⚠️ hand-edited years/glob per run |
-| 9 | Post-processing | `call_ee.export_special` | ⚠️ hand-edited year; `SUM` depends on collection state at run time |
+| 7 | Feature selection | `models.find_rf_variable_importance` → `variables_{ST}_{glob}.json` | ✅ archived in `provenance/variable_importance/`; `map/runner.py` reads them from there |
+| 8 | Classification | `call_ee.export_classification` via `map/runner.py classify` | ✅ config-driven from `configs/irrmapper_v1_2.toml`; dry-run default; provenance-stamped (2026-07-09) |
+| 9 | Post-processing | `map/postproc.py::export_special` via `map/runner.py postprocess` | ✅ config-driven; graph parity with legacy verified live (see §3); `SUM` still depends on collection state at run time |
 | 10 | Environment | `pyproject.toml` + `uv.lock` | ⚠️ exist but untracked (commit in Phase 0) |
 
 Legend: ✅ reproducible now · ⚠️ scripted but requires undocumented hand-edits ·
@@ -49,6 +49,14 @@ every run emits `provenance.json`: code SHA, resolved config hash, training-tabl
 asset + vintage, feature list, upstream EE dataset IDs (NED/NLCD/GRIDMET versions).
 Stamp the same into exported asset metadata.
 
+**Done 2026-07-09** for the classification/post-processing stages:
+`map/runner.py` drives extract, classify, postprocess, and rasters from the
+TOML (dry-run by default; `--execute` starts tasks). Every executed run writes
+a fully-resolved manifest to `provenance/runs/` and stamps
+`product_version`, `run_config_sha256`, `code_git_sha`,
+`earthengine_api_version`, and `run_created` onto each exported asset
+(`map/config.py::asset_properties`).
+
 ### C. Public access
 
 - Make `IrrMapperComp` and `version1_2` world-readable if they aren't already
@@ -63,6 +71,8 @@ diffed against the published raster. This is simultaneously:
 - the "did the refactor change outputs?" regression gate (refactor Constraint #2),
 - the reproducibility demonstration for OSIRIS reporting.
 
+See §3 for the pieces in place.
+
 ### E. Benchmark-era data versioning (forward-looking)
 
 FM4Irr D1.1 introduces semver'd benchmark data (major = schema/label change,
@@ -71,7 +81,37 @@ must record the benchmark version they trained on. Adopt that scheme here from t
 first post-refactor run; retro-label the 2021/2023 vintages as best-effort
 (e.g. `legacy-2021.11`, `legacy-2023.05`).
 
-## 3. Zenodo record notes
+## 3. Equivalence gates (refactor regression protection)
+
+Three gates guard "the refactor didn't change the product":
+
+1. **Gate 1 — golden fixtures (CI, no EE)**: serialized `stack_bands` graph
+   hashes and the `export_special` expression strings for all 11 states are
+   committed under `tests/fixtures/`; `pytest -m "not ee"` re-derives both
+   from current code and diffs against the fixtures on every push.
+2. **Gate 2 — live graph parity + determinism baseline**:
+   - `tests/test_gate2_graph_parity.py` (marked `ee`) captures the image each
+     implementation hands to `Export.image.toAsset` and compares full
+     serialized-graph SHA-256, legacy `call_ee.export_special` vs config-driven
+     `map/postproc.py`, per state at 2022. **Passed for all 11 states
+     2026-07-09** — identical graphs guarantee identical pixels, no export
+     needed. AZ's copy-only path verified identical.
+   - `tests/fixtures/gate2_determinism.py` submits the production MT
+     classification twice over a small Greenfields Bench ROI (2020), exports
+     both to GCS, and pixel-diffs the rasters. **Result (2026-07-09): 161 of
+     1,237,400 pixels differ (0.013%)** — scattered single pixels flipping
+     between all class pairs, i.e. decision-boundary pixels under EE's
+     distributed execution (row-order/accumulation jitter in RF training and
+     compositing), not tile artifacts. Consequence: bit-identity is NOT
+     achievable for any comparison that re-trains the classifier; pixel-level
+     parity checks must use a tolerance at or above this ~1.3e-4 noise floor,
+     and serialized-graph identity (the parity test above) is the exact
+     equivalence tool because it is execution-independent. Artifacts in
+     `/nas/irrmapper/gate2_determinism/`.
+3. **Gate 3 — full-state parity** before the Dec 2026 production run: one
+   complete state-year via the runner diffed against the legacy path.
+
+## 4. Zenodo record notes
 
 The current record is the CommsEnv paper dataset (v3, Dec 2025), tied to that
 publication. Plan: once benchmark work starts (Aug 2026), create a dedicated

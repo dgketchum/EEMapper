@@ -74,7 +74,10 @@ Managed with [uv](https://docs.astral.sh/uv/):
 
 ```bash
 uv sync --all-extras
-uv run python map/statewise.py
+# dry run: print the planned Earth Engine tasks for a stage
+uv run python -m map.runner configs/irrmapper_v1_2.toml classify
+# start the tasks (writes a resolved-run manifest to provenance/runs/)
+uv run python -m map.runner configs/irrmapper_v1_2.toml classify --execute
 ```
 
 ## Status
