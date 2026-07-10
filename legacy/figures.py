@@ -9,7 +9,7 @@ from pandas import read_csv, Series, DataFrame
 from sklearn import linear_model
 from sklearn.metrics import r2_score
 
-from map.variable_importance import variable_importance
+from irrmapper.features.variable_lists import variable_importance
 
 # plt.style.use('presentation.mplstyle')
 

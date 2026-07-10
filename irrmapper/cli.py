@@ -9,23 +9,25 @@ and prints them without initializing EE or starting tasks. Pass
 --execute (CLI) or dry_run=False to run them; a resolved manifest is then
 written to [paths].run_manifests and its digest set on every exported asset.
 
-    uv run python -m map.runner configs/irrmapper_v1_2.toml classify
-    uv run python -m map.runner configs/irrmapper_v1_2.toml classify --states MT --execute
+    uv run irrmapper configs/irrmapper_v1_2.toml classify
+    uv run irrmapper configs/irrmapper_v1_2.toml classify --states MT --execute
 """
 
 import argparse
 import json
 import os
 
-from map import call_ee
-from map import postproc
-from map.config import (
+from irrmapper import auth
+from irrmapper import postproc
+from irrmapper.config import (
     asset_properties,
     load_config,
     resolve_path,
     resolved_manifest,
     write_manifest,
 )
+from irrmapper.models import rf_ee
+from irrmapper.sampling import extracts
 
 
 def _states(cfg, states):
@@ -48,7 +50,7 @@ def feature_list(cfg, state):
 
 
 def plan_extract(cfg, years, points_glob, out_glob, states=None):
-    """Point-sample the feature stack: call_ee.request_band_extract per state."""
+    """Point-sample the feature stack: extracts.request_band_extract per state."""
     plans = []
     for state in _states(cfg, states):
         plans.append({
@@ -67,7 +69,7 @@ def plan_extract(cfg, years, points_glob, out_glob, states=None):
 
 
 def plan_classify(cfg, states=None, years=None):
-    """Train and apply the per-state RF: call_ee.export_classification."""
+    """Train and apply the per-state RF: rf_ee.export_classification."""
     plans = []
     for state in _states(cfg, states):
         plans.append({
@@ -102,7 +104,7 @@ def plan_postprocess(cfg, states=None, years=None):
 
 
 def plan_rasters(cfg, years, states=None, min_years=3, export_freq=True):
-    """Export boolean/frequency GeoTIFFs to GCS: call_ee.export_raster."""
+    """Export boolean/frequency GeoTIFFs to GCS: postproc.export_raster."""
     plans = []
     for state in _states(cfg, states):
         plans.append({
@@ -125,7 +127,7 @@ def _show(plans):
 
 def _begin_run(cfg, config_path):
     """Authorize EE, write the resolved manifest, return the asset props."""
-    if not call_ee.is_authorized(project=cfg.project.ee_project):
+    if not auth.is_authorized(project=cfg.project.ee_project):
         raise RuntimeError("Earth Engine authorization failed")
     manifest = resolved_manifest(cfg, config_path)
     path = write_manifest(manifest, resolve_path(cfg.paths.run_manifests))
@@ -142,7 +144,7 @@ def run_extract(cfg, years, points_glob, out_glob, states=None, dry_run=True,
     _begin_run(cfg, config_path)
     for p in plans:
         kwargs = {k: v for k, v in p.items() if k != "stage"}
-        call_ee.request_band_extract(**kwargs)
+        extracts.request_band_extract(**kwargs)
     return plans
 
 
@@ -154,7 +156,7 @@ def run_classify(cfg, states=None, years=None, dry_run=True, config_path=None):
     props = _begin_run(cfg, config_path)
     for p in plans:
         kwargs = {k: v for k, v in p.items() if k != "stage"}
-        call_ee.export_classification(extra_props=props, **kwargs)
+        rf_ee.export_classification(extra_props=props, **kwargs)
     return plans
 
 
@@ -179,7 +181,7 @@ def run_rasters(cfg, years, states=None, min_years=3, export_freq=True,
     _begin_run(cfg, config_path)
     for p in plans:
         kwargs = {k: v for k, v in p.items() if k != "stage"}
-        call_ee.export_raster(**kwargs)
+        postproc.export_raster(**kwargs)
     return plans
 
 

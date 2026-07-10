@@ -1,9 +1,9 @@
 """Unit tests for run-provenance (manifest stamping) helpers.
 
-Covers the pure provenance machinery in map.config (manifest_digest,
+Covers the pure provenance machinery in irrmapper.config (manifest_digest,
 asset_properties, write_manifest, resolve_path / repo_root, resolved_manifest)
-and the extra_props threading added to map.postproc.export_special and
-map.call_ee.export_classification. Everything is fully mocked; no Earth Engine
+and the extra_props threading added to irrmapper.postproc.exports.export_special
+and irrmapper.models.rf_ee.export_classification. Everything is fully mocked; no Earth Engine
 credentials or network access are required (CI runs pytest -m "not ee").
 """
 
@@ -15,9 +15,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import map.call_ee
-import map.postproc
-from map.config import (
+from irrmapper.models import rf_ee
+from irrmapper.postproc import exports
+from irrmapper.config import (
     asset_properties,
     load_config,
     manifest_digest,
@@ -136,14 +136,14 @@ def test_resolve_path_relative_anchored_to_repo_root():
 
 
 def test_repo_root_locates_repo():
-    """repo_root points at the repository (has map/ and the canonical config)."""
+    """repo_root points at the repository (has irrmapper/ and the canonical config)."""
     root = repo_root()
-    assert os.path.isdir(os.path.join(root, "map"))
+    assert os.path.isdir(os.path.join(root, "irrmapper"))
     assert os.path.isfile(os.path.join(root, "configs", "irrmapper_v1_2.toml"))
 
 
 # --------------------------------------------------------------------------- #
-# extra_props threading: map.postproc.export_special
+# extra_props threading: irrmapper.postproc.exports.export_special
 # --------------------------------------------------------------------------- #
 def _run_postproc_export(cfg, extra_props):
     """Run export_special (MT, 2022) fully mocked; return the props dict.
@@ -163,13 +163,13 @@ def _run_postproc_export(cfg, extra_props):
     mock_copy = MagicMock(name="copy_asset")
 
     with mock.patch.multiple(
-        "map.postproc",
+        "irrmapper.postproc.exports",
         ee=mock_ee,
         landsat_composites=mock_landsat,
         get_cdl=mock_get_cdl,
         copy_asset=mock_copy,
     ):
-        map.postproc.export_special(
+        exports.export_special(
             cfg,
             "in_coll",
             "out_coll",
@@ -202,7 +202,7 @@ def test_export_special_omits_stamp_without_extra_props(cfg):
 
 
 # --------------------------------------------------------------------------- #
-# extra_props threading: map.call_ee.export_classification
+# extra_props threading: irrmapper.models.rf_ee.export_classification
 # --------------------------------------------------------------------------- #
 def _set_call_args(*mocks):
     """Collect the positional args of every ``.set(...)`` call recorded across
@@ -238,8 +238,8 @@ def _run_export_classification(extra_props):
     if extra_props is not None:
         kwargs["extra_props"] = extra_props
 
-    with mock.patch.multiple("map.call_ee", ee=mock_ee, stack_bands=mock_stack):
-        map.call_ee.export_classification(**kwargs)
+    with mock.patch.multiple("irrmapper.models.rf_ee", ee=mock_ee, stack_bands=mock_stack):
+        rf_ee.export_classification(**kwargs)
     return mock_ee, mock_stack
 
 

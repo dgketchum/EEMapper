@@ -1,4 +1,4 @@
-"""Capture golden fixtures for map.call_ee.stack_bands.
+"""Capture golden fixtures for irrmapper.features.stack.stack_bands.
 
 Builds the feature-stack expression graph for a small matrix of
 (state, southern-flag, year) cases and records, per case:
@@ -24,7 +24,8 @@ import os
 
 import ee
 
-from map.call_ee import is_authorized, stack_bands
+from irrmapper.auth import is_authorized
+from irrmapper.features.stack import stack_bands
 
 FIXTURE_DIR = os.path.dirname(os.path.abspath(__file__))
 

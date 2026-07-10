@@ -1,6 +1,6 @@
-"""Unit tests for the config-driven runner (map/runner.py).
+"""Unit tests for the config-driven runner (irrmapper/cli.py).
 
-The runner replaces the hand-edited orchestration in map/statewise.py: every
+The runner replaces the hand-edited orchestration in legacy/statewise.py: every
 per-state parameter now comes from configs/irrmapper_v1_2.toml, the default is
 a dry run that touches no Earth Engine surface, and every executed export is
 stamped with resolved-run provenance. These tests lock the plan conventions to
@@ -14,15 +14,15 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from map import runner
-from map.config import load_config
-from map.runner import (
+from irrmapper import cli as runner
+from irrmapper.cli import (
     feature_list,
     plan_classify,
     plan_extract,
     plan_postprocess,
     plan_rasters,
 )
+from irrmapper.config import load_config
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_PATH = os.path.join(REPO, "configs", "irrmapper_v1_2.toml")
@@ -129,11 +129,15 @@ def test_rasters_plan_fields(cfg):
 # --------------------------------------------------------------------------- #
 def test_dry_run_makes_no_ee_calls(cfg, monkeypatch):
     """The default dry run only builds and prints plans; it must never reach into
-    call_ee or postproc (no attribute call at all)."""
-    mock_call_ee = MagicMock(name="call_ee")
+    auth, extracts, rf_ee, or postproc (no attribute call at all)."""
+    mock_auth = MagicMock(name="auth")
+    mock_extracts = MagicMock(name="extracts")
+    mock_rf_ee = MagicMock(name="rf_ee")
     mock_postproc = MagicMock(name="postproc")
-    monkeypatch.setattr("map.runner.call_ee", mock_call_ee)
-    monkeypatch.setattr("map.runner.postproc", mock_postproc)
+    monkeypatch.setattr("irrmapper.cli.auth", mock_auth)
+    monkeypatch.setattr("irrmapper.cli.extracts", mock_extracts)
+    monkeypatch.setattr("irrmapper.cli.rf_ee", mock_rf_ee)
+    monkeypatch.setattr("irrmapper.cli.postproc", mock_postproc)
 
     runner.run_classify(cfg, states=["MT"], dry_run=True)
     runner.run_postprocess(cfg, states=["MT"], dry_run=True)
@@ -147,7 +151,9 @@ def test_dry_run_makes_no_ee_calls(cfg, monkeypatch):
     )
     runner.run_rasters(cfg, years=[2025], states=["MT"], dry_run=True)
 
-    assert mock_call_ee.mock_calls == []
+    assert mock_auth.mock_calls == []
+    assert mock_extracts.mock_calls == []
+    assert mock_rf_ee.mock_calls == []
     assert mock_postproc.mock_calls == []
 
 
@@ -158,18 +164,20 @@ def test_run_classify_execute_stamps_provenance(cfg, monkeypatch, tmp_path):
     """Executing classify authorizes, writes a manifest, then calls
     export_classification once with the plan kwargs plus a provenance
     extra_props dict."""
-    mock_call_ee = MagicMock(name="call_ee")
-    mock_call_ee.is_authorized.return_value = True
-    monkeypatch.setattr("map.runner.call_ee", mock_call_ee)
+    mock_auth = MagicMock(name="auth")
+    mock_auth.is_authorized.return_value = True
+    monkeypatch.setattr("irrmapper.cli.auth", mock_auth)
+    mock_rf_ee = MagicMock(name="rf_ee")
+    monkeypatch.setattr("irrmapper.cli.rf_ee", mock_rf_ee)
     monkeypatch.setattr(
-        "map.runner.write_manifest",
+        "irrmapper.cli.write_manifest",
         lambda manifest, out_dir: str(tmp_path / "manifest.json"),
     )
 
     runner.run_classify(cfg, states=["MT"], dry_run=False, config_path=CONFIG_PATH)
 
-    assert mock_call_ee.export_classification.call_count == 1
-    kwargs = dict(mock_call_ee.export_classification.call_args.kwargs)
+    assert mock_rf_ee.export_classification.call_count == 1
+    kwargs = dict(mock_rf_ee.export_classification.call_args.kwargs)
     extra = kwargs.pop("extra_props")
     expected = plan_classify(cfg, states=["MT"])[0]
     expected.pop("stage")
@@ -181,13 +189,13 @@ def test_run_classify_execute_stamps_provenance(cfg, monkeypatch, tmp_path):
 def test_run_postprocess_execute_stamps_provenance(cfg, monkeypatch, tmp_path):
     """Executing postprocess passes cfg positionally to export_special and stamps
     a run_config_sha256 into extra_props."""
-    mock_call_ee = MagicMock(name="call_ee")
-    mock_call_ee.is_authorized.return_value = True
-    monkeypatch.setattr("map.runner.call_ee", mock_call_ee)
+    mock_auth = MagicMock(name="auth")
+    mock_auth.is_authorized.return_value = True
+    monkeypatch.setattr("irrmapper.cli.auth", mock_auth)
     mock_postproc = MagicMock(name="postproc")
-    monkeypatch.setattr("map.runner.postproc", mock_postproc)
+    monkeypatch.setattr("irrmapper.cli.postproc", mock_postproc)
     monkeypatch.setattr(
-        "map.runner.write_manifest",
+        "irrmapper.cli.write_manifest",
         lambda manifest, out_dir: str(tmp_path / "manifest.json"),
     )
 

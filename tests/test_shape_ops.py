@@ -1,4 +1,4 @@
-"""Phase 1 safety-net tests for map/shape_ops.py.
+"""Phase 1 safety-net tests for irrmapper/sampling/shape_ops.py.
 
 Covers the pure vector utilities that do NOT shell out to ogr2ogr:
     - get_area (via captured stdout, since it prints rather than returns)
@@ -12,19 +12,11 @@ absolute data paths.
 All fixtures are synthetic shapefiles written under pytest tmp_path.
 """
 
-import os
 
 import fiona
 from shapely.geometry import Polygon, MultiPolygon, mapping
 
-# Importing shape_ops has an import-time side effect: it sets
-# os.environ['GDAL_DATA'] to a bogus relative miniconda path (line 41), which
-# can break fiona's ability to write .prj files. Import it, then strip that
-# bogus value so fiona falls back to its wheel-bundled GDAL data.
-import map.shape_ops as so
-
-if os.environ.get("GDAL_DATA") == "miniconda3/envs/gcs/share/gdal/":
-    os.environ.pop("GDAL_DATA")
+import irrmapper.sampling.shape_ops as so
 
 
 CRS = fiona.crs.from_epsg(5070)  # a projected (meter) CRS so areas are meaningful

@@ -24,8 +24,8 @@ from glob import glob
 
 import ee
 
-from map.call_ee import is_authorized
-from map.config import _git_sha, load_config, repo_root
+from irrmapper.auth import is_authorized
+from irrmapper.config import _git_sha, load_config, repo_root
 
 CONFIG = os.path.join(repo_root(), "configs", "irrmapper_v1_2.toml")
 GCS_PREFIX = "training_table_archive"

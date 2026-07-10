@@ -4,10 +4,12 @@ import json
 from pprint import pprint
 
 import fiona
-from call_ee import is_authorized, request_band_extract, export_classification
-from tables import concatenate_band_extract
-from models import find_rf_variable_importance
-from assets import list_assets
+from irrmapper.auth import is_authorized
+from irrmapper.sampling.extracts import request_band_extract
+from irrmapper.models.rf_ee import export_classification
+from irrmapper.sampling.tables import concatenate_band_extract
+from irrmapper.models.rf_sklearn import find_rf_variable_importance
+from irrmapper.assets import list_assets
 
 #
 # ALL_STATES = TARGET_STATES + E_STATES

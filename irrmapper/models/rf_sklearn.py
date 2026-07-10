@@ -1,5 +1,4 @@
 import os
-import sys
 from pprint import pprint
 from time import time
 from subprocess import call
@@ -17,11 +16,7 @@ from sklearn.model_selection import RandomizedSearchCV, GridSearchCV, train_test
 from geopandas import GeoDataFrame
 from shapely.geometry import Point
 
-from map import FEATURE_NAMES
-from map.variable_importance import dec4_names
-
-abspath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(abspath)
+from irrmapper.features.names import FEATURE_NAMES
 
 INT_COLS = ['POINT_TYPE', 'YEAR', 'classification']
 CLASS_NAMES = ['IRR', 'DRYL', 'WETl', 'UNCULT']

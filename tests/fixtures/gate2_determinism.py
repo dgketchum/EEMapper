@@ -1,6 +1,6 @@
 """Gate 2 determinism baseline: classify a small ROI twice, diff the pixels.
 
-Submits the production classification (call_ee.export_classification, MT
+Submits the production classification (rf_ee.export_classification, MT
 model, 2020) twice in one session over a ~30 km box on the Greenfields
 Bench near Fairfield, MT — a dense center-pivot district. The two requests
 differ only by a provenance property (so they cannot be served as one
@@ -26,8 +26,9 @@ from glob import glob
 
 import ee
 
-from map.call_ee import export_classification, is_authorized
-from map.config import resolve_path
+from irrmapper.auth import is_authorized
+from irrmapper.config import resolve_path
+from irrmapper.models.rf_ee import export_classification
 
 STATE, YEAR, GLOB = "MT", 2020, "09MAY2023"
 TABLE = "users/dgketchum/bands/state/{}_{}".format(STATE, GLOB)

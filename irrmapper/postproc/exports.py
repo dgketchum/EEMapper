@@ -12,9 +12,9 @@ import os
 
 import ee
 
-from map.assets import copy_asset
-from map.cdl import get_cdl
-from map.ee_utils import landsat_composites
+from irrmapper.assets.ops import copy_asset
+from irrmapper.ingest.cdl import get_cdl
+from irrmapper.ingest.landsat import landsat_composites
 
 
 def export_special(cfg, input_coll, out_coll, roi, state, years, start_tasks=True,

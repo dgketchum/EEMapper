@@ -1,4 +1,4 @@
-"""Phase 1 safety-net tests for map/tables.py.
+"""Phase 1 safety-net tests for irrmapper/sampling/tables.py.
 
 Focus: concatenate_band_extract (the core per-year band-CSV concatenator /
 class-remapper) plus the small pure helpers to_polygon and join_tables.
@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 from shapely.geometry import Polygon
 
-from map.tables import concatenate_band_extract, to_polygon, join_tables
+from irrmapper.sampling.tables import concatenate_band_extract, to_polygon, join_tables
 
 
 def _write_band_csv(path, rows):

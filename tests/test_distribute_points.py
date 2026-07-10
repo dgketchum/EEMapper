@@ -1,4 +1,4 @@
-"""Phase 1 safety-net tests for map/distribute_points.py.
+"""Phase 1 safety-net tests for irrmapper/sampling/points.py.
 
 Covers the parts of PointsRunspec that are testable without real training
 data: construction with no vector paths, the pure static _random_points
@@ -11,19 +11,12 @@ NOT testable in this environment (documented, not forced):
 All fixtures are synthetic shapefiles under pytest tmp_path.
 """
 
-import os
 
 import numpy as np
 import fiona
 from shapely.geometry import Polygon, mapping
 
-# Importing distribute_points sets os.environ['GDAL_DATA'] to a bogus relative
-# miniconda path at import time (line 17), which can break fiona .prj writing.
-# Import, then strip the bogus value so fiona uses its bundled GDAL data.
-import map.distribute_points as dp
-
-if os.environ.get("GDAL_DATA") == "miniconda3/envs/gcs/share/gdal/":
-    os.environ.pop("GDAL_DATA")
+import irrmapper.sampling.points as dp
 
 
 CRS = fiona.crs.from_epsg(5070)

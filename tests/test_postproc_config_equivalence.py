@@ -1,8 +1,8 @@
 """Equivalence gate for the config-driven post-processing engine.
 
-map.postproc.export_special driven by configs/irrmapper_v1_2.toml must build,
-for every state at year 2022, exactly the expression strings the legacy
-map.call_ee.export_special hardcodes — asserted against the same golden
+irrmapper.postproc.exports.export_special driven by configs/irrmapper_v1_2.toml
+must build, for every state at year 2022, exactly the expression strings the
+legacy irrmapper.postproc.legacy.export_special hardcodes — asserted against the same golden
 fixture (tests/fixtures/export_special_expressions.json). Fully mocked, no
 EE credentials needed.
 
@@ -17,8 +17,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import map.postproc
-from map.config import ThresholdRule, load_config, resolved_manifest
+from irrmapper.config import ThresholdRule, load_config, resolved_manifest
+from irrmapper.postproc import exports
 
 YEAR = 2022
 STATES = ["MT", "ID", "WA", "OR", "NM", "NV", "CO", "WY", "UT", "CA", "AZ"]
@@ -52,13 +52,13 @@ def _capture_state(cfg, state, year=YEAR):
     mock_copy = MagicMock(name="copy_asset")
 
     with mock.patch.multiple(
-        "map.postproc",
+        "irrmapper.postproc.exports",
         ee=mock_ee,
         landsat_composites=mock_landsat,
         get_cdl=mock_get_cdl,
         copy_asset=mock_copy,
     ):
-        map.postproc.export_special(
+        exports.export_special(
             cfg, "in_coll", "out_coll", "roi", state, years=[year], start_tasks=False
         )
 

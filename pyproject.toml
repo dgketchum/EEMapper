@@ -19,6 +19,9 @@ dependencies = [
     "tomli; python_version < '3.11'",
 ]
 
+[project.scripts]
+irrmapper = "irrmapper.cli:main"
+
 [project.optional-dependencies]
 ml = [
     "torch",
@@ -40,7 +43,7 @@ markers = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["map"]
+packages = ["irrmapper"]
 
 [build-system]
 requires = ["hatchling"]

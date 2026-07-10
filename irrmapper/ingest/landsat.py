@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import ee
 
@@ -8,25 +8,6 @@ def add_doy(image):
     mask = ee.Date(image.get('system:time_start'))
     day = ee.Image.constant(image.date().getRelative('day', 'year')).clip(image.geometry())
     i = image.addBands(day.rename('DOY')).int().updateMask(mask)
-    return i
-
-
-def get_world_climate(proj, months, param='prec'):
-    if months[0] > months[1]:
-        months = [x for x in range(months[0], 13)] + [x for x in range(1, months[1] + 1)]
-    else:
-        months = [x for x in range(months[0], months[1] + 1)]
-    months = [str(x).zfill(2) for x in months]
-    assert param in ['tavg', 'prec']
-    combinations = [(m, param) for m in months]
-
-    l = [ee.Image('WORLDCLIM/V1/MONTHLY/{}'.format(m)).
-         select(param).resample('bilinear').reproject(crs=proj['crs'], scale=30) for m, p in combinations]
-    i = ee.ImageCollection(l)
-    if param == 'prec':
-        i = i.sum()
-    else:
-        i = i.mean()
     return i
 
 
@@ -116,7 +97,7 @@ def long_term_ndvi_stats(roi):
     for yr in range(1987, 2023):
         s, e = '{}-01-01'.format(yr), '{}-12-31'.format(yr)
         ndvi_mx = ee.Image(landsat.filterDate(s, e).map(
-            lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_max'.format(yr))
+            lambda x: x.normalizedDifference(['B5', 'B4'])).max()).rename('nd_max')
         nd_max.append(ndvi_mx)
 
     coll = ee.ImageCollection(nd_max)

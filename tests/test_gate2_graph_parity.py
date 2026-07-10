@@ -20,9 +20,9 @@ from unittest import mock
 import ee
 import pytest
 
-from map import call_ee
-from map import postproc
-from map.config import load_config
+from irrmapper.config import load_config
+from irrmapper.postproc import exports as postproc
+from irrmapper.postproc import legacy
 
 CONFIG_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -52,7 +52,7 @@ def _exported_image(mock_to_asset):
 def _capture_legacy(cfg, state):
     roi = os.path.join(cfg.paths.boundaries, state)
     with mock.patch.object(ee.batch.Export.image, "toAsset") as to_asset:
-        call_ee.export_special(
+        legacy.export_special(
             cfg.paths.raw_collection, cfg.paths.comp_collection, roi, state
         )
     return _exported_image(to_asset)
@@ -91,11 +91,11 @@ def test_postproc_copy_only_parity(ee_initialized):
     cfg = load_config(CONFIG_PATH)
     roi = os.path.join(cfg.paths.boundaries, "AZ")
 
-    with mock.patch("map.call_ee.copy_asset") as legacy_copy:
-        call_ee.export_special(
+    with mock.patch("irrmapper.postproc.legacy.copy_asset") as legacy_copy:
+        legacy.export_special(
             cfg.paths.raw_collection, cfg.paths.comp_collection, roi, "AZ"
         )
-    with mock.patch("map.postproc.copy_asset") as config_copy:
+    with mock.patch("irrmapper.postproc.exports.copy_asset") as config_copy:
         postproc.export_special(
             cfg,
             cfg.paths.raw_collection,

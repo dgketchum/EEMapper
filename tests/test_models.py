@@ -1,10 +1,10 @@
-"""Phase 1 safety-net tests for map/models.py.
+"""Phase 1 safety-net tests for irrmapper/models/rf_sklearn.py.
 
 Covers the pure confusion-matrix helpers (producer/consumer) with exact
 values, plus structural / smoke tests for the scikit-learn Random Forest
 helpers using small synthetic DataFrames.
 
-The RandomForestClassifier calls in models.py do NOT pass random_state, so the
+The RandomForestClassifier calls in rf_sklearn.py do NOT pass random_state, so the
 importance *values* are not reproducible across runs; we therefore assert only
 structure (types, ordering, feature set) and seed numpy for speed/stability.
 All fixtures are synthetic under tmp_path -- no Earth Engine, no real data.
@@ -13,7 +13,7 @@ All fixtures are synthetic under tmp_path -- no Earth Engine, no real data.
 import numpy as np
 import pandas as pd
 
-from map.models import consumer, producer, random_forest, find_rf_variable_importance
+from irrmapper.models.rf_sklearn import consumer, producer, random_forest, find_rf_variable_importance
 
 
 # --------------------------------------------------------------------------- #

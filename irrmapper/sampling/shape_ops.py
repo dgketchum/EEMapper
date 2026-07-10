@@ -21,10 +21,10 @@ from subprocess import check_call
 import numpy as np
 import fiona
 import fiona.crs
-from geopandas import GeoDataFrame, read_file, points_from_xy, clip
+from geopandas import GeoDataFrame, points_from_xy, clip
 from pandas import DataFrame, read_csv, concat
 from pandas import errors
-from shapely.geometry import Polygon, Point, mapping, MultiPolygon, shape
+from shapely.geometry import Polygon, Point, shape
 
 CLU_UNNEEDED = ['ca', 'nv', 'ut', 'wa', 'wy']
 CLU_USEFUL = ['az', 'co', 'id', 'mt', 'nm', 'or']
@@ -37,8 +37,6 @@ east_states = ['ND', 'SD', 'NE', 'KS', 'OK', 'TX']
 AEA = '+proj=aea +lat_0=40 +lon_0=-96 +lat_1=20 +lat_2=60 +x_0=0 +y_0=0 +ellps=GRS80 ' \
       '+towgs84=0,0,0,0,0,0,0 +units=m +no_defs'
 WGS = '+proj=longlat +datum=WGS84 +no_defs'
-
-os.environ['GDAL_DATA'] = 'miniconda3/envs/gcs/share/gdal/'
 
 OGR = '/usr/bin/ogr2ogr'
 

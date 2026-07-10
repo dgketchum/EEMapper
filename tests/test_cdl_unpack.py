@@ -8,7 +8,7 @@ namespace mocked.
 
 from unittest import mock
 
-from map.call_ee import reduce_classification
+from irrmapper.validation.reduce import reduce_classification
 
 
 def _cdl_triple():
@@ -18,8 +18,8 @@ def _cdl_triple():
 def test_reduce_classification_cdl_mask_unpacks_get_cdl():
     """cdl_mask=True (no min_years) reaches export without a ValueError."""
     with (
-        mock.patch("map.call_ee.ee") as mock_ee,
-        mock.patch("map.call_ee.get_cdl") as mock_cdl,
+        mock.patch("irrmapper.validation.reduce.ee") as mock_ee,
+        mock.patch("irrmapper.validation.reduce.get_cdl") as mock_cdl,
     ):
         mock_cdl.return_value = _cdl_triple()
         reduce_classification(
@@ -39,8 +39,8 @@ def test_reduce_classification_cdl_mask_unpacks_get_cdl():
 def test_reduce_classification_cdl_mask_with_min_years():
     """The cdl_mask + min_years branch unpacks the 3-tuple too."""
     with (
-        mock.patch("map.call_ee.ee") as mock_ee,
-        mock.patch("map.call_ee.get_cdl") as mock_cdl,
+        mock.patch("irrmapper.validation.reduce.ee") as mock_ee,
+        mock.patch("irrmapper.validation.reduce.get_cdl") as mock_cdl,
     ):
         mock_cdl.return_value = _cdl_triple()
         reduce_classification(

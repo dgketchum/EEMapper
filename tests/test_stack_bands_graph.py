@@ -1,10 +1,10 @@
-"""Golden-graph regression test for map.call_ee.stack_bands.
+"""Golden-graph regression test for irrmapper.features.stack.stack_bands.
 
 Rebuilds the feature-stack expression graph for each fixture case and
 compares band names and the SHA-256 of the serialized graph against the
 fixtures captured by tests/fixtures/capture_stack_bands.py. Any refactor
-of stack_bands (or its helpers in ee_utils) that alters the computation
-graph fails here.
+of stack_bands (or its helpers in irrmapper.ingest) that alters the
+computation graph fails here.
 
 Requires authenticated Earth Engine credentials (two metadata getInfo
 calls per case); skipped automatically when none are present. A hash
@@ -36,7 +36,7 @@ CASES = sorted(
 def test_stack_bands_graph_matches_fixture(ee_initialized, case):
     import ee
 
-    from map.call_ee import stack_bands
+    from irrmapper.features.stack import stack_bands
 
     with open(os.path.join(FIXTURE_DIR, "stack_bands_{}.json".format(case))) as fp:
         fixture = json.load(fp)

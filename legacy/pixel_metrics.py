@@ -9,7 +9,7 @@ import fiona
 from shapely.geometry import shape
 import mmu
 
-from state_county_codes import state_fips_code, county_acres, state_county_code
+from irrmapper.data.state_county_codes import state_fips_code, county_acres, state_county_code
 
 ee.Initialize()
 BOUNDARIES = 'users/dgketchum/boundaries'

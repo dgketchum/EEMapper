@@ -7,7 +7,7 @@ from numpy import where, nan, std, min, max, mean, ones_like, rint
 from pandas import read_csv, concat, errors, Series, merge
 from pandas import to_datetime, json_normalize
 from shapely.geometry import Polygon
-from map.variable_importance import dec_2020_variables
+from irrmapper.features.variable_lists import dec_2020_variables
 
 INT_COLS = ['POINT_TYPE', 'YEAR']
 

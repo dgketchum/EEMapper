@@ -5,7 +5,7 @@ from pandas import read_table, read_csv, concat
 import fiona
 import matplotlib.pyplot as plt
 
-from state_county_codes import state_fips_code
+from irrmapper.data.state_county_codes import state_fips_code
 
 DROP = ['SOURCE_DESC', 'SECTOR_DESC', 'GROUP_DESC',
         'COMMODITY_DESC', 'CLASS_DESC', 'PRODN_PRACTICE_DESC',

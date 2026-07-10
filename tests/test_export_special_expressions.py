@@ -1,4 +1,4 @@
-"""Golden-fixture regression test for ``map.call_ee.export_special``.
+"""Golden-fixture regression test for ``irrmapper.postproc.legacy.export_special``.
 
 This test locks down the per-state Earth Engine ``.expression()`` strings that
 ``export_special`` builds for the hardcoded ``range(2022, 2023)`` loop. It runs
@@ -18,7 +18,7 @@ import os
 from unittest import mock
 from unittest.mock import MagicMock
 
-import map.call_ee
+from irrmapper.postproc import legacy
 
 # The single year exercised by export_special's hardcoded range(2022, 2023).
 YEAR = 2022
@@ -54,13 +54,13 @@ def _capture_state(state):
     mock_copy = MagicMock(name="copy_asset")
 
     with mock.patch.multiple(
-        "map.call_ee",
+        "irrmapper.postproc.legacy",
         ee=mock_ee,
         landsat_composites=mock_landsat,
         get_cdl=mock_get_cdl,
         copy_asset=mock_copy,
     ):
-        map.call_ee.export_special("in_coll", "out_coll", "roi", state)
+        legacy.export_special("in_coll", "out_coll", "roi", state)
 
     # target starts as ee.Image(...), a descendant of mock_ee, so every chained
     # .expression() call is recorded in mock_ee.mock_calls in invocation order.

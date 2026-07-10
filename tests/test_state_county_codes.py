@@ -1,10 +1,10 @@
-"""Phase 1 safety-net tests for map/state_county_codes.py.
+"""Phase 1 safety-net tests for irrmapper/data/state_county_codes.py.
 
 These lock down the current behavior of the pure lookup-dictionary builders
 before a refactor. They are hermetic (no I/O, no network, no Earth Engine).
 """
 
-from map.state_county_codes import (
+from irrmapper.data.state_county_codes import (
     state_name_abbreviation,
     state_fips_code,
     state_county_code,
