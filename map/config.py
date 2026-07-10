@@ -7,6 +7,8 @@ require editing module constants again.
 """
 
 import dataclasses
+import hashlib
+import json
 import os
 import subprocess
 from dataclasses import dataclass, field
@@ -50,6 +52,8 @@ class PathsConfig:
     raw_collection: str
     comp_collection: str
     boolean_collection: str
+    variable_importance: str
+    run_manifests: str
 
 
 @dataclass
@@ -227,6 +231,17 @@ def load_config(path):
     return cfg
 
 
+def repo_root():
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def resolve_path(path):
+    """Resolve a [paths] entry: relative paths are anchored at the repo root."""
+    if os.path.isabs(path):
+        return path
+    return os.path.join(repo_root(), path)
+
+
 def _git_sha():
     try:
         out = subprocess.run(
@@ -256,3 +271,40 @@ def resolved_manifest(cfg, config_path=None):
         "earthengine_api_version": ee_version,
         "created": datetime.now(timezone.utc).isoformat(),
     }
+
+
+def manifest_digest(manifest):
+    """SHA-256 over the resolved config values — stable for a given config,
+    independent of when or where the run happened."""
+    canonical = json.dumps(manifest["config"], sort_keys=True)
+    return hashlib.sha256(canonical.encode()).hexdigest()
+
+
+def asset_properties(manifest):
+    """Compact provenance properties to stamp on every exported EE asset.
+
+    EE properties hold scalars, not documents; the full manifest goes to a
+    local JSON (write_manifest) and these keys tie the asset back to it.
+    """
+    product = manifest["config"]["product"]
+    props = {
+        "product_name": product["name"],
+        "product_version": product["version"],
+        "run_config_sha256": manifest_digest(manifest),
+        "code_git_sha": manifest["git_sha"],
+        "earthengine_api_version": manifest["earthengine_api_version"],
+        "run_created": manifest["created"],
+    }
+    return {k: v for k, v in props.items() if v is not None}
+
+
+def write_manifest(manifest, out_dir):
+    """Write the full resolved manifest next to the run's other outputs."""
+    os.makedirs(out_dir, exist_ok=True)
+    product = manifest["config"]["product"]
+    stamp = manifest["created"][:19].replace(":", "").replace("-", "")
+    name = "manifest_{}_{}_{}.json".format(product["name"], product["version"], stamp)
+    path = os.path.join(out_dir, name)
+    with open(path, "w") as fp:
+        json.dump(manifest, fp, indent=2, sort_keys=True)
+    return path

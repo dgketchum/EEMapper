@@ -31,12 +31,16 @@ training_tables = "users/dgketchum/bands/state"
 raw_collection = "users/dgketchum/IrrMapper/IrrMapper_sw"
 comp_collection = "projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp"
 boolean_collection = "projects/ee-dgketchum/assets/IrrMapper/version1_2"
+# relative paths resolve against the repository root
+variable_importance = "provenance/variable_importance"
+run_manifests = "provenance/runs"
 
 [run]
 states = ["AZ", "CA", "CO", "ID", "MT", "NM", "NV", "OR", "UT", "WA", "WY"]
 years = [2025]
 vintage_glob = "09MAY2023"
-southern_states = ["AZ", "CA", "NM"]
+# statewise.py as run for v1.2 production: southern composite windows for AZ, CA only
+southern_states = ["AZ", "CA"]
 
 [model]
 kind = "smileRandomForest"
