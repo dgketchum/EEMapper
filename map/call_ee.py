@@ -61,7 +61,7 @@ def reduce_classification(asset, shapes, years=None, description=None, cdl_mask=
         tot = coll.mosaic().select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0])
 
         if cdl_mask and min_years > 0:
-            cultivated, _ = get_cdl(yr)
+            cultivated, _, _ = get_cdl(yr)
             cdl_crop_mask = cultivated.eq(1)
             tot = tot.mask(cdl_crop_mask).mask(sum_mask)
 
@@ -69,7 +69,7 @@ def reduce_classification(asset, shapes, years=None, description=None, cdl_mask=
             tot = tot.mask(sum_mask)
 
         elif cdl_mask:
-            cultivated, _ = get_cdl(yr)
+            cultivated, _, _ = get_cdl(yr)
             cdl_crop_mask = cultivated.eq(1)
             tot = tot.mask(cdl_crop_mask)
 
