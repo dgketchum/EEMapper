@@ -18,7 +18,9 @@ list), ``fetch`` (gsutil rsync GCS -> disk), ``warp`` (native -> Albers COGs
 with a state-polygon cutline, plus ``grids.json`` for provenance), ``check``
 (edge zero fractions and value set, the QGIS reviewer's pass criterion),
 ``package`` (one zip per state with README, grids and boundary, plus SHA256
-lists), ``stats`` (pixel counts per file, parallel) and ``cancel``. ``submit --grid albers`` does the re-gridding on EE instead; kept
+lists), ``stats`` (pixel counts per file, parallel), ``upload`` (Zenodo REST
+API: create or resume a draft deposition, metadata, files with MD5 check; no
+publish unless asked) and ``cancel``. ``submit --grid albers`` does the re-gridding on EE instead; kept
 as an option, not the default path.
 
 The export region must be the asset's exact pixel rectangle (see
@@ -49,6 +51,10 @@ DEFAULT_TIF_DIR = "/nas/irrmapper/zenodo_v1_2/tif"
 DEFAULT_ALBERS_DIR = "/nas/irrmapper/zenodo_v1_2/tif_albers"
 DEFAULT_BOUNDARY_DIR = "/nas/irrmapper/zenodo_v1_2/boundaries"
 DEFAULT_DEPOSIT_DIR = "/nas/irrmapper/zenodo_v1_2/deposit"
+ZENODO_API = {
+    "zenodo": "https://zenodo.org/api",
+    "sandbox": "https://sandbox.zenodo.org/api",
+}
 NODATA = 255
 ALBERS = "EPSG:5070"
 SCALE = 30
@@ -636,6 +642,97 @@ def stats(albers_dir=DEFAULT_ALBERS_DIR, out_csv=None, jobs=8):
     return rows
 
 
+def _md5(path):
+    h = hashlib.md5()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def upload(
+    deposit_dir=DEFAULT_DEPOSIT_DIR,
+    deposition=None,
+    sandbox=False,
+    publish=False,
+    token=None,
+):
+    """Create or resume a Zenodo deposition, set metadata, upload the deposit files.
+
+    Uses the token in ``$ZENODO_TOKEN`` (``$ZENODO_SANDBOX_TOKEN`` with
+    ``sandbox``) and ``deposit_dir/zenodo_metadata.json``. Uploads every
+    ``.zip``, ``README.md`` and ``SHA256SUMS_*.txt`` in ``deposit_dir`` to the
+    deposition's file bucket, skipping names already present with a matching
+    MD5. Never publishes unless ``publish`` is set; prints the draft URL so
+    the record can be reviewed in the browser first.
+    """
+    import requests
+
+    env = "ZENODO_SANDBOX_TOKEN" if sandbox else "ZENODO_TOKEN"
+    token = token or os.environ.get(env)
+    if not token:
+        raise RuntimeError(
+            "set {} (a personal access token with deposit:write)".format(env)
+        )
+    api = ZENODO_API["sandbox" if sandbox else "zenodo"]
+    auth = {"Authorization": "Bearer {}".format(token)}
+    with open(os.path.join(deposit_dir, "zenodo_metadata.json")) as f:
+        metadata = json.load(f)
+
+    if deposition is None:
+        r = requests.post(
+            "{}/deposit/depositions".format(api), json={}, headers=auth, timeout=60
+        )
+        r.raise_for_status()
+        deposition = r.json()["id"]
+        print("created deposition {}".format(deposition))
+    url = "{}/deposit/depositions/{}".format(api, deposition)
+    r = requests.put(url, json=metadata, headers=auth, timeout=60)
+    r.raise_for_status()
+    dep = r.json()
+    bucket = dep["links"]["bucket"]
+    present = {
+        f["filename"]: f["checksum"].replace("md5:", "") for f in dep.get("files", [])
+    }
+
+    names = sorted(
+        n
+        for n in os.listdir(deposit_dir)
+        if n.endswith(".zip") or n == "README.md" or n.startswith("SHA256SUMS_")
+    )
+    for name in names:
+        path = os.path.join(deposit_dir, name)
+        local = _md5(path)
+        if present.get(name) == local:
+            print("skip {} (already uploaded)".format(name))
+            continue
+        t0 = time.time()
+        with open(path, "rb") as f:
+            r = requests.put(
+                "{}/{}".format(bucket, name), data=f, headers=auth, timeout=3600
+            )
+        r.raise_for_status()
+        remote = r.json()["checksum"].replace("md5:", "")
+        if remote != local:
+            raise RuntimeError(
+                "MD5 mismatch for {}: {} != {}".format(name, remote, local)
+            )
+        print(
+            "{}  {:.0f} MB  {:.0f} s  md5 ok".format(
+                name, os.path.getsize(path) / 1e6, time.time() - t0
+            ),
+            flush=True,
+        )
+
+    if publish:
+        r = requests.post("{}/actions/publish".format(url), headers=auth, timeout=60)
+        r.raise_for_status()
+        print("published: {}".format(r.json().get("doi_url") or r.json().get("doi")))
+    else:
+        print("draft, not published: {}".format(dep["links"].get("html", url)))
+    return deposition
+
+
 def _load_manifest(path):
     if path and os.path.exists(path):
         with open(path) as f:
@@ -714,6 +811,12 @@ def main(argv=None):
     t.add_argument("--out-csv", default=None)
     t.add_argument("--jobs", type=int, default=8)
 
+    u = sub.add_parser("upload", help="create/resume a Zenodo deposition and upload")
+    u.add_argument("--deposit-dir", default=DEFAULT_DEPOSIT_DIR)
+    u.add_argument("--deposition", type=int, default=None, help="resume this id")
+    u.add_argument("--sandbox", action="store_true", help="use sandbox.zenodo.org")
+    u.add_argument("--publish", action="store_true", help="publish after upload")
+
     x = sub.add_parser("cancel", help="cancel queued/running tasks in the manifest")
     x.add_argument("--manifest", required=True)
     x.add_argument("--project", default="ee-dgketchum")
@@ -721,6 +824,9 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.cmd == "fetch":
         fetch(args.bucket, args.prefix, args.tif_dir)
+        return
+    if args.cmd == "upload":
+        upload(args.deposit_dir, args.deposition, args.sandbox, args.publish)
         return
     if args.cmd == "stats":
         stats(args.albers_dir, args.out_csv, args.jobs)
