@@ -16,8 +16,9 @@ Stages: ``submit`` (EE tasks, writes a manifest of description -> task id and
 pixel count), ``report`` (EECU-h per task and per gigapixel from the EE task
 list), ``fetch`` (gsutil rsync GCS -> disk), ``warp`` (native -> Albers COGs
 with a state-polygon cutline, plus ``grids.json`` for provenance), ``check``
-(edge zero fractions and value set, the QGIS reviewer's pass criterion) and
-``cancel``. ``submit --grid albers`` does the re-gridding on EE instead; kept
+(edge zero fractions and value set, the QGIS reviewer's pass criterion),
+``package`` (one zip per state with README, grids and boundary, plus SHA256
+lists), ``stats`` (pixel counts per file, parallel) and ``cancel``. ``submit --grid albers`` does the re-gridding on EE instead; kept
 as an option, not the default path.
 
 The export region must be the asset's exact pixel rectangle (see
@@ -26,12 +27,14 @@ every file exported with ``img.geometry()`` as the region.
 """
 
 import argparse
+import hashlib
 import json
 import math
 import os
 import subprocess
 import time
-from concurrent.futures import ThreadPoolExecutor
+import zipfile
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from datetime import datetime, timezone
 
 import ee
@@ -45,6 +48,7 @@ DEFAULT_BOUNDARIES = "users/dgketchum/boundaries"
 DEFAULT_TIF_DIR = "/nas/irrmapper/zenodo_v1_2/tif"
 DEFAULT_ALBERS_DIR = "/nas/irrmapper/zenodo_v1_2/tif_albers"
 DEFAULT_BOUNDARY_DIR = "/nas/irrmapper/zenodo_v1_2/boundaries"
+DEFAULT_DEPOSIT_DIR = "/nas/irrmapper/zenodo_v1_2/deposit"
 NODATA = 255
 ALBERS = "EPSG:5070"
 SCALE = 30
@@ -465,6 +469,173 @@ def warp(
     return done, skipped, missing
 
 
+def _sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def package(
+    albers_dir=DEFAULT_ALBERS_DIR,
+    out_dir=DEFAULT_DEPOSIT_DIR,
+    boundary_dir=DEFAULT_BOUNDARY_DIR,
+    states=STATES,
+    overwrite=False,
+):
+    """Zip the Albers GeoTIFFs one archive per state for the Zenodo deposit.
+
+    ``out_dir/IrrMapper_v1_2_{ST}.zip`` holds every year of the state plus
+    ``README.md``, ``grids.json`` and the state's boundary polygon. The
+    GeoTIFFs are already LZW-compressed, so members are stored, not deflated.
+    Also writes ``SHA256SUMS_tif.txt`` (every GeoTIFF) and ``SHA256SUMS_zip.txt``
+    (every archive) in ``out_dir``. ``README.md`` must already be in ``out_dir``.
+    """
+    readme = os.path.join(out_dir, "README.md")
+    grids = os.path.join(albers_dir, "grids.json")
+    for required in (readme, grids):
+        if not os.path.exists(required):
+            raise FileNotFoundError(required)
+    tif_sums = {}
+    zip_sums = {}
+    for state in states:
+        tifs = sorted(
+            f
+            for f in os.listdir(albers_dir)
+            if f.startswith("IrrMapper_v1_2_{}_".format(state)) and f.endswith(".tif")
+        )
+        if not tifs:
+            raise FileNotFoundError(
+                "no GeoTIFFs for {} in {}".format(state, albers_dir)
+            )
+        for f in tifs:
+            tif_sums[f] = _sha256(os.path.join(albers_dir, f))
+        dst = os.path.join(out_dir, "IrrMapper_v1_2_{}.zip".format(state))
+        if os.path.exists(dst) and not overwrite:
+            print("skip {} (exists)".format(os.path.basename(dst)))
+        else:
+            t0 = time.time()
+            with zipfile.ZipFile(dst, "w", compression=zipfile.ZIP_STORED) as z:
+                z.write(readme, "README.md")
+                z.write(grids, "grids.json")
+                z.write(
+                    os.path.join(boundary_dir, state + ".fgb"),
+                    "boundary_{}.fgb".format(state),
+                )
+                for f in tifs:
+                    z.write(os.path.join(albers_dir, f), f)
+            print(
+                "{}  {} GeoTIFFs  {:.0f} MB  {:.0f} s".format(
+                    os.path.basename(dst),
+                    len(tifs),
+                    os.path.getsize(dst) / 1e6,
+                    time.time() - t0,
+                ),
+                flush=True,
+            )
+        zip_sums[os.path.basename(dst)] = _sha256(dst)
+    for name, sums in (
+        ("SHA256SUMS_tif.txt", tif_sums),
+        ("SHA256SUMS_zip.txt", zip_sums),
+    ):
+        with open(os.path.join(out_dir, name), "w") as f:
+            for k in sorted(sums):
+                f.write("{}  {}\n".format(sums[k], k))
+    print("{} GeoTIFFs in {} archives".format(len(tif_sums), len(zip_sums)))
+    return tif_sums, zip_sums
+
+
+def file_stats(path, grids=None):
+    """Pixel counts of 0/1/255 and grid conformance of one Albers GeoTIFF."""
+    import numpy as np
+    import rasterio
+
+    desc = os.path.basename(path)[:-4]
+    state, year = desc.split("_")[3], int(desc.split("_")[4])
+    counts = np.zeros(256, dtype=np.int64)
+    with rasterio.open(path) as ds:
+        for _, win in ds.block_windows(1):
+            counts += np.bincount(ds.read(1, window=win).ravel(), minlength=256)
+        t = ds.transform
+        rec = {
+            "state": state,
+            "year": year,
+            "crs": ds.crs.to_string(),
+            "dtype": ds.dtypes[0],
+            "nodata": ds.nodata,
+            "width": ds.width,
+            "height": ds.height,
+            "x0": t.c,
+            "y1": t.f,
+        }
+    other = int(counts.sum() - counts[0] - counts[1] - counts[255])
+    rec.update(
+        {
+            "n_irrigated": int(counts[1]),
+            "n_not_irrigated": int(counts[0]),
+            "n_nodata": int(counts[255]),
+            "n_other_values": other,
+            "irrigated_km2": float(counts[1] * SCALE * SCALE / 1e6),
+            "state_km2": float((counts[0] + counts[1]) * SCALE * SCALE / 1e6),
+            "irrigated_frac": float(counts[1] / max(1, counts[0] + counts[1])),
+        }
+    )
+    g = (grids or {}).get(state)
+    rec["grid_ok"] = bool(
+        g
+        and (rec["width"], rec["height"]) == (g["width"], g["height"])
+        and t.c == g["transform"][2]
+        and t.f == g["transform"][5]
+        and rec["crs"] == g["crs"]
+        and rec["nodata"] == NODATA
+        and rec["dtype"] == "uint8"
+        and other == 0
+    )
+    return rec
+
+
+def stats(albers_dir=DEFAULT_ALBERS_DIR, out_csv=None, jobs=8):
+    """Per-file pixel stats for every Albers GeoTIFF, in parallel; CSV + table.
+
+    Returns the list of records sorted by state and year. Each is checked
+    against ``grids.json`` (``grid_ok``). Workers are plain processes; run the
+    CLI under ``nice`` to stay polite on a shared box.
+    """
+    import csv
+
+    with open(os.path.join(albers_dir, "grids.json")) as f:
+        grids = json.load(f)
+    paths = sorted(
+        os.path.join(albers_dir, p)
+        for p in os.listdir(albers_dir)
+        if p.endswith(".tif")
+    )
+    rows = []
+    with ProcessPoolExecutor(max_workers=max(1, jobs)) as pool:
+        for rec in pool.map(file_stats, paths, [grids] * len(paths)):
+            rows.append(rec)
+            print(
+                "{}_{}  irrigated {:.0f} km2  {}".format(
+                    rec["state"],
+                    rec["year"],
+                    rec["irrigated_km2"],
+                    "ok" if rec["grid_ok"] else "GRID MISMATCH",
+                ),
+                flush=True,
+            )
+    rows.sort(key=lambda r: (r["state"], r["year"]))
+    if out_csv:
+        with open(out_csv, "w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=list(rows[0]))
+            w.writeheader()
+            w.writerows(rows)
+        print("wrote {}".format(out_csv))
+    bad = [r for r in rows if not r["grid_ok"]]
+    print("{} files, {} grid/value mismatches".format(len(rows), len(bad)))
+    return rows
+
+
 def _load_manifest(path):
     if path and os.path.exists(path):
         with open(path) as f:
@@ -531,6 +702,18 @@ def main(argv=None):
     c.add_argument("paths", nargs="+")
     c.add_argument("-n", type=int, default=6, help="outer rows/columns to test")
 
+    p = sub.add_parser("package", help="zip the Albers GeoTIFFs per state for Zenodo")
+    p.add_argument("--albers-dir", default=DEFAULT_ALBERS_DIR)
+    p.add_argument("--out-dir", default=DEFAULT_DEPOSIT_DIR)
+    p.add_argument("--boundary-dir", default=DEFAULT_BOUNDARY_DIR)
+    p.add_argument("--states", nargs="+", default=STATES)
+    p.add_argument("--overwrite", action="store_true")
+
+    t = sub.add_parser("stats", help="pixel counts and grid check of every Albers file")
+    t.add_argument("--albers-dir", default=DEFAULT_ALBERS_DIR)
+    t.add_argument("--out-csv", default=None)
+    t.add_argument("--jobs", type=int, default=8)
+
     x = sub.add_parser("cancel", help="cancel queued/running tasks in the manifest")
     x.add_argument("--manifest", required=True)
     x.add_argument("--project", default="ee-dgketchum")
@@ -538,6 +721,18 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.cmd == "fetch":
         fetch(args.bucket, args.prefix, args.tif_dir)
+        return
+    if args.cmd == "stats":
+        stats(args.albers_dir, args.out_csv, args.jobs)
+        return
+    if args.cmd == "package":
+        package(
+            args.albers_dir,
+            args.out_dir,
+            args.boundary_dir,
+            states=args.states,
+            overwrite=args.overwrite,
+        )
         return
     if args.cmd == "check":
         for path in args.paths:
