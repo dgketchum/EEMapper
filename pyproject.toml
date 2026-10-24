@@ -3,7 +3,7 @@ name = "irrmapper"
 version = "0.1.0"
 description = "Irrigated lands mapping with Earth Engine and Random Forest classification"
 license = "Apache-2.0"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 
 dependencies = [
     "earthengine-api",
@@ -16,7 +16,6 @@ dependencies = [
     "scikit-learn",
     "scipy",
     "shapely",
-    "tomli; python_version < '3.11'",
 ]
 
 [project.scripts]

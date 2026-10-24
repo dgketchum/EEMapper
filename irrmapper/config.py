@@ -14,10 +14,7 @@ import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-try:
-    import tomllib
-except ModuleNotFoundError:
-    import tomli as tomllib
+import tomllib
 
 EXPRESSION_VARIABLES = ("IRR", "SUM", "NDVI", "SLOPE", "PIVOT")
 
