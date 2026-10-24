@@ -10,15 +10,22 @@ No min-years mask. The native export is a faithful copy of the collection,
 which is *not* on one grid (see ``native_grid``); ``warp`` then re-grids the
 fetched files locally onto one padded 30 m EPSG:5070 grid per state, on the
 lattice the Albers assets already use, so all years of a state stack and
-neighbouring states align pixel for pixel. Local GDAL warping costs no EECU.
+neighbouring states align pixel for pixel, and ``partition`` then cuts each
+state file out of the lattice by a state-ID raster of the TIGER polygons (a
+pixel belongs to the state its centre falls in; a pixel inside the state that
+its own export never covered takes the neighbouring export's value), so the
+450 files are an exact partition of the mosaic. Local GDAL work costs no EECU.
 
 Stages: ``submit`` (EE tasks, writes a manifest of description -> task id and
 pixel count), ``report`` (EECU-h per task and per gigapixel from the EE task
 list), ``fetch`` (gsutil rsync GCS -> disk), ``warp`` (native -> Albers COGs
-with a state-polygon cutline, plus ``grids.json`` for provenance), ``check``
+on the state grid, no cutline, plus ``grids.json`` for provenance),
+``partition`` (raw Albers -> deposit files cut by the TIGER state-ID raster,
+with the neighbour fill and a coverage report), ``check``
 (edge zero fractions and value set, the QGIS reviewer's pass criterion),
 ``package`` (one zip per state with README, grids and boundary, plus SHA256
-lists), ``stats`` (pixel counts per file, parallel), ``upload`` (Zenodo REST
+lists), ``stats`` (pixel counts per file, parallel), ``seams`` (data overlap
+between neighbouring states on the shared lattice), ``upload`` (Zenodo REST
 API: create or resume a draft deposition, metadata, files with MD5 check; no
 publish unless asked) and ``cancel``. ``submit --grid albers`` does the re-gridding on EE instead; kept
 as an option, not the default path.
@@ -48,8 +55,31 @@ DEFAULT_BUCKET = "wudr"
 DEFAULT_PREFIX = "irrmapper_zenodo_v1_2"
 DEFAULT_BOUNDARIES = "users/dgketchum/boundaries"
 DEFAULT_TIF_DIR = "/nas/irrmapper/zenodo_v1_2/tif"
+DEFAULT_RAW_DIR = "/nas/irrmapper/zenodo_v1_2/tif_albers_raw"
 DEFAULT_ALBERS_DIR = "/nas/irrmapper/zenodo_v1_2/tif_albers"
-DEFAULT_BOUNDARY_DIR = "/nas/irrmapper/zenodo_v1_2/boundaries"
+DEFAULT_BOUNDARY_DIR = "/nas/irrmapper/zenodo_v1_2/boundaries_tiger"
+NEIGHBOURS = [
+    ("AZ", "CA"),
+    ("AZ", "NM"),
+    ("AZ", "NV"),
+    ("AZ", "UT"),
+    ("CA", "NV"),
+    ("CA", "OR"),
+    ("CO", "NM"),
+    ("CO", "UT"),
+    ("CO", "WY"),
+    ("ID", "MT"),
+    ("ID", "NV"),
+    ("ID", "OR"),
+    ("ID", "UT"),
+    ("ID", "WA"),
+    ("ID", "WY"),
+    ("MT", "WY"),
+    ("NV", "OR"),
+    ("NV", "UT"),
+    ("OR", "WA"),
+    ("UT", "WY"),
+]
 DEFAULT_DEPOSIT_DIR = "/nas/irrmapper/zenodo_v1_2/deposit"
 ZENODO_API = {
     "zenodo": "https://zenodo.org/api",
@@ -291,34 +321,6 @@ def state_grids(states, boundaries=DEFAULT_BOUNDARIES, path=None):
     return grids
 
 
-def fetch_boundaries(
-    states, boundaries=DEFAULT_BOUNDARIES, out_dir=DEFAULT_BOUNDARY_DIR
-):
-    """Write each state's EE boundary polygon to ``out_dir/{ST}.fgb`` (EPSG:4326).
-
-    These are the very polygons the export clipped with, so a gdalwarp cutline
-    on them keeps the footprint where EE put it.
-    """
-    import geopandas as gpd
-    from shapely.geometry import shape
-
-    os.makedirs(out_dir, exist_ok=True)
-    paths = {}
-    for state in states:
-        path = os.path.join(out_dir, state + ".fgb")
-        if not os.path.exists(path):
-            fc = ee.FeatureCollection("{}/{}".format(boundaries, state)).getInfo()
-            geoms = [shape(f["geometry"]) for f in fc["features"]]
-            # geometry must come in the dict: GeoDataFrame(data, geometry=list)
-            # yields a column shapely predicates reject (geopandas 1.1.2)
-            gdf = gpd.GeoDataFrame(
-                {"STUSPS": [state] * len(geoms), "geometry": geoms}, crs="EPSG:4326"
-            )
-            gdf.to_file(path, driver="FlatGeobuf", engine="fiona")
-        paths[state] = path
-    return paths
-
-
 def edge_check(path, n=6):
     """Fraction of 0 in the outermost ``n`` rows/columns, and the value set.
 
@@ -364,13 +366,13 @@ def cancel(manifest_path):
     return counts
 
 
-def warp_one(src, dst, grid, cutline=None):
+def warp_one(src, dst, grid):
     """gdalwarp ``src`` onto ``grid`` (nearest neighbour, byte, 255 nodata, COG).
 
-    With ``cutline`` (a vector file), everything outside the polygon becomes
-    NODATA regardless of what the source holds: a safety net against masked
-    padding written as 0, and it trims the 1-2 px band along shared borders
-    where both neighbours carry data, so a 255-nodata mosaic is seamless.
+    No cutline: gdalwarp applies a cutline in the *source* pixel space, so on
+    a geographic-grid source the mask lands up to a cell off the lattice and
+    neighbours overlap or gap by a few hundred pixels. ``partition`` masks on
+    the output grid instead.
     """
     x0, y0, x1, y1 = grid["bounds"]
     cmd = [
@@ -404,8 +406,6 @@ def warp_one(src, dst, grid, cutline=None):
         "-co",
         "BLOCKSIZE=256",
     ]
-    if cutline:
-        cmd += ["-cutline", cutline]
     cmd += [src, dst]
     subprocess.run(cmd, check=True, capture_output=True)
 
@@ -417,19 +417,14 @@ def warp(
     states=None,
     boundaries=DEFAULT_BOUNDARIES,
     overwrite=False,
-    cutline=True,
-    boundary_dir=DEFAULT_BOUNDARY_DIR,
     jobs=1,
 ):
     """Re-grid every native export in the manifest onto its state's Albers grid.
 
     Writes ``out_dir/{desc}.tif`` and ``out_dir/grids.json`` (the per-state
     grids, for provenance). Skips entries whose native GeoTIFF has not been
-    fetched yet and, unless ``overwrite``, entries already warped. With
-    ``cutline`` the state polygon is applied again locally (see ``warp_one``).
-    ``jobs`` gdalwarp processes run at once: a cutline warp is single-threaded
-    in practice (MT 2021: 250 s at 102% CPU, 56 s without the cutline), so on
-    a many-core box the run scales almost linearly with ``jobs``.
+    fetched yet and, unless ``overwrite``, entries already warped. ``jobs``
+    gdalwarp processes run at once (MT 2021: about 55 s each).
     """
     manifest = _load_manifest(manifest_path)
     os.makedirs(out_dir, exist_ok=True)
@@ -438,9 +433,6 @@ def warp(
     }
     wanted_states = sorted({d.split("_")[3] for d in wanted})
     grids = state_grids(wanted_states, boundaries, os.path.join(out_dir, "grids.json"))
-    cutlines = (
-        fetch_boundaries(wanted_states, boundaries, boundary_dir) if cutline else {}
-    )
     todo, missing, skipped = [], [], 0
     for desc in sorted(wanted):
         src = os.path.join(tif_dir, desc + ".tif")
@@ -457,7 +449,7 @@ def warp(
         desc, src, dst = item
         t0 = time.time()
         state = desc.split("_")[3]
-        warp_one(src, dst, grids[state], cutlines.get(state))
+        warp_one(src, dst, grids[state])
         return desc, time.time() - t0
 
     done = 0
@@ -550,6 +542,197 @@ def package(
                 f.write("{}  {}\n".format(sums[k], k))
     print("{} GeoTIFFs in {} archives".format(len(tif_sums), len(zip_sums)))
     return tif_sums, zip_sums
+
+
+def state_polygons(boundary_dir=DEFAULT_BOUNDARY_DIR, states=STATES, crs=ALBERS):
+    """``{ST: geometry}`` of the deposit boundary polygons, projected to ``crs``."""
+    import geopandas as gpd
+
+    out = {}
+    for state in states:
+        path = os.path.join(boundary_dir, state + ".fgb")
+        gdf = gpd.read_file(path, engine="fiona").to_crs(crs)
+        out[state] = gdf.geometry.union_all()
+    return out
+
+
+def state_id_raster(polygons, transform, shape, states=STATES):
+    """Burn every polygon into one uint8 raster, value ``index + 1`` in ``states``.
+
+    A pixel takes the polygon its centre falls in; where two polygons both
+    claim a centre (a shared edge passing through it) the later one in
+    ``states`` wins, so the result partitions the grid by construction. 0 is
+    no state.
+    """
+    from rasterio.features import rasterize
+
+    shapes = [(polygons[s], i + 1) for i, s in enumerate(states) if s in polygons]
+    return rasterize(
+        shapes, out_shape=shape, transform=transform, fill=0, dtype="uint8"
+    )
+
+
+def partition_one(
+    desc,
+    raw_dir,
+    out_dir,
+    boundary_dir=DEFAULT_BOUNDARY_DIR,
+    neighbours=NEIGHBOURS,
+    states=STATES,
+):
+    """Cut ``desc`` out of the raw Albers mosaic by the TIGER state-ID raster.
+
+    Reads ``raw_dir/{desc}.tif`` (the state's own export on its grid), keeps
+    pixels whose centre is in the state's polygon, fills those of them that
+    the own export left NODATA from the neighbouring states' raw files for the
+    same year (the generalised export outlines spill across the line, so the
+    neighbour's run usually covered them), sets everything else to NODATA and
+    writes ``out_dir/{desc}.tif`` as a COG. Returns counts: pixels in the
+    state, filled from neighbours, and still NODATA inside the state.
+    """
+    import rasterio
+    from rasterio.windows import from_bounds
+
+    state, year = desc.split("_")[3], desc.split("_")[4]
+    # polygons are read in the worker: the venv's shapely cannot unpickle
+    # geometries (see memory shapely-strtree-corrupted)
+    polygons = state_polygons(boundary_dir, states)
+    src = os.path.join(raw_dir, desc + ".tif")
+    dst = os.path.join(out_dir, desc + ".tif")
+    with rasterio.open(src) as ds:
+        arr = ds.read(1)
+        profile = ds.profile
+        transform, bounds = ds.transform, ds.bounds
+    ids = state_id_raster(polygons, transform, arr.shape, states)
+    inside = ids == states.index(state) + 1
+    del ids
+    hole = inside & (arr == NODATA)
+    n_hole = int(hole.sum())
+    filled = 0
+    for a, b in neighbours:
+        if state not in (a, b):
+            continue
+        nb = b if a == state else a
+        nb_path = os.path.join(raw_dir, "IrrMapper_v1_2_{}_{}.tif".format(nb, year))
+        if not os.path.exists(nb_path):
+            continue
+        with rasterio.open(nb_path) as nd:
+            x0 = max(bounds.left, nd.bounds.left)
+            x1 = min(bounds.right, nd.bounds.right)
+            y0 = max(bounds.bottom, nd.bounds.bottom)
+            y1 = min(bounds.top, nd.bounds.top)
+            if x0 >= x1 or y0 >= y1:
+                continue
+            wo = from_bounds(x0, y0, x1, y1, transform).round_offsets().round_lengths()
+            wn = (
+                from_bounds(x0, y0, x1, y1, nd.transform)
+                .round_offsets()
+                .round_lengths()
+            )
+            rows = slice(int(wo.row_off), int(wo.row_off + wo.height))
+            cols = slice(int(wo.col_off), int(wo.col_off + wo.width))
+            sub_hole = hole[rows, cols]
+            if not sub_hole.any():
+                continue
+            nb_arr = nd.read(1, window=wn)
+            take = sub_hole & (nb_arr != NODATA)
+            arr[rows, cols][take] = nb_arr[take]
+            hole[rows, cols] &= ~take
+            filled += int(take.sum())
+    arr[~inside] = NODATA
+    n_left = int(hole.sum())
+    profile.update(
+        driver="COG",
+        compress="LZW",
+        blocksize=256,
+        nodata=NODATA,
+        dtype="uint8",
+        count=1,
+    )
+    for k in ("tiled", "blockxsize", "blockysize", "interleave"):
+        profile.pop(k, None)
+    with rasterio.open(dst, "w", **profile) as out:
+        out.write(arr, 1)
+    return desc, int(inside.sum()), n_hole, filled, n_left
+
+
+def partition(
+    raw_dir=DEFAULT_RAW_DIR,
+    out_dir=DEFAULT_ALBERS_DIR,
+    boundary_dir=DEFAULT_BOUNDARY_DIR,
+    states=None,
+    years=None,
+    overwrite=False,
+    jobs=8,
+    report_path=None,
+    neighbours=NEIGHBOURS,
+    all_states=STATES,
+):
+    """Run ``partition_one`` over every raw Albers file; copy ``grids.json``.
+
+    Writes ``report_path`` (default ``out_dir/partition.json``) with the per
+    file counts, and prints a per-state summary. Needs every neighbour's raw
+    file for the year to be present, so run after the whole ``warp`` stage.
+    """
+    import shutil
+
+    os.makedirs(out_dir, exist_ok=True)
+    descs = sorted(f[:-4] for f in os.listdir(raw_dir) if f.endswith(".tif"))
+    todo = []
+    for desc in descs:
+        st, yr = desc.split("_")[3], int(desc.split("_")[4])
+        if states and st not in states:
+            continue
+        if years and yr not in years:
+            continue
+        if os.path.exists(os.path.join(out_dir, desc + ".tif")) and not overwrite:
+            continue
+        todo.append(desc)
+    grids_src = os.path.join(raw_dir, "grids.json")
+    if os.path.exists(grids_src):
+        shutil.copyfile(grids_src, os.path.join(out_dir, "grids.json"))
+    report_path = report_path or os.path.join(out_dir, "partition.json")
+    report = _load_manifest(report_path)
+    with ProcessPoolExecutor(max_workers=max(1, jobs)) as pool:
+        futs = [
+            pool.submit(
+                partition_one, d, raw_dir, out_dir, boundary_dir, neighbours, all_states
+            )
+            for d in todo
+        ]
+        for fut in futs:
+            desc, n_in, n_hole, filled, left = fut.result()
+            report[desc] = {
+                "inside": n_in,
+                "hole": n_hole,
+                "filled_from_neighbours": filled,
+                "nodata_inside": left,
+            }
+            print(
+                "{}  inside {}  hole {}  filled {}  nodata inside {}".format(
+                    desc, n_in, n_hole, filled, left
+                ),
+                flush=True,
+            )
+            _write_json(report, report_path)
+    by_state = {}
+    for desc, r in report.items():
+        st = desc.split("_")[3]
+        d = by_state.setdefault(st, {"files": 0, "filled": 0, "nodata_inside": 0})
+        d["files"] += 1
+        d["filled"] += r["filled_from_neighbours"]
+        d["nodata_inside"] += r["nodata_inside"]
+    for st in sorted(by_state):
+        d = by_state[st]
+        print(
+            "{}  {} files  filled {:.1f} px/yr  nodata inside {:.1f} px/yr".format(
+                st,
+                d["files"],
+                d["filled"] / d["files"],
+                d["nodata_inside"] / d["files"],
+            )
+        )
+    return report
 
 
 def file_stats(path, grids=None):
@@ -733,6 +916,47 @@ def upload(
     return deposition
 
 
+def seams(albers_dir=DEFAULT_ALBERS_DIR, year=2021, pairs=NEIGHBOURS):
+    """Pixels where both rasters of a neighbouring pair carry data (not 255).
+
+    On the shared lattice the two files are compared window for window over
+    the intersection of their extents, so a non-zero count is a true overlap.
+    """
+    import numpy as np
+    import rasterio
+    from rasterio.windows import from_bounds
+
+    out = {}
+    for a, b in pairs:
+        pa = os.path.join(albers_dir, "IrrMapper_v1_2_{}_{}.tif".format(a, year))
+        pb = os.path.join(albers_dir, "IrrMapper_v1_2_{}_{}.tif".format(b, year))
+        with rasterio.open(pa) as da, rasterio.open(pb) as db:
+            x0 = max(da.bounds.left, db.bounds.left)
+            x1 = min(da.bounds.right, db.bounds.right)
+            y0 = max(da.bounds.bottom, db.bounds.bottom)
+            y1 = min(da.bounds.top, db.bounds.top)
+            if x0 >= x1 or y0 >= y1:
+                out[(a, b)] = 0
+                continue
+            n = 0
+            step = 4096 * SCALE
+            for yy in np.arange(y0, y1, step):
+                for xx in np.arange(x0, x1, step):
+                    bx = (xx, yy, min(xx + step, x1), min(yy + step, y1))
+                    wa = from_bounds(*bx, transform=da.transform)
+                    wb = from_bounds(*bx, transform=db.transform)
+                    va = da.read(1, window=wa) != NODATA
+                    vb = db.read(1, window=wb) != NODATA
+                    n += int((va & vb).sum())
+            out[(a, b)] = n
+        print(
+            "{}-{}  overlap {} px  {:.2f} km2".format(a, b, n, n * SCALE * SCALE / 1e6),
+            flush=True,
+        )
+    print("total overlap {} px".format(sum(out.values())))
+    return out
+
+
 def _load_manifest(path):
     if path and os.path.exists(path):
         with open(path) as f:
@@ -786,14 +1010,23 @@ def main(argv=None):
     )
     w.add_argument("--manifest", required=True)
     w.add_argument("--tif-dir", default=DEFAULT_TIF_DIR)
-    w.add_argument("--out-dir", default=DEFAULT_ALBERS_DIR)
+    w.add_argument("--out-dir", default=DEFAULT_RAW_DIR)
     w.add_argument("--states", nargs="+", default=None)
     w.add_argument("--boundaries", default=DEFAULT_BOUNDARIES)
     w.add_argument("--overwrite", action="store_true")
-    w.add_argument("--no-cutline", action="store_true")
-    w.add_argument("--boundary-dir", default=DEFAULT_BOUNDARY_DIR)
     w.add_argument("--jobs", type=int, default=1, help="concurrent gdalwarp processes")
     w.add_argument("--project", default="ee-dgketchum")
+
+    q = sub.add_parser(
+        "partition", help="cut deposit files from the raw Albers set by TIGER state"
+    )
+    q.add_argument("--raw-dir", default=DEFAULT_RAW_DIR)
+    q.add_argument("--out-dir", default=DEFAULT_ALBERS_DIR)
+    q.add_argument("--boundary-dir", default=DEFAULT_BOUNDARY_DIR)
+    q.add_argument("--states", nargs="+", default=None)
+    q.add_argument("--years", nargs="+", type=int, default=None)
+    q.add_argument("--overwrite", action="store_true")
+    q.add_argument("--jobs", type=int, default=8)
 
     c = sub.add_parser("check", help="edge zero fractions and value set of GeoTIFFs")
     c.add_argument("paths", nargs="+")
@@ -817,6 +1050,10 @@ def main(argv=None):
     u.add_argument("--sandbox", action="store_true", help="use sandbox.zenodo.org")
     u.add_argument("--publish", action="store_true", help="publish after upload")
 
+    m = sub.add_parser("seams", help="count data overlap between neighbouring states")
+    m.add_argument("--albers-dir", default=DEFAULT_ALBERS_DIR)
+    m.add_argument("--year", type=int, default=2021)
+
     x = sub.add_parser("cancel", help="cancel queued/running tasks in the manifest")
     x.add_argument("--manifest", required=True)
     x.add_argument("--project", default="ee-dgketchum")
@@ -825,11 +1062,25 @@ def main(argv=None):
     if args.cmd == "fetch":
         fetch(args.bucket, args.prefix, args.tif_dir)
         return
+    if args.cmd == "seams":
+        seams(args.albers_dir, args.year)
+        return
     if args.cmd == "upload":
         upload(args.deposit_dir, args.deposition, args.sandbox, args.publish)
         return
     if args.cmd == "stats":
         stats(args.albers_dir, args.out_csv, args.jobs)
+        return
+    if args.cmd == "partition":
+        partition(
+            args.raw_dir,
+            args.out_dir,
+            args.boundary_dir,
+            states=args.states,
+            years=args.years,
+            overwrite=args.overwrite,
+            jobs=args.jobs,
+        )
         return
     if args.cmd == "package":
         package(
@@ -856,8 +1107,6 @@ def main(argv=None):
             states=args.states,
             boundaries=args.boundaries,
             overwrite=args.overwrite,
-            cutline=not args.no_cutline,
-            boundary_dir=args.boundary_dir,
             jobs=args.jobs,
         )
     elif args.cmd == "cancel":
